@@ -8,6 +8,7 @@ A self-hosted project intelligence platform that passively observes Slack conver
 - **Admin Panel** — Tabbed administration interface (Roster, Channels, System) restricted to ADMIN users
 - **Team Roster Management** — Full CRUD for team members with email, Slack handle, role assignment, and multi-workstream mapping; sortable table with inline editing and confirmation dialogs
 - **Channel Configuration** — Configure which Slack channels the system monitors; map channels to workstreams; toggle active/inactive status; Slack Channel ID format validation (`C`, `G`, or `D` prefix)
+- **Slack API Client** — Bot token-based integration with `@slack/web-api`; channel history, thread replies, and channel info retrieval; exponential backoff with jitter; Slack rate-limit (`Retry-After`) awareness; graceful degradation when unconfigured
 - **Dashboard Shell** — Responsive navigation with role-gated links, Red Hat typography, branded header with role badge and logout, dynamic page titles
 - **In-App Help** — Documentation page with Getting Started guide, feature descriptions, role/permission reference, and changelog; accessible from navbar and footer
 - **Version Display** — Application version shown in the global footer, injected at build time
@@ -20,6 +21,7 @@ A self-hosted project intelligence platform that passively observes Slack conver
 - pnpm >= 10
 - Podman & podman-compose
 - Keycloak instance (for authentication)
+- Slack Bot Token (`xoxb-*`) with `channels:history`, `channels:read` scopes (optional — Slack integration is disabled without it)
 
 ### Setup
 
@@ -30,8 +32,9 @@ pnpm install
 # Start PostgreSQL (with pgvector)
 podman-compose up -d
 
-# Copy environment file and configure Keycloak
+# Copy environment file and configure Keycloak + Slack
 cp .env.example .env
+# Set SLACK_BOT_TOKEN=xoxb-... for Slack integration (optional)
 
 # Run database migrations
 pnpm db:migrate
@@ -97,6 +100,7 @@ All `/admin/*` endpoints require the `ADMIN` role.
 - **Database:** PostgreSQL 17 with pgvector extension
 - **ORM:** Drizzle ORM with code-first migrations
 - **Auth:** Keycloak OIDC with JWT validation
+- **Slack:** `@slack/web-api` SDK with custom retry/rate-limit handling
 - **Testing:** Vitest with Testing Library
 
 ## License
