@@ -2,6 +2,16 @@
 
 A self-hosted project intelligence platform that passively observes Slack conversations and transforms them into organized, role-personalized, searchable team memory.
 
+## Features
+
+- **Authentication & Authorization** — Keycloak OIDC single sign-on with role-based access control (`@Roles('ADMIN')` decorator, `RolesGuard`, route-level guards)
+- **Admin Panel** — Tabbed administration interface (Roster, Channels, System) restricted to ADMIN users
+- **Team Roster Management** — Full CRUD for team members with email, Slack handle, role assignment, and multi-workstream mapping; sortable table with inline editing and confirmation dialogs
+- **Channel Configuration** — Configure which Slack channels the system monitors; map channels to workstreams; toggle active/inactive status; Slack Channel ID format validation (`C`, `G`, or `D` prefix)
+- **Dashboard Shell** — Responsive navigation with role-gated links, Red Hat typography, branded header with role badge and logout, dynamic page titles
+- **In-App Help** — Documentation page with Getting Started guide, feature descriptions, role/permission reference, and changelog; accessible from navbar and footer
+- **Version Display** — Application version shown in the global footer, injected at build time
+
 ## Quick Start
 
 ### Prerequisites
@@ -9,6 +19,7 @@ A self-hosted project intelligence platform that passively observes Slack conver
 - Node.js >= 20
 - pnpm >= 10
 - Podman & podman-compose
+- Keycloak instance (for authentication)
 
 ### Setup
 
@@ -19,7 +30,7 @@ pnpm install
 # Start PostgreSQL (with pgvector)
 podman-compose up -d
 
-# Copy environment file
+# Copy environment file and configure Keycloak
 cp .env.example .env
 
 # Run database migrations
@@ -36,6 +47,7 @@ pnpm dev
 | API | http://localhost:3000 | NestJS backend |
 | Web | http://localhost:5173 | React SPA frontend |
 | PostgreSQL | localhost:5432 | Database (via Podman) |
+| Keycloak | (configurable) | OIDC identity provider |
 
 ### Commands
 
@@ -53,18 +65,40 @@ podman-compose down    # Stop PostgreSQL container
 
 ## Architecture
 
-- **apps/api** — NestJS v11 backend with REST API
-- **apps/web** — React 19 + Vite + Tailwind CSS 4 + Shadcn/ui
+- **apps/api** — NestJS v11 backend with REST API, RBAC guards, admin CRUD modules
+- **apps/web** — React 19 + Vite + TanStack Router + Tailwind CSS 4 + Shadcn/ui
 - **packages/db** — Drizzle ORM schemas and migrations (PostgreSQL 17 + pgvector)
 - **packages/shared** — Zod schemas, types, and constants shared across apps
 - **packages/config** — Shared ESLint and TypeScript configurations
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/roster` | List all team members |
+| POST | `/api/admin/roster` | Add a team member |
+| PATCH | `/api/admin/roster/:id` | Update a team member |
+| DELETE | `/api/admin/roster/:id` | Remove a team member |
+| GET | `/api/admin/roster/workstreams` | List all workstreams |
+| GET | `/api/admin/channels` | List all configured channels |
+| POST | `/api/admin/channels` | Add a channel |
+| PATCH | `/api/admin/channels/:id` | Update a channel |
+| PATCH | `/api/admin/channels/:id/toggle` | Toggle channel active status |
+| DELETE | `/api/admin/channels/:id` | Remove a channel |
+
+All `/admin/*` endpoints require the `ADMIN` role.
 
 ## Tech Stack
 
 - **Runtime:** Node.js 20+ / TypeScript 5.x
 - **Monorepo:** Turborepo + pnpm workspaces
 - **Backend:** NestJS v11 with SWC compilation
-- **Frontend:** React 19, Vite 6, Tailwind CSS 4, Shadcn/ui
+- **Frontend:** React 19, Vite 6, TanStack Router, TanStack Query, Tailwind CSS 4, Shadcn/ui
 - **Database:** PostgreSQL 17 with pgvector extension
 - **ORM:** Drizzle ORM with code-first migrations
-- **Testing:** Vitest
+- **Auth:** Keycloak OIDC with JWT validation
+- **Testing:** Vitest with Testing Library
+
+## License
+
+Private — see `package.json`.
