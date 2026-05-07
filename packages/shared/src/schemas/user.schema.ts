@@ -28,3 +28,27 @@ export const userSchema = createUserSchema.extend({
   updatedAt: z.string().datetime(),
 });
 export type User = z.infer<typeof userSchema>;
+
+// Roster-specific schemas (include workstream assignments)
+
+export const createRosterMemberSchema = createUserSchema.extend({
+  workstreamIds: z.array(z.string().uuid()).default([]),
+});
+export type CreateRosterMember = z.infer<typeof createRosterMemberSchema>;
+
+export const updateRosterMemberSchema = createRosterMemberSchema
+  .partial()
+  .omit({ email: true })
+  .extend({
+    // Explicit nullable handling: passing [] clears all nicknames (resolves deferred-work from 1.2)
+    slackNicknames: z.array(z.string()).optional(),
+    workstreamIds: z.array(z.string().uuid()).optional(),
+  });
+export type UpdateRosterMember = z.infer<typeof updateRosterMemberSchema>;
+
+export const rosterMemberSchema = userSchema.extend({
+  workstreams: z
+    .array(z.object({ id: z.string().uuid(), name: z.string() }))
+    .default([]),
+});
+export type RosterMember = z.infer<typeof rosterMemberSchema>;

@@ -1,5 +1,22 @@
 # Deferred Work
 
+## Deferred from: code review of 1-6-team-roster-management (2026-05-07)
+
+- `createDb('')` on missing `DATABASE_URL` silently defers crash to first query instead of failing at startup — pre-existing config pattern across the DatabaseModule [`apps/api/src/database/database.module.ts`]
+- PII (email addresses) logged in roster service `create`/`update` success paths — pre-existing `Logger.log` pattern; revisit when logging/retention policy is formalized [`apps/api/src/modules/admin/roster/roster.service.ts`]
+- `useWorkstreams()` error is swallowed in admin.tsx (`= []` default) with no error display — workstream dropdown silently appears empty on failure [`apps/web/src/routes/admin.tsx:61`]
+
+## Deferred from: code review of 1-5-dashboard-shell-and-navigation (2026-05-07)
+
+- `startsWith` active matching in NavBar could false-positive on routes sharing a prefix (e.g. `/briefings-archive` matches `/briefings`) — no current routes affected; revisit when new routes are added [`apps/web/src/components/layout/nav-bar.tsx:29`]
+- `useAuth()` called inside `RootLayout` creates an implicit `AuthProvider` dependency; the root route component cannot be rendered in tests that bypass `AuthProvider` — by design per spec; consider passing `logout` through router context in a future refactor [`apps/web/src/routes/__root.tsx:18`]
+
+## Deferred from: code review of 1-4-role-based-access-control-and-route-guards (2026-05-07)
+
+- Missing role claim in JWT silently defaults to `CONSULTANT` with no warning — `auth-context.tsx` uses `payload.role ?? 'CONSULTANT'`; add a `console.warn` or structured log when role is absent from token payload [`apps/web/src/auth/auth-context.tsx`]
+- Logout button removed from `app.tsx` with no replacement — sign-out is inaccessible until the story 1.5 navigation bar is implemented; track for story 1.5 [`apps/web/src/app.tsx`]
+- AC4 nav item deferred — "conditionally render the Admin navigation item (visible only to ADMIN role)" not implemented; role utilities and route guard are in place; story 1.5 must build the Admin nav item in the navigation bar [`apps/web/src/routes/__root.tsx`]
+
 ## Deferred from: code review of 1-2-database-schema-and-core-models (2026-05-07)
 
 - `updatedAt` has no DB trigger or enforced app-layer update pattern — implement auto-update in service layer when update endpoints are built [`packages/db/src/schema/users.ts`]

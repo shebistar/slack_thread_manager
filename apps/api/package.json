@@ -19,6 +19,7 @@
     "@nestjs/platform-express": "^11.0.0",
     "@slack-thread-manager/db": "workspace:*",
     "@slack-thread-manager/shared": "workspace:*",
+    "drizzle-orm": "^0.41.0",
     "jwks-rsa": "^4.0.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
