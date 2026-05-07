@@ -1,0 +1,118 @@
+# generated: 2026-05-06
+# last_updated: 2026-05-06
+# project: slack_thread_manager
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: "{project-root}/_bmad-output/implementation-artifacts"
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-05-06
+last_updated: 2026-05-06
+project: slack_thread_manager
+project_key: NOKEY
+tracking_system: file-system
+story_location: "{project-root}/_bmad-output/implementation-artifacts"
+
+development_status:
+  # Epic 1: Project Foundation & System Administration
+  epic-1: in-progress
+  1-1-monorepo-scaffold-and-development-environment: review
+  1-2-database-schema-and-core-models: backlog
+  1-3-authentication-with-keycloak-oidc: backlog
+  1-4-role-based-access-control-and-route-guards: backlog
+  1-5-dashboard-shell-and-navigation: backlog
+  1-6-team-roster-management: backlog
+  1-7-channel-configuration: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Slack Data Ingestion
+  epic-2: backlog
+  2-1-slack-api-client-with-rate-limiting: backlog
+  2-2-thread-ingestion-and-storage: backlog
+  2-3-batch-polling-job-with-watermark: backlog
+  2-4-thread-update-detection: backlog
+  2-5-historical-backfill: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Knowledge Transformation Pipeline
+  epic-3: backlog
+  3-1-llm-abstraction-layer-and-provider-interface: backlog
+  3-2-pipeline-state-machine-and-failure-tracking: backlog
+  3-3-thread-classification: backlog
+  3-4-thread-summarization: backlog
+  3-5-thread-embedding-generation: backlog
+  3-6-cross-workstream-correlation: backlog
+  3-7-orphaned-action-detection: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Anonymization & Content Governance
+  epic-4: backlog
+  4-1-anonymization-blocklist-and-filter: backlog
+  4-2-llm-entity-detection: backlog
+  4-3-staging-queue-and-pipeline-gate: backlog
+  4-4-admin-staging-review-interface: backlog
+  4-5-blocklist-management: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Daily Briefings & Core Dashboard
+  epic-5: backlog
+  5-1-briefing-generation-service-and-scheduling: backlog
+  5-2-executive-scan-briefing-shape: backlog
+  5-3-filtered-brief-briefing-shape: backlog
+  5-4-intelligence-report-briefing-shape: backlog
+  5-5-read-unread-state-and-source-deep-links: backlog
+  5-6-briefing-api-and-frontend-data-layer: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Search & Discovery
+  epic-6: backlog
+  6-1-full-text-search-infrastructure: backlog
+  6-2-semantic-search-with-pgvector: backlog
+  6-3-search-api-and-query-processing: backlog
+  6-4-search-frontend-interface: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: Silence Detection & Monitoring
+  epic-7: backlog
+  7-1-silence-detection-engine: backlog
+  7-2-workday-aware-threshold-logic: backlog
+  7-3-admin-silence-threshold-configuration: backlog
+  7-4-silence-monitor-dashboard-component: backlog
+  7-5-gone-quiet-badges-on-briefing-cards: backlog
+  epic-7-retrospective: optional
+
+  # Epic 8: AI Enrichment & Consultant Onboarding
+  epic-8: backlog
+  8-1-enrichment-service-and-source-integration: backlog
+  8-2-enrichment-panel-frontend: backlog
+  8-3-backfill-briefing-generation-for-new-consultants: backlog
+  8-4-backfill-section-frontend-display: backlog
+  epic-8-retrospective: optional

@@ -1,0 +1,20 @@
+services:
+  db:
+    image: docker.io/pgvector/pgvector:pg17
+    container_name: slack-thread-manager-db
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: stm_dev
+      POSTGRES_PASSWORD: stm_dev_password
+      POSTGRES_DB: slack_thread_manager
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U stm_dev -d slack_thread_manager']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

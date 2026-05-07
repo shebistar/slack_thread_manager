@@ -1,0 +1,30 @@
+{
+  "name": "slack-thread-manager",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @slack-thread-manager/db generate",
+    "db:migrate": "pnpm --filter @slack-thread-manager/db migrate",
+    "db:push": "pnpm --filter @slack-thread-manager/db push",
+    "db:seed": "pnpm --filter @slack-thread-manager/db seed",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.5.0",
+    "turbo": "^2.8.0"
+  },
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@swc/core",
+      "esbuild"
+    ]
+  }
+}

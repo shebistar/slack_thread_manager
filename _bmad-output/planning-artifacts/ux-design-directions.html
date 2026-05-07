@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slack Thread Manager — Design Directions</title>
+<link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700&family=Red+Hat+Text:wght@400;500&family=Red+Hat+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --rh-red-50: #ee0000;
+  --rh-red-60: #a60000;
+  --rh-red-10: #fce3e3;
+  --rh-blue-10: #e0f0ff;
+  --rh-blue-50: #0066cc;
+  --rh-blue-70: #003366;
+  --rh-purple-50: #5e40be;
+  --rh-green-50: #63993d;
+  --rh-green-10: #e9f7df;
+  --rh-yellow-30: #ffcc17;
+  --rh-yellow-10: #fff4cc;
+  --rh-yellow-70: #73480b;
+  --rh-red-orange-50: #f0561d;
+  --rh-teal-50: #37a3a3;
+  --rh-teal-10: #daf2f2;
+  --rh-gray-10: #f2f2f2;
+  --rh-gray-20: #e0e0e0;
+  --rh-gray-30: #c7c7c7;
+  --rh-gray-50: #707070;
+  --rh-gray-95: #151515;
+  --rh-white: #ffffff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Red Hat Text', sans-serif; color: var(--rh-gray-95); background: var(--rh-gray-10); }
+h1, h2, h3, h4 { font-family: 'Red Hat Display', sans-serif; font-weight: 500; }
+
+/* Navigation */
+.nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: var(--rh-gray-95); color: var(--rh-white); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+.nav-brand { display: flex; align-items: center; gap: 8px; font-family: 'Red Hat Display', sans-serif; font-weight: 700; font-size: 16px; }
+.nav-brand .dot { width: 12px; height: 12px; background: var(--rh-red-50); border-radius: 2px; }
+.nav-tabs { display: flex; gap: 4px; margin-left: 32px; }
+.nav-tab { padding: 8px 16px; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--rh-gray-30); transition: all .2s; border: none; background: none; font-family: 'Red Hat Text', sans-serif; }
+.nav-tab:hover { color: var(--rh-white); background: rgba(255,255,255,.08); }
+.nav-tab.active { color: var(--rh-white); background: rgba(255,255,255,.15); }
+.nav-info { margin-left: auto; font-size: 12px; color: var(--rh-gray-50); }
+
+/* Sections */
+.section { display: none; padding: 72px 24px 48px; min-height: 100vh; }
+.section.active { display: block; }
+.section-intro { max-width: 900px; margin: 0 auto 32px; }
+.section-intro h2 { font-size: 28px; margin-bottom: 8px; }
+.section-intro p { color: var(--rh-gray-50); font-size: 15px; line-height: 1.6; }
+.section-intro .tags { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.tag { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.tag-layout { background: var(--rh-blue-10); color: var(--rh-blue-50); }
+.tag-density { background: var(--rh-teal-10); color: var(--rh-teal-50); }
+.tag-pattern { background: var(--rh-yellow-10); color: var(--rh-yellow-70); }
+
+/* Mockup Frame */
+.mockup-frame { max-width: 1200px; margin: 0 auto; background: var(--rh-white); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,.1); border: 1px solid var(--rh-gray-20); }
+
+/* --- Direction 1: News Feed --- */
+.d1-header { background: var(--rh-white); border-bottom: 3px solid var(--rh-red-50); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+.d1-header h3 { font-size: 20px; }
+.d1-meta { font-size: 13px; color: var(--rh-gray-50); }
+.d1-filters { display: flex; gap: 8px; padding: 12px 24px; border-bottom: 1px solid var(--rh-gray-20); background: var(--rh-gray-10); }
+.d1-filter { padding: 6px 14px; border-radius: 20px; font-size: 12px; border: 1px solid var(--rh-gray-20); background: var(--rh-white); cursor: pointer; font-family: 'Red Hat Text'; }
+.d1-filter.active { background: var(--rh-blue-50); color: var(--rh-white); border-color: var(--rh-blue-50); }
+.d1-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 24px; }
+.d1-card { border: 1px solid var(--rh-gray-20); border-radius: 8px; padding: 20px; transition: box-shadow .2s; cursor: pointer; }
+.d1-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+.d1-card-ws { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; color: var(--rh-blue-50); margin-bottom: 8px; }
+.d1-card h4 { font-size: 16px; margin-bottom: 8px; line-height: 1.3; }
+.d1-card p { font-size: 14px; color: var(--rh-gray-50); line-height: 1.5; }
+.d1-card-footer { display: flex; align-items: center; gap: 12px; margin-top: 12px; font-size: 12px; color: var(--rh-gray-50); }
+.d1-card-link { color: var(--rh-blue-50); text-decoration: none; font-size: 12px; margin-left: auto; }
+.d1-card.featured { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; border-left: 3px solid var(--rh-red-50); }
+.d1-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 500; }
+.d1-badge-quiet { background: var(--rh-yellow-10); color: var(--rh-yellow-70); }
+.d1-badge-new { background: var(--rh-green-10); color: var(--rh-green-50); }
+
+/* --- Direction 2: Dashboard --- */
+.d2-header { background: var(--rh-gray-95); color: var(--rh-white); padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+.d2-header h3 { font-size: 18px; }
+.d2-header .accent { width: 4px; height: 24px; background: var(--rh-red-50); border-radius: 2px; }
+.d2-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rh-gray-20); }
+.d2-stat { background: var(--rh-white); padding: 20px; text-align: center; }
+.d2-stat-val { font-family: 'Red Hat Display'; font-size: 32px; font-weight: 700; }
+.d2-stat-label { font-size: 12px; color: var(--rh-gray-50); margin-top: 4px; }
+.d2-panels { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; padding: 16px; }
+.d2-panel { border: 1px solid var(--rh-gray-20); border-radius: 8px; overflow: hidden; }
+.d2-panel-header { padding: 12px 16px; background: var(--rh-gray-10); border-bottom: 1px solid var(--rh-gray-20); font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: space-between; }
+.d2-panel-body { padding: 16px; }
+.d2-ws-row { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--rh-gray-10); gap: 12px; }
+.d2-ws-row:last-child { border: none; }
+.d2-ws-dot { width: 8px; height: 8px; border-radius: 50%; }
+.d2-ws-dot.active { background: var(--rh-green-50); }
+.d2-ws-dot.quiet { background: var(--rh-yellow-30); }
+.d2-ws-name { font-size: 14px; font-weight: 500; flex: 1; }
+.d2-ws-count { font-size: 12px; color: var(--rh-gray-50); }
+.d2-quiet-item { padding: 12px; background: var(--rh-yellow-10); border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--rh-yellow-30); }
+.d2-quiet-item h4 { font-size: 13px; margin-bottom: 4px; }
+.d2-quiet-item p { font-size: 12px; color: var(--rh-gray-50); }
+
+/* --- Direction 3: Email Client --- */
+.d3-layout { display: grid; grid-template-columns: 200px 300px 1fr; height: 520px; }
+.d3-sidebar { background: var(--rh-gray-10); border-right: 1px solid var(--rh-gray-20); padding: 16px 0; }
+.d3-sidebar-item { padding: 10px 16px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.d3-sidebar-item:hover { background: var(--rh-gray-20); }
+.d3-sidebar-item.active { background: var(--rh-blue-10); color: var(--rh-blue-50); border-right: 2px solid var(--rh-blue-50); }
+.d3-sidebar-count { margin-left: auto; font-size: 11px; background: var(--rh-gray-20); padding: 2px 6px; border-radius: 10px; }
+.d3-list { border-right: 1px solid var(--rh-gray-20); overflow-y: auto; }
+.d3-list-header { padding: 12px 16px; border-bottom: 1px solid var(--rh-gray-20); font-size: 12px; color: var(--rh-gray-50); font-weight: 500; }
+.d3-list-item { padding: 14px 16px; border-bottom: 1px solid var(--rh-gray-10); cursor: pointer; }
+.d3-list-item:hover { background: var(--rh-gray-10); }
+.d3-list-item.active { background: var(--rh-blue-10); border-left: 3px solid var(--rh-blue-50); }
+.d3-list-item.unread { font-weight: 500; }
+.d3-list-item h4 { font-size: 14px; margin-bottom: 4px; }
+.d3-list-item p { font-size: 12px; color: var(--rh-gray-50); line-height: 1.4; }
+.d3-list-item .time { font-size: 11px; color: var(--rh-gray-30); }
+.d3-detail { padding: 24px; overflow-y: auto; }
+.d3-detail h3 { font-size: 20px; margin-bottom: 16px; }
+.d3-detail-meta { font-size: 12px; color: var(--rh-gray-50); margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--rh-gray-20); }
+.d3-detail p { font-size: 14px; line-height: 1.6; margin-bottom: 12px; }
+.d3-detail .source-link { display: inline-flex; align-items: center; gap: 4px; color: var(--rh-blue-50); font-size: 13px; text-decoration: none; }
+
+/* --- Direction 4: Report --- */
+.d4-layout { max-width: 720px; margin: 0 auto; padding: 32px 24px; }
+.d4-date { font-size: 13px; color: var(--rh-gray-50); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.d4-title { font-size: 28px; margin-bottom: 4px; }
+.d4-subtitle { font-size: 15px; color: var(--rh-gray-50); margin-bottom: 24px; padding-bottom: 24px; border-bottom: 2px solid var(--rh-red-50); }
+.d4-toc { margin-bottom: 32px; }
+.d4-toc h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--rh-gray-50); margin-bottom: 8px; }
+.d4-toc-item { padding: 6px 0; font-size: 14px; color: var(--rh-blue-50); cursor: pointer; display: flex; justify-content: space-between; }
+.d4-toc-item span { color: var(--rh-gray-30); font-size: 12px; }
+.d4-section { margin-bottom: 32px; }
+.d4-section h3 { font-size: 18px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--rh-gray-20); }
+.d4-item { margin-bottom: 16px; padding-left: 16px; border-left: 2px solid var(--rh-gray-20); }
+.d4-item h4 { font-size: 15px; margin-bottom: 4px; }
+.d4-item p { font-size: 14px; color: var(--rh-gray-50); line-height: 1.5; }
+.d4-item .meta { font-size: 12px; color: var(--rh-gray-30); margin-top: 4px; }
+.d4-item.flagged { border-left-color: var(--rh-yellow-30); background: var(--rh-yellow-10); padding: 12px 16px; border-radius: 0 6px 6px 0; }
+
+/* --- Direction 5: Hub & Spoke --- */
+.d5-hero { background: linear-gradient(135deg, var(--rh-gray-95) 0%, #2a2a2a 100%); color: var(--rh-white); padding: 32px 24px; }
+.d5-hero h3 { font-size: 24px; margin-bottom: 4px; }
+.d5-hero p { color: var(--rh-gray-30); font-size: 14px; }
+.d5-hero-stats { display: flex; gap: 32px; margin-top: 16px; }
+.d5-hero-stat { text-align: center; }
+.d5-hero-stat .val { font-family: 'Red Hat Display'; font-size: 24px; font-weight: 700; }
+.d5-hero-stat .label { font-size: 11px; color: var(--rh-gray-50); margin-top: 2px; }
+.d5-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 24px; }
+.d5-tile { border: 1px solid var(--rh-gray-20); border-radius: 12px; padding: 24px; cursor: pointer; transition: all .2s; position: relative; overflow: hidden; }
+.d5-tile:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+.d5-tile-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.d5-tile h4 { font-size: 16px; margin-bottom: 8px; }
+.d5-tile p { font-size: 13px; color: var(--rh-gray-50); line-height: 1.5; margin-bottom: 12px; }
+.d5-tile-meta { display: flex; gap: 16px; font-size: 12px; color: var(--rh-gray-50); }
+.d5-tile-meta strong { color: var(--rh-gray-95); }
+
+/* --- Direction 6: Split Panel (Intelligence Report) --- */
+.d6-topbar { background: var(--rh-white); border-bottom: 1px solid var(--rh-gray-20); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+.d6-topbar .accent-bar { width: 100%; height: 2px; background: var(--rh-red-50); position: absolute; top: 0; left: 0; }
+.d6-topbar h3 { font-size: 16px; }
+.d6-topbar .role-badge { padding: 4px 10px; background: var(--rh-teal-10); color: var(--rh-teal-50); border-radius: 4px; font-size: 11px; font-weight: 500; margin-left: auto; }
+.d6-split { display: grid; grid-template-columns: 1fr 360px; height: 480px; }
+.d6-main { padding: 24px; overflow-y: auto; border-right: 1px solid var(--rh-gray-20); }
+.d6-main-card { border: 1px solid var(--rh-gray-20); border-radius: 8px; padding: 20px; margin-bottom: 16px; cursor: pointer; transition: all .2s; }
+.d6-main-card:hover { border-color: var(--rh-blue-50); }
+.d6-main-card.selected { border-color: var(--rh-blue-50); background: rgba(0,102,204,.03); }
+.d6-main-card .ws { font-size: 11px; color: var(--rh-blue-50); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+.d6-main-card h4 { font-size: 16px; margin: 6px 0 8px; }
+.d6-main-card p { font-size: 14px; color: var(--rh-gray-50); line-height: 1.5; }
+.d6-main-card .card-meta { display: flex; gap: 12px; margin-top: 10px; font-size: 12px; color: var(--rh-gray-30); }
+.d6-side { background: var(--rh-blue-10); padding: 20px; overflow-y: auto; }
+.d6-side-header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.d6-side-header .ai-badge { padding: 3px 8px; background: var(--rh-teal-50); color: var(--rh-white); border-radius: 3px; font-size: 10px; font-weight: 500; }
+.d6-side-header h4 { font-size: 14px; }
+.d6-side-section { margin-bottom: 20px; }
+.d6-side-section h5 { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--rh-gray-50); margin-bottom: 8px; }
+.d6-side-link { display: block; padding: 10px 12px; background: var(--rh-white); border-radius: 6px; margin-bottom: 6px; text-decoration: none; transition: box-shadow .2s; }
+.d6-side-link:hover { box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.d6-side-link .title { font-size: 13px; color: var(--rh-blue-50); font-weight: 500; }
+.d6-side-link .desc { font-size: 12px; color: var(--rh-gray-50); margin-top: 2px; }
+.d6-side-link .source { font-size: 11px; color: var(--rh-gray-30); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+
+/* Comparison table */
+.comparison { max-width: 1100px; margin: 32px auto; border: 1px solid var(--rh-gray-20); border-radius: 8px; overflow: hidden; background: var(--rh-white); }
+.comparison table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.comparison th { background: var(--rh-gray-10); padding: 12px 16px; text-align: left; font-weight: 500; border-bottom: 1px solid var(--rh-gray-20); }
+.comparison td { padding: 10px 16px; border-bottom: 1px solid var(--rh-gray-10); vertical-align: top; }
+.comparison tr:last-child td { border: none; }
+.star { color: var(--rh-yellow-30); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand"><div class="dot"></div> Design Directions</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showSection('overview')">Overview</button>
+    <button class="nav-tab" onclick="showSection('d1')">1. News Feed</button>
+    <button class="nav-tab" onclick="showSection('d2')">2. Dashboard</button>
+    <button class="nav-tab" onclick="showSection('d3')">3. Email Client</button>
+    <button class="nav-tab" onclick="showSection('d4')">4. Report</button>
+    <button class="nav-tab" onclick="showSection('d5')">5. Hub & Spoke</button>
+    <button class="nav-tab" onclick="showSection('d6')">6. Split Panel</button>
+    <button class="nav-tab" onclick="showSection('compare')">Compare</button>
+  </div>
+  <div class="nav-info">Slack Thread Manager — Red Hat</div>
+</nav>
+
+<!-- Overview -->
+<div class="section active" id="overview">
+  <div class="section-intro">
+    <h2>Design Direction Exploration</h2>
+    <p>Six visual approaches for the Slack Thread Manager daily briefing experience, each using the Red Hat Design System palette and typography. Click through the tabs above to explore each direction as a mockup with sample data. Use the Compare tab for a side-by-side evaluation matrix.</p>
+  </div>
+  <div style="max-width:900px; margin:0 auto; display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+    <div style="border:1px solid var(--rh-gray-20); border-radius:8px; padding:20px; background:var(--rh-white); cursor:pointer;" onclick="showSection('d1')">
+      <h4 style="margin-bottom:8px;">1. News Feed</h4>
+      <p style="font-size:13px; color:var(--rh-gray-50);">Google News-inspired card grid. Topics as cards, progressive disclosure, 2-column scan layout.</p>
+      <div class="tags"><span class="tag tag-layout">Card Grid</span><span class="tag tag-density">Medium Density</span><span class="tag tag-pattern">Google News</span></div>
+    </div>
+    <div style="border:1px solid var(--rh-gray-20); border-radius:8px; padding:20px; background:var(--rh-white); cursor:pointer;" onclick="showSection('d2')">
+      <h4 style="margin-bottom:8px;">2. Dashboard</h4>
+      <p style="font-size:13px; color:var(--rh-gray-50);">Grafana-inspired monitoring panels. Metrics at a glance, workstream status rows, silence monitoring.</p>
+      <div class="tags"><span class="tag tag-layout">Panel Grid</span><span class="tag tag-density">High Density</span><span class="tag tag-pattern">Grafana</span></div>
+    </div>
+    <div style="border:1px solid var(--rh-gray-20); border-radius:8px; padding:20px; background:var(--rh-white); cursor:pointer;" onclick="showSection('d3')">
+      <h4 style="margin-bottom:8px;">3. Email Client</h4>
+      <p style="font-size:13px; color:var(--rh-gray-50);">Three-column layout: navigation + list + detail. Familiar from Outlook/Gmail, read/unread states.</p>
+      <div class="tags"><span class="tag tag-layout">3-Column</span><span class="tag tag-density">Medium Density</span><span class="tag tag-pattern">Email UX</span></div>
+    </div>
+    <div style="border:1px solid var(--rh-gray-20); border-radius:8px; padding:20px; background:var(--rh-white); cursor:pointer;" onclick="showSection('d4')">
+      <h4 style="margin-bottom:8px;">4. Report</h4>
+      <p style="font-size:13px; color:var(--rh-gray-50);">Linear document flow. Single-column, reads like a morning newspaper. Table of contents, structured sections.</p>
+      <div class="tags"><span class="tag tag-layout">Single Column</span><span class="tag tag-density">Low Density</span><span class="tag tag-pattern">Editorial</span></div>
+    </div>
+    <div style="border:1px solid var(--rh-gray-20); border-radius:8px; padding:20px; background:var(--rh-white); cursor:pointer;" onclick="showSection('d5')">
+      <h4 style="margin-bottom:8px;">5. Hub & Spoke</h4>
+      <p style="font-size:13px; color:var(--rh-gray-50);">Landing page with workstream tiles. Click into detail views. Hero stats bar, tile-based navigation.</p>
+      <div class="tags"><span class="tag tag-layout">Tile Grid</span><span class="tag tag-density">Low Density</span><span class="tag tag-pattern">Portal</span></div>
+    </div>
+    <div style="border:1px solid var(--rh-gray-20); border-radius:8px; padding:20px; background:var(--rh-white); cursor:pointer;" onclick="showSection('d6')">
+      <h4 style="margin-bottom:8px;">6. Split Panel</h4>
+      <p style="font-size:13px; color:var(--rh-gray-50);">Main content + AI enrichment side panel. Purpose-built for the Intelligence Report briefing shape.</p>
+      <div class="tags"><span class="tag tag-layout">Main + Side</span><span class="tag tag-density">High Density</span><span class="tag tag-pattern">Research Tool</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Direction 1: News Feed -->
+<div class="section" id="d1">
+  <div class="section-intro">
+    <h2>Direction 1: News Feed</h2>
+    <p>A Google News-inspired card grid where each topic is a card. The featured card spans full width for the most important item. Users scan headlines, click to expand, and deep-link to Slack. Best for: Filtered Brief and Executive Scan roles.</p>
+    <div class="tags"><span class="tag tag-layout">Card Grid</span><span class="tag tag-density">Medium Density</span><span class="tag tag-pattern">Google News</span></div>
+  </div>
+  <div class="mockup-frame">
+    <div class="d1-header">
+      <div><h3>Daily Briefing</h3><div class="d1-meta">Tuesday, May 5 2026 &middot; Generated at 06:00 AM &middot; 8 threads across 4 workstreams</div></div>
+    </div>
+    <div class="d1-filters">
+      <button class="d1-filter active">All Workstreams</button>
+      <button class="d1-filter">Platform Migration</button>
+      <button class="d1-filter">API Integration</button>
+      <button class="d1-filter">Security Audit</button>
+      <button class="d1-filter">DevOps Pipeline</button>
+    </div>
+    <div class="d1-grid">
+      <div class="d1-card featured">
+        <div>
+          <div class="d1-card-ws">Platform Migration</div>
+          <h4>Database migration strategy finalized — PostgreSQL 16 selected over CockroachDB</h4>
+          <p>Team decided on PostgreSQL 16 after benchmarking both options. Key factors: operational simplicity, existing team expertise, and OpenShift Operator availability. Migration timeline set for Q3. Rollback strategy documented.</p>
+          <div class="d1-card-footer">
+            <span>5 participants</span> &middot; <span>12 messages</span> &middot; <span>2h ago</span>
+            <a href="#" class="d1-card-link">View in Slack &rarr;</a>
+          </div>
+        </div>
+        <div>
+          <div class="d1-card-ws">Related Decisions</div>
+          <p style="font-size:13px; color:var(--rh-gray-50); margin-bottom:8px;">Connection pooling approach — PgBouncer vs. built-in</p>
+          <p style="font-size:13px; color:var(--rh-gray-50); margin-bottom:8px;">Schema versioning tool — Flyway selected</p>
+          <p style="font-size:13px; color:var(--rh-gray-50);">Backup strategy for OpenShift persistent volumes</p>
+        </div>
+      </div>
+      <div class="d1-card">
+        <div class="d1-card-ws">API Integration</div>
+        <h4>OAuth2 token refresh logic causing intermittent 401s in staging</h4>
+        <p>Race condition identified in token refresh flow. Team proposed mutex-based solution. Fix PR submitted, pending review.</p>
+        <div class="d1-card-footer">
+          <span class="d1-badge d1-badge-new">New</span>
+          <span>3 participants</span>
+          <a href="#" class="d1-card-link">View in Slack &rarr;</a>
+        </div>
+      </div>
+      <div class="d1-card">
+        <div class="d1-card-ws">Security Audit</div>
+        <h4>Container image scanning results — 3 CVEs flagged in base image</h4>
+        <p>Trivy scan found 2 medium and 1 low CVE in UBI9 base. All have upstream patches available. Team scheduling image rebuild.</p>
+        <div class="d1-card-footer">
+          <span>2 participants</span>
+          <a href="#" class="d1-card-link">View in Slack &rarr;</a>
+        </div>
+      </div>
+      <div class="d1-card">
+        <div class="d1-card-ws">DevOps Pipeline</div>
+        <h4 style="color:var(--rh-yellow-70);"><span class="d1-badge d1-badge-quiet">Gone Quiet</span> ArgoCD sync policy discussion</h4>
+        <p>Last activity: 3 days ago. Thread was discussing automatic vs. manual sync for production deployments. No resolution reached.</p>
+        <div class="d1-card-footer">
+          <span>4 participants</span>
+          <a href="#" class="d1-card-link">View in Slack &rarr;</a>
+        </div>
+      </div>
+      <div class="d1-card">
+        <div class="d1-card-ws">Platform Migration</div>
+        <h4>Helm chart templating standards proposed</h4>
+        <p>New naming convention and value structure for Helm charts. Draft PR with template examples shared. Team reviewing this week.</p>
+        <div class="d1-card-footer">
+          <span>3 participants</span>
+          <a href="#" class="d1-card-link">View in Slack &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Direction 2: Dashboard -->
+<div class="section" id="d2">
+  <div class="section-intro">
+    <h2>Direction 2: Dashboard</h2>
+    <p>A Grafana-inspired monitoring dashboard. Stats bar at top, workstream health panel, and dedicated silence monitoring. Dense, information-rich, operational. Best for: Executive Scan roles who want the 1000m view.</p>
+    <div class="tags"><span class="tag tag-layout">Panel Grid</span><span class="tag tag-density">High Density</span><span class="tag tag-pattern">Grafana</span></div>
+  </div>
+  <div class="mockup-frame">
+    <div class="d2-header">
+      <div class="accent"></div>
+      <h3>Briefing Dashboard</h3>
+      <span style="font-size:12px; color:var(--rh-gray-50); margin-left:auto;">May 5, 2026 &middot; 06:00 AM</span>
+    </div>
+    <div class="d2-stats">
+      <div class="d2-stat"><div class="d2-stat-val" style="color:var(--rh-blue-50);">8</div><div class="d2-stat-label">Threads Today</div></div>
+      <div class="d2-stat"><div class="d2-stat-val" style="color:var(--rh-green-50);">4</div><div class="d2-stat-label">Workstreams Active</div></div>
+      <div class="d2-stat"><div class="d2-stat-val" style="color:var(--rh-yellow-70);">2</div><div class="d2-stat-label">Gone Quiet</div></div>
+      <div class="d2-stat"><div class="d2-stat-val" style="color:var(--rh-red-50);">1</div><div class="d2-stat-label">Flags</div></div>
+    </div>
+    <div class="d2-panels">
+      <div>
+        <div class="d2-panel" style="margin-bottom:16px;">
+          <div class="d2-panel-header">Workstream Status <span style="font-size:11px; color:var(--rh-gray-30);">Last 24h</span></div>
+          <div class="d2-panel-body">
+            <div class="d2-ws-row"><div class="d2-ws-dot active"></div><div class="d2-ws-name">Platform Migration</div><div class="d2-ws-count">3 threads &middot; 28 messages</div></div>
+            <div class="d2-ws-row"><div class="d2-ws-dot active"></div><div class="d2-ws-name">API Integration</div><div class="d2-ws-count">2 threads &middot; 15 messages</div></div>
+            <div class="d2-ws-row"><div class="d2-ws-dot active"></div><div class="d2-ws-name">Security Audit</div><div class="d2-ws-count">2 threads &middot; 9 messages</div></div>
+            <div class="d2-ws-row"><div class="d2-ws-dot quiet"></div><div class="d2-ws-name">DevOps Pipeline</div><div class="d2-ws-count">1 thread &middot; 3 messages</div></div>
+          </div>
+        </div>
+        <div class="d2-panel">
+          <div class="d2-panel-header">Key Decisions</div>
+          <div class="d2-panel-body">
+            <div class="d2-ws-row"><div class="d2-ws-name" style="font-size:13px;">PostgreSQL 16 selected for database migration</div><div class="d2-ws-count">Platform</div></div>
+            <div class="d2-ws-row"><div class="d2-ws-name" style="font-size:13px;">Flyway chosen as schema versioning tool</div><div class="d2-ws-count">Platform</div></div>
+            <div class="d2-ws-row"><div class="d2-ws-name" style="font-size:13px;">OAuth2 fix PR submitted for token refresh race</div><div class="d2-ws-count">API</div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="d2-panel" style="margin-bottom:16px;">
+          <div class="d2-panel-header" style="background:var(--rh-yellow-10);">Silence Monitor</div>
+          <div class="d2-panel-body">
+            <div class="d2-quiet-item">
+              <h4>ArgoCD sync policy</h4>
+              <p>Silent for 3 days &middot; 4 participants &middot; No resolution</p>
+            </div>
+            <div class="d2-quiet-item">
+              <h4>Monitoring stack selection</h4>
+              <p>Silent for 5 days &middot; 2 participants &middot; Pending decision</p>
+            </div>
+          </div>
+        </div>
+        <div class="d2-panel">
+          <div class="d2-panel-header">System Health</div>
+          <div class="d2-panel-body">
+            <div class="d2-ws-row"><div class="d2-ws-dot active"></div><div class="d2-ws-name" style="font-size:13px;">Slack Ingestion</div><div class="d2-ws-count" style="color:var(--rh-green-50);">Healthy</div></div>
+            <div class="d2-ws-row"><div class="d2-ws-dot active"></div><div class="d2-ws-name" style="font-size:13px;">LLM Processing</div><div class="d2-ws-count" style="color:var(--rh-green-50);">Healthy</div></div>
+            <div class="d2-ws-row"><div class="d2-ws-dot active"></div><div class="d2-ws-name" style="font-size:13px;">Last Batch</div><div class="d2-ws-count">06:00 AM</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Direction 3: Email Client -->
+<div class="section" id="d3">
+  <div class="section-intro">
+    <h2>Direction 3: Email Client</h2>
+    <p>A three-column layout inspired by Outlook/Gmail. Workstreams as folders on the left, topic list in the center, detail view on the right. Natural read/unread state. Best for: Filtered Brief roles (Project Managers).</p>
+    <div class="tags"><span class="tag tag-layout">3-Column</span><span class="tag tag-density">Medium Density</span><span class="tag tag-pattern">Email UX</span></div>
+  </div>
+  <div class="mockup-frame">
+    <div style="background:var(--rh-white); border-bottom:2px solid var(--rh-red-50); padding:10px 16px; font-size:14px; font-weight:500; font-family:'Red Hat Display';">Daily Briefing &middot; <span style="font-size:12px; color:var(--rh-gray-50); font-weight:400;">May 5, 2026</span></div>
+    <div class="d3-layout">
+      <div class="d3-sidebar">
+        <div class="d3-sidebar-item active">All Topics <span class="d3-sidebar-count">8</span></div>
+        <div class="d3-sidebar-item">Platform Migration <span class="d3-sidebar-count">3</span></div>
+        <div class="d3-sidebar-item">API Integration <span class="d3-sidebar-count">2</span></div>
+        <div class="d3-sidebar-item">Security Audit <span class="d3-sidebar-count">2</span></div>
+        <div class="d3-sidebar-item">DevOps Pipeline <span class="d3-sidebar-count">1</span></div>
+        <div style="border-top:1px solid var(--rh-gray-20); margin:12px 0;"></div>
+        <div class="d3-sidebar-item" style="color:var(--rh-yellow-70);">Gone Quiet <span class="d3-sidebar-count" style="background:var(--rh-yellow-10); color:var(--rh-yellow-70);">2</span></div>
+        <div class="d3-sidebar-item" style="color:var(--rh-gray-50);">Flagged <span class="d3-sidebar-count" style="background:var(--rh-red-10); color:var(--rh-red-50);">1</span></div>
+      </div>
+      <div class="d3-list">
+        <div class="d3-list-header">8 topics &middot; 3 unread</div>
+        <div class="d3-list-item active unread">
+          <div style="display:flex; justify-content:space-between;"><h4>DB migration strategy finalized</h4><span class="time">2h</span></div>
+          <p>PostgreSQL 16 selected over CockroachDB. Migration timeline set for Q3...</p>
+        </div>
+        <div class="d3-list-item unread">
+          <div style="display:flex; justify-content:space-between;"><h4>OAuth2 token refresh 401s</h4><span class="time">4h</span></div>
+          <p>Race condition in token refresh flow. Mutex fix PR submitted...</p>
+        </div>
+        <div class="d3-list-item">
+          <div style="display:flex; justify-content:space-between;"><h4>Container image CVEs</h4><span class="time">6h</span></div>
+          <p>3 CVEs flagged in UBI9 base image. Patches available...</p>
+        </div>
+        <div class="d3-list-item unread" style="background:var(--rh-yellow-10);">
+          <div style="display:flex; justify-content:space-between;"><h4 style="color:var(--rh-yellow-70);">ArgoCD sync policy</h4><span class="time" style="color:var(--rh-yellow-70);">3d</span></div>
+          <p>Gone quiet — no resolution on auto vs manual sync...</p>
+        </div>
+        <div class="d3-list-item">
+          <div style="display:flex; justify-content:space-between;"><h4>Helm chart standards</h4><span class="time">5h</span></div>
+          <p>New naming convention proposed. Draft PR shared...</p>
+        </div>
+      </div>
+      <div class="d3-detail">
+        <h3>Database migration strategy finalized</h3>
+        <div class="d3-detail-meta">Platform Migration &middot; 5 participants &middot; 12 messages &middot; Last activity: 2 hours ago</div>
+        <p><strong>Decision:</strong> PostgreSQL 16 selected over CockroachDB for the primary database migration.</p>
+        <p><strong>Key factors:</strong> Operational simplicity, existing team expertise with PostgreSQL, and mature OpenShift Operator (Crunchy Data) availability. CockroachDB's distributed capabilities were deemed unnecessary for current scale.</p>
+        <p><strong>Timeline:</strong> Migration scheduled for Q3. Rollback strategy documented and approved by architecture team.</p>
+        <p><strong>Follow-ups:</strong> Connection pooling approach (PgBouncer vs built-in) needs decision by next week. Flyway selected as schema versioning tool.</p>
+        <div style="margin-top:16px;">
+          <a href="#" class="d3-detail .source-link" style="color:var(--rh-blue-50); text-decoration:none; font-size:13px;">View original thread in Slack &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Direction 4: Report -->
+<div class="section" id="d4">
+  <div class="section-intro">
+    <h2>Direction 4: Report</h2>
+    <p>A linear editorial layout that reads like a morning newspaper. Single column, table of contents, structured sections. Calm, focused, no distractions. Best for: Executive Scan roles who prefer reading over scanning.</p>
+    <div class="tags"><span class="tag tag-layout">Single Column</span><span class="tag tag-density">Low Density</span><span class="tag tag-pattern">Editorial</span></div>
+  </div>
+  <div class="mockup-frame">
+    <div class="d4-layout">
+      <div class="d4-date">Tuesday, May 5, 2026</div>
+      <h2 class="d4-title">Daily Briefing</h2>
+      <div class="d4-subtitle">8 threads across 4 workstreams &middot; Generated at 06:00 AM</div>
+      <div class="d4-toc">
+        <h4>In This Briefing</h4>
+        <div class="d4-toc-item">Platform Migration <span>3 threads</span></div>
+        <div class="d4-toc-item">API Integration <span>2 threads</span></div>
+        <div class="d4-toc-item">Security Audit <span>2 threads</span></div>
+        <div class="d4-toc-item" style="color:var(--rh-yellow-70);">Gone Quiet <span>2 topics</span></div>
+      </div>
+      <div class="d4-section">
+        <h3>Platform Migration</h3>
+        <div class="d4-item">
+          <h4>Database migration strategy finalized</h4>
+          <p>PostgreSQL 16 selected over CockroachDB. Key factors: operational simplicity, team expertise, OpenShift Operator maturity. Migration timeline: Q3. Rollback strategy documented.</p>
+          <div class="meta">5 participants &middot; 12 messages &middot; <a href="#" style="color:var(--rh-blue-50); text-decoration:none;">View in Slack &rarr;</a></div>
+        </div>
+        <div class="d4-item">
+          <h4>Helm chart templating standards proposed</h4>
+          <p>New naming convention and value structure for Helm charts. Draft PR with template examples shared for team review.</p>
+          <div class="meta">3 participants &middot; <a href="#" style="color:var(--rh-blue-50); text-decoration:none;">View in Slack &rarr;</a></div>
+        </div>
+      </div>
+      <div class="d4-section">
+        <h3>API Integration</h3>
+        <div class="d4-item">
+          <h4>OAuth2 token refresh causing intermittent 401s</h4>
+          <p>Race condition identified in token refresh flow. Team proposed mutex-based solution. Fix PR submitted, pending review.</p>
+          <div class="meta">3 participants &middot; <a href="#" style="color:var(--rh-blue-50); text-decoration:none;">View in Slack &rarr;</a></div>
+        </div>
+      </div>
+      <div class="d4-section">
+        <h3 style="color:var(--rh-yellow-70);">Gone Quiet</h3>
+        <div class="d4-item flagged">
+          <h4>ArgoCD sync policy discussion</h4>
+          <p>Silent for 3 days. Thread was discussing automatic vs. manual sync for production deployments. No resolution reached. 4 participants involved.</p>
+          <div class="meta"><a href="#" style="color:var(--rh-blue-50); text-decoration:none;">View in Slack &rarr;</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Direction 5: Hub & Spoke -->
+<div class="section" id="d5">
+  <div class="section-intro">
+    <h2>Direction 5: Hub & Spoke</h2>
+    <p>A landing page with workstream tiles. Hero stats bar, tile-based navigation into detail views. Each tile is a portal into one workstream. Best for: Executive Scan roles who want to drill into specific areas.</p>
+    <div class="tags"><span class="tag tag-layout">Tile Grid</span><span class="tag tag-density">Low Density</span><span class="tag tag-pattern">Portal</span></div>
+  </div>
+  <div class="mockup-frame">
+    <div class="d5-hero">
+      <h3>Good morning, Shebi</h3>
+      <p>Your daily briefing is ready. Here's what happened across your workstreams.</p>
+      <div class="d5-hero-stats">
+        <div class="d5-hero-stat"><div class="val">8</div><div class="label">Threads</div></div>
+        <div class="d5-hero-stat"><div class="val">4</div><div class="label">Workstreams</div></div>
+        <div class="d5-hero-stat"><div class="val">2</div><div class="label">Gone Quiet</div></div>
+        <div class="d5-hero-stat"><div class="val">47</div><div class="label">Messages</div></div>
+      </div>
+    </div>
+    <div class="d5-tiles">
+      <div class="d5-tile">
+        <div class="d5-tile-accent" style="background:var(--rh-blue-50);"></div>
+        <h4>Platform Migration</h4>
+        <p>Database migration strategy finalized. Helm chart standards proposed. Connection pooling approach pending.</p>
+        <div class="d5-tile-meta"><span><strong>3</strong> threads</span><span><strong>28</strong> messages</span></div>
+      </div>
+      <div class="d5-tile">
+        <div class="d5-tile-accent" style="background:var(--rh-green-50);"></div>
+        <h4>API Integration</h4>
+        <p>OAuth2 token refresh race condition identified. Fix PR submitted. Endpoint versioning strategy discussed.</p>
+        <div class="d5-tile-meta"><span><strong>2</strong> threads</span><span><strong>15</strong> messages</span></div>
+      </div>
+      <div class="d5-tile">
+        <div class="d5-tile-accent" style="background:var(--rh-teal-50);"></div>
+        <h4>Security Audit</h4>
+        <p>Container image scanning found 3 CVEs. Patches available, image rebuild scheduled.</p>
+        <div class="d5-tile-meta"><span><strong>2</strong> threads</span><span><strong>9</strong> messages</span></div>
+      </div>
+      <div class="d5-tile" style="border-color:var(--rh-yellow-30); background:var(--rh-yellow-10);">
+        <div class="d5-tile-accent" style="background:var(--rh-yellow-30);"></div>
+        <h4 style="color:var(--rh-yellow-70);">DevOps Pipeline</h4>
+        <p>ArgoCD sync policy discussion has gone quiet (3 days). Monitoring stack selection also silent (5 days).</p>
+        <div class="d5-tile-meta"><span><strong>1</strong> thread</span><span style="color:var(--rh-yellow-70);"><strong>2</strong> gone quiet</span></div>
+      </div>
+      <div class="d5-tile" style="border-style:dashed; border-color:var(--rh-gray-30);">
+        <h4 style="color:var(--rh-gray-50);">Search</h4>
+        <p style="color:var(--rh-gray-30);">Ask a question across all workstreams and past briefings.</p>
+      </div>
+      <div class="d5-tile" style="border-style:dashed; border-color:var(--rh-gray-30);">
+        <h4 style="color:var(--rh-gray-50);">Admin</h4>
+        <p style="color:var(--rh-gray-30);">Manage channels, workstreams, roles, and anonymization staging.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Direction 6: Split Panel (Intelligence Report) -->
+<div class="section" id="d6">
+  <div class="section-intro">
+    <h2>Direction 6: Split Panel</h2>
+    <p>Purpose-built for the Intelligence Report experience. Main content on the left with topic cards, AI enrichment side panel on the right with proactive documentation links. The side panel uses a distinct blue-10 background to separate source content from AI-generated enrichment.</p>
+    <div class="tags"><span class="tag tag-layout">Main + Side</span><span class="tag tag-density">High Density</span><span class="tag tag-pattern">Research Tool</span></div>
+  </div>
+  <div class="mockup-frame">
+    <div class="d6-topbar" style="position:relative;">
+      <div class="d6-topbar accent-bar" style="position:absolute; top:0; left:0; right:0; height:2px; background:var(--rh-red-50);"></div>
+      <h3>Daily Briefing — Intelligence Report</h3>
+      <div class="d6-topbar role-badge">Lead Architect View</div>
+    </div>
+    <div class="d6-split">
+      <div class="d6-main">
+        <div class="d6-main-card selected">
+          <div class="ws">Platform Migration</div>
+          <h4>Database migration strategy finalized — PostgreSQL 16 selected</h4>
+          <p>Team decided on PostgreSQL 16 after benchmarking both options. Key factors: operational simplicity, existing team expertise, and OpenShift Operator availability. Migration timeline set for Q3.</p>
+          <div class="card-meta">
+            <span>5 participants</span>
+            <span>12 messages</span>
+            <span>2h ago</span>
+            <a href="#" style="color:var(--rh-blue-50); text-decoration:none; margin-left:auto;">Slack &rarr;</a>
+          </div>
+        </div>
+        <div class="d6-main-card">
+          <div class="ws">API Integration</div>
+          <h4>OAuth2 token refresh causing intermittent 401s in staging</h4>
+          <p>Race condition identified in token refresh flow. Team proposed mutex-based solution. Fix PR submitted, pending review.</p>
+          <div class="card-meta">
+            <span>3 participants</span>
+            <span>8 messages</span>
+            <a href="#" style="color:var(--rh-blue-50); text-decoration:none; margin-left:auto;">Slack &rarr;</a>
+          </div>
+        </div>
+        <div class="d6-main-card" style="border-left:3px solid var(--rh-yellow-30);">
+          <div class="ws" style="color:var(--rh-yellow-70);">DevOps Pipeline &middot; Gone Quiet</div>
+          <h4>ArgoCD sync policy discussion — no resolution (3 days)</h4>
+          <p>Thread discussing automatic vs. manual sync for production deployments. No final decision. Key concern: blast radius of automatic sync in production clusters.</p>
+          <div class="card-meta">
+            <span>4 participants</span>
+            <span>Silent 3 days</span>
+            <a href="#" style="color:var(--rh-blue-50); text-decoration:none; margin-left:auto;">Slack &rarr;</a>
+          </div>
+        </div>
+      </div>
+      <div class="d6-side">
+        <div class="d6-side-header">
+          <span class="d6-side-header ai-badge">AI-Assisted</span>
+          <h4>Related Context</h4>
+        </div>
+        <div class="d6-side-section">
+          <h5>OpenShift Documentation</h5>
+          <a href="#" class="d6-side-link">
+            <div class="title">PostgreSQL on OpenShift using Crunchy Data Operator</div>
+            <div class="desc">Guide for deploying and managing PostgreSQL clusters on OpenShift with automated failover and backup.</div>
+            <div class="source">docs.openshift.com &middot; Official Guide</div>
+          </a>
+          <a href="#" class="d6-side-link">
+            <div class="title">Persistent Volume Claims for Databases</div>
+            <div class="desc">Best practices for PVC sizing, storage class selection, and backup strategies.</div>
+            <div class="source">docs.openshift.com &middot; Storage Guide</div>
+          </a>
+        </div>
+        <div class="d6-side-section">
+          <h5>Knowledge Base (NotebookLM)</h5>
+          <a href="#" class="d6-side-link">
+            <div class="title">Previous DB migration assessment (Jan 2026)</div>
+            <div class="desc">Initial analysis comparing PostgreSQL, CockroachDB, and YugabyteDB. Cost-performance matrix included.</div>
+            <div class="source">NotebookLM &middot; Internal Doc</div>
+          </a>
+        </div>
+        <div class="d6-side-section">
+          <h5>Similar Past Discussions</h5>
+          <a href="#" class="d6-side-link">
+            <div class="title">Connection pooling strategy discussion (Mar 2026)</div>
+            <div class="desc">Team evaluated PgBouncer vs pgpool-II. PgBouncer recommended for transaction pooling mode.</div>
+            <div class="source">Slack Thread &middot; #platform-arch</div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Compare -->
+<div class="section" id="compare">
+  <div class="section-intro">
+    <h2>Comparison Matrix</h2>
+    <p>Evaluate each direction against the key criteria from the UX design specification. Stars indicate strength of fit.</p>
+  </div>
+  <div class="comparison">
+    <table>
+      <tr>
+        <th>Criterion</th>
+        <th>1. News Feed</th>
+        <th>2. Dashboard</th>
+        <th>3. Email Client</th>
+        <th>4. Report</th>
+        <th>5. Hub & Spoke</th>
+        <th>6. Split Panel</th>
+      </tr>
+      <tr>
+        <td><strong>Executive Scan fit</strong></td>
+        <td><span class="star">&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;</span></td>
+      </tr>
+      <tr>
+        <td><strong>Filtered Brief fit</strong></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;</span></td>
+      </tr>
+      <tr>
+        <td><strong>Intelligence Report fit</strong></td>
+        <td><span class="star">&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+      </tr>
+      <tr>
+        <td><strong>AI Side Panel support</strong></td>
+        <td>Can add</td>
+        <td>Can add</td>
+        <td>Natural fit</td>
+        <td>Awkward</td>
+        <td>Separate page</td>
+        <td><strong>Built-in</strong></td>
+      </tr>
+      <tr>
+        <td><strong>Scan speed (&lt;2 min)</strong></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;</span></td>
+      </tr>
+      <tr>
+        <td><strong>Information density</strong></td>
+        <td>Medium</td>
+        <td><strong>High</strong></td>
+        <td>Medium</td>
+        <td>Low</td>
+        <td>Low</td>
+        <td><strong>High</strong></td>
+      </tr>
+      <tr>
+        <td><strong>Read/unread tracking</strong></td>
+        <td>Card opacity</td>
+        <td>Not natural</td>
+        <td><strong>Native</strong></td>
+        <td>Section marks</td>
+        <td>Tile badges</td>
+        <td>Card opacity</td>
+      </tr>
+      <tr>
+        <td><strong>"Gone Quiet" visibility</strong></td>
+        <td>Badge on card</td>
+        <td><strong>Dedicated panel</strong></td>
+        <td>Sidebar filter</td>
+        <td>Own section</td>
+        <td>Tile highlight</td>
+        <td>Card border</td>
+      </tr>
+      <tr>
+        <td><strong>Deep-link to Slack</strong></td>
+        <td>Card footer</td>
+        <td>Row action</td>
+        <td>Detail view</td>
+        <td>Item footer</td>
+        <td>Tile detail</td>
+        <td>Card meta</td>
+      </tr>
+      <tr>
+        <td><strong>AI-agent buildability</strong></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;</span></td>
+        <td><span class="star">&#9733;&#9733;&#9733;&#9733;</span></td>
+      </tr>
+      <tr>
+        <td><strong>Best suited role</strong></td>
+        <td>PM / Mixed</td>
+        <td><strong>Exec / Program Mgr</strong></td>
+        <td><strong>Project Manager</strong></td>
+        <td>Exec / Sales</td>
+        <td>Engagement Lead</td>
+        <td><strong>Architect / Consultant</strong></td>
+      </tr>
+    </table>
+  </div>
+  <div style="max-width:900px; margin:24px auto; padding:24px; background:var(--rh-white); border:1px solid var(--rh-gray-20); border-radius:8px;">
+    <h3 style="margin-bottom:12px; font-size:18px;">Recommended Approach: Adaptive Layout</h3>
+    <p style="font-size:14px; color:var(--rh-gray-50); line-height:1.6;">Since the product serves three distinct briefing shapes, consider a <strong>composite approach</strong> where the layout adapts to the user's role:</p>
+    <ul style="margin:12px 0; padding-left:20px; font-size:14px; color:var(--rh-gray-50); line-height:1.8;">
+      <li><strong>Executive Scan</strong> &rarr; Direction 2 (Dashboard) — metrics-first, high-level status</li>
+      <li><strong>Filtered Brief</strong> &rarr; Direction 1 (News Feed) — card-based, workstream-filtered</li>
+      <li><strong>Intelligence Report</strong> &rarr; Direction 6 (Split Panel) — detail + AI enrichment</li>
+    </ul>
+    <p style="font-size:14px; color:var(--rh-gray-50); line-height:1.6;">Shared foundation: Red Hat palette, consistent header/navigation, same card components, unified spacing system. Only the layout structure changes per role.</p>
+  </div>
+</div>
+
+<script>
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>
