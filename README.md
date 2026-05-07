@@ -35,7 +35,7 @@ pnpm dev
 |---------|-----|-------------|
 | API | http://localhost:3000 | NestJS backend |
 | Web | http://localhost:5173 | React SPA frontend |
-| PostgreSQL | localhost:5432 | Database (via Docker) |
+| PostgreSQL | localhost:5432 | Database (via Podman) |
 
 ### Commands
 

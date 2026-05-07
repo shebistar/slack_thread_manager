@@ -1,6 +1,6 @@
 # Story 1.1: Monorepo Scaffold & Development Environment
 
-Status: review
+Status: done
 
 ## Story
 
@@ -86,6 +86,25 @@ So that all subsequent development has a consistent, working foundation.
   - [x] 8.4: Run `pnpm dev` — API on 3000, Web on 5173
   - [x] 8.5: Verify `curl http://localhost:3000/api/health` returns `{"status":"ok"}`
   - [x] 8.6: Run `pnpm test` — all test suites pass
+
+### Review Findings
+
+**Decision needed (2):**
+- [x] [Review][Decision] Drizzle migration journal: resolved — deleted hand-written SQL, used `drizzle-kit generate --custom --name enable_pgvector` to create a properly journaled migration with `meta/_journal.json` and `meta/0000_snapshot.json`; migration verified applied via `drizzle-kit migrate`
+- [x] [Review][Decision] Node.js engine constraint mismatch: resolved — updated engines to `>=22.0.0`, added `.node-version` pin to 22; system node is 24.14.1 which satisfies constraint
+
+**Patches (7):**
+- [x] [Review][Patch] `packages/config` missing ESLint peer deps — added `@eslint/js` and `typescript-eslint` as explicit dependencies [packages/config/package.json]
+- [x] [Review][Patch] Pool connection leak — `createDb()` now exposes `$pool` and `close()` via `Object.assign` for explicit teardown [packages/db/src/client.ts]
+- [x] [Review][Patch] `DATABASE_URL` not required — changed from `z.string().url().optional()` to `z.string().url()` so API fails fast at boot without a DB URL [apps/api/src/config/app.config.ts]
+- [x] [Review][Patch] Non-null assertion on `getElementById` — replaced with explicit null check that throws a descriptive error [apps/web/src/main.tsx]
+- [x] [Review][Patch] README Services table still reads "Database (via Docker)" — updated to "via Podman" [README.md]
+- [x] [Review][Patch] `package.json.tmp` present in working tree — deleted
+- [x] [Review][Patch] Shadcn/ui not initialized — created `components.json` (new-york style, Tailwind v4), `src/lib/utils.ts` (cn utility), added Shadcn CSS variables (OKLCH) to `globals.css`, installed `clsx`, `tailwind-merge`, `lucide-react` [apps/web/]
+
+**Deferred (2):**
+- [x] [Review][Defer] `unplugin-swc` CJS deprecation warning appears on every `pnpm test` run — cosmetic, upstream Vite/unplugin-swc issue [apps/api/vitest.config.ts] — deferred, pre-existing upstream issue
+- [x] [Review][Defer] Health endpoint returns untyped object literal — no response DTO or interface — fine for scaffold but sets a loose pattern for future endpoints [apps/api/src/app.controller.ts] — deferred, pre-existing
 
 ## Dev Notes
 
