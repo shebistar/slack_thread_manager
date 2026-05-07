@@ -3,7 +3,7 @@ import { createChannelSchema, channelSchema } from './channel.schema.js';
 
 describe('createChannelSchema', () => {
   const validChannel = {
-    slackChannelId: 'C0ABC123',
+    slackChannelId: 'C01ABC123',
     name: 'vm-migration-general',
     workstreamId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     isActive: true,
@@ -22,9 +22,28 @@ describe('createChannelSchema', () => {
     }
   });
 
-  it('accepts lowercase and varied-length Slack IDs', () => {
-    expect(createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'c0abc123' }).success).toBe(true);
-    expect(createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'D012AB3CDEFGH' }).success).toBe(true);
+  it('accepts valid Slack channel ID formats', () => {
+    expect(createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'C01ABC123' }).success).toBe(true);
+    expect(createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'G01ABC123' }).success).toBe(true);
+    expect(createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'D01ABC123' }).success).toBe(true);
+    expect(createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'C012AB3CDEFGH' }).success).toBe(true);
+  });
+
+  it('rejects lowercase Slack channel IDs', () => {
+    expect(createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'c0abc123x' }).success).toBe(false);
+  });
+
+  it('rejects Slack IDs with wrong prefix', () => {
+    expect(createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'U01ABC123' }).success).toBe(false);
+    expect(createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'T01ABC123' }).success).toBe(false);
+  });
+
+  it('rejects Slack IDs that are too short', () => {
+    expect(createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'C01AB' }).success).toBe(false);
+  });
+
+  it('rejects Slack IDs with special characters', () => {
+    expect(createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'C01ABC-23' }).success).toBe(false);
   });
 
   it('rejects empty slackChannelId', () => {
@@ -33,7 +52,7 @@ describe('createChannelSchema', () => {
 
   it('rejects slackChannelId over 20 characters', () => {
     expect(
-      createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'A'.repeat(21) }).success,
+      createChannelSchema.safeParse({ ...validChannel, slackChannelId: 'C' + 'A'.repeat(20) }).success,
     ).toBe(false);
   });
 
@@ -55,7 +74,7 @@ describe('createChannelSchema', () => {
 describe('channelSchema', () => {
   const validFullChannel = {
     id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-    slackChannelId: 'C0ABC123',
+    slackChannelId: 'C01ABC123',
     name: 'vm-migration-general',
     workstreamId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     isActive: true,
