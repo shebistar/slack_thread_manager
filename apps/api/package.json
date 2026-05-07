@@ -15,9 +15,13 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
+    "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.0",
     "@slack-thread-manager/db": "workspace:*",
     "@slack-thread-manager/shared": "workspace:*",
+    "jwks-rsa": "^4.0.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
     "zod": "^3.24.0"
@@ -30,6 +34,8 @@
     "@swc/core": "^1.10.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
+    "@types/passport": "^1.0.17",
+    "@types/passport-jwt": "^4.0.1",
     "typescript": "^5.7.0",
     "unplugin-swc": "^1.5.9",
     "vitest": "^3.2.0"
