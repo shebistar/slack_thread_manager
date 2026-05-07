@@ -1,5 +1,5 @@
 // Re-export inferred TypeScript types from Zod schemas
-export type { UserRole, CreateUser, UpdateUser, User } from '../schemas/user.schema.js';
+export type { UserRole, CreateUser, UpdateUser, User, CreateRosterMember, UpdateRosterMember, RosterMember } from '../schemas/user.schema.js';
 export type { AuthenticatedUser } from './authenticated-user.type.js';
 export type {
   CreateWorkstream,

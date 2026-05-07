@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { UserRole, createUserSchema, userSchema } from './user.schema.js';
+import { UserRole, createUserSchema, userSchema, createRosterMemberSchema, updateRosterMemberSchema } from './user.schema.js';
 
 describe('UserRole', () => {
   it('accepts all valid role values', () => {
@@ -90,5 +90,69 @@ describe('userSchema', () => {
   it('rejects invalid datetime for createdAt', () => {
     const result = userSchema.safeParse({ ...validFullUser, createdAt: '2026-05-07' });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('createRosterMemberSchema', () => {
+  const validMember = {
+    email: 'bob@example.com',
+    displayName: 'Bob Smith',
+    slackHandle: 'bob.smith',
+    slackNicknames: ['bobby'],
+    role: 'PM',
+    workstreamIds: ['f47ac10b-58cc-4372-a567-0e02b2c3d479'],
+  };
+
+  it('accepts a valid roster member with workstreamIds', () => {
+    expect(createRosterMemberSchema.safeParse(validMember).success).toBe(true);
+  });
+
+  it('defaults workstreamIds to empty array when omitted', () => {
+    const { workstreamIds: _, ...withoutIds } = validMember;
+    const result = createRosterMemberSchema.safeParse(withoutIds);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.workstreamIds).toEqual([]);
+  });
+
+  it('rejects non-UUID workstreamIds', () => {
+    const result = createRosterMemberSchema.safeParse({ ...validMember, workstreamIds: ['not-a-uuid'] });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid email', () => {
+    expect(createRosterMemberSchema.safeParse({ ...validMember, email: 'bad' }).success).toBe(false);
+  });
+
+  it('rejects invalid role', () => {
+    expect(createRosterMemberSchema.safeParse({ ...validMember, role: 'UNKNOWN' }).success).toBe(false);
+  });
+});
+
+describe('updateRosterMemberSchema', () => {
+  it('accepts partial update with only displayName', () => {
+    expect(updateRosterMemberSchema.safeParse({ displayName: 'New Name' }).success).toBe(true);
+  });
+
+  it('accepts clearing slackNicknames to empty array', () => {
+    const result = updateRosterMemberSchema.safeParse({ slackNicknames: [] });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.slackNicknames).toEqual([]);
+  });
+
+  it('accepts empty object (no-op update)', () => {
+    expect(updateRosterMemberSchema.safeParse({}).success).toBe(true);
+  });
+
+  it('rejects email field (email cannot be updated)', () => {
+    // email is omitted from updateRosterMemberSchema — it should be stripped/rejected
+    const result = updateRosterMemberSchema.safeParse({ email: 'new@email.com' });
+    // email is stripped by .omit() — parse succeeds but email is not in result
+    if (result.success) {
+      expect('email' in result.data).toBe(false);
+    }
+  });
+
+  it('rejects invalid role in update', () => {
+    expect(updateRosterMemberSchema.safeParse({ role: 'BADROL' }).success).toBe(false);
   });
 });
