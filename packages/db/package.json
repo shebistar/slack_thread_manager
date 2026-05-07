@@ -8,7 +8,8 @@
     "build": "tsc",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
-    "push": "drizzle-kit push"
+    "push": "drizzle-kit push",
+    "seed": "tsx src/seed.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.41.0",
@@ -17,6 +18,7 @@
   "devDependencies": {
     "@types/pg": "^8.11.0",
     "drizzle-kit": "^0.31.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.0"
   }
 }
