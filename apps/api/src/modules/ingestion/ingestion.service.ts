@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { DATABASE_TOKEN } from '../../database/database.module.js';
 import type { Database } from '@slack-thread-manager/db';
 import { slackChannels, slackThreads, threadMessages } from '@slack-thread-manager/db';
@@ -64,14 +64,15 @@ export class IngestionService {
     internalChannelId: string,
     slackChannelId: string,
     channelName: string,
+    oldest?: string,
   ): Promise<{ threadsFound: number; threadsStored: number; errors: number }> {
-    this.logger.log('Ingesting channel', { channelId: slackChannelId, channelName });
+    this.logger.log('Ingesting channel', { channelId: slackChannelId, channelName, oldest: oldest ?? null });
 
     const result = { threadsFound: 0, threadsStored: 0, errors: 0 };
     let cursor: string | undefined;
 
     do {
-      const history = await this.slackClient.fetchChannelHistory(slackChannelId, { cursor });
+      const history = await this.slackClient.fetchChannelHistory(slackChannelId, { cursor, oldest });
 
       const threadStarters = history.messages.filter(
         (m) => this.isThreadStarter(m),
@@ -80,8 +81,10 @@ export class IngestionService {
 
       for (const starter of threadStarters) {
         try {
-          await this.ingestThread(internalChannelId, slackChannelId, starter);
-          result.threadsStored++;
+          const outcome = await this.ingestThread(internalChannelId, slackChannelId, starter);
+          if (outcome === 'ingested') {
+            result.threadsStored++;
+          }
         } catch (error: unknown) {
           const msg = error instanceof Error ? error.message : 'Unknown error';
           this.logger.error('Thread ingestion failed', { threadTs: starter.ts, error: msg });
@@ -100,8 +103,23 @@ export class IngestionService {
     internalChannelId: string,
     slackChannelId: string,
     starterMessage: SlackMessage,
-  ): Promise<void> {
+  ): Promise<'ingested' | 'skipped'> {
     const threadTs = starterMessage.threadTs ?? starterMessage.ts;
+    const slackLatestReply = starterMessage.latestReply ?? starterMessage.ts;
+
+    const existing = await this.db.query.slackThreads.findFirst({
+      where: and(
+        eq(slackThreads.slackTeamId, this.slackTeamId),
+        eq(slackThreads.channelId, internalChannelId),
+        eq(slackThreads.threadTs, threadTs),
+      ),
+      columns: { id: true, latestReplyTs: true },
+    });
+
+    if (existing && existing.latestReplyTs === slackLatestReply) {
+      this.logger.debug('Thread unchanged, skipping', { threadTs });
+      return 'skipped';
+    }
 
     const replies = await this.fetchAllReplies(slackChannelId, threadTs);
 
@@ -122,6 +140,7 @@ export class IngestionService {
           messageCount: allMessages.length,
           rawMessages: allMessages.map((m) => m.raw),
           participantIds,
+          pipelineState: 'ingested',
         })
         .onConflictDoUpdate({
           target: [slackThreads.slackTeamId, slackThreads.channelId, slackThreads.threadTs],
@@ -131,6 +150,7 @@ export class IngestionService {
             latestReplyTs: sql`excluded.latest_reply_ts`,
             rawMessages: sql`excluded.raw_messages`,
             participantIds: sql`excluded.participant_ids`,
+            pipelineState: sql`'ingested'`,
           },
         })
         .returning({ id: slackThreads.id });
@@ -156,6 +176,52 @@ export class IngestionService {
     });
 
     this.logger.log('Thread ingested', { threadTs, messageCount: allMessages.length });
+    return 'ingested';
+  }
+
+  async detectUpdatedThreads(
+    internalChannelId: string,
+    slackChannelId: string,
+  ): Promise<{ threadsChecked: number; threadsUpdated: number; errors: number }> {
+    const storedThreads = await this.db.query.slackThreads.findMany({
+      where: eq(slackThreads.channelId, internalChannelId),
+      columns: { id: true, threadTs: true, latestReplyTs: true },
+    });
+
+    let threadsChecked = 0;
+    let threadsUpdated = 0;
+    let errors = 0;
+
+    for (const thread of storedThreads) {
+      try {
+        const result = await this.slackClient.fetchThreadReplies(slackChannelId, thread.threadTs, { limit: 1 });
+        const rootMessage = result.messages[0];
+
+        if (!rootMessage) {
+          threadsChecked++;
+          continue;
+        }
+
+        const currentLatestReply = rootMessage.latestReply ?? rootMessage.ts;
+        const storedLatestReply = thread.latestReplyTs ?? thread.threadTs;
+
+        if (currentLatestReply === storedLatestReply) {
+          threadsChecked++;
+          continue;
+        }
+
+        await this.ingestThread(internalChannelId, slackChannelId, rootMessage);
+        threadsChecked++;
+        threadsUpdated++;
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.error('Update check failed for thread', { threadTs: thread.threadTs, error: msg });
+        errors++;
+      }
+    }
+
+    this.logger.log('Update detection complete', { channelId: slackChannelId, threadsChecked, threadsUpdated, errors });
+    return { threadsChecked, threadsUpdated, errors };
   }
 
   private async fetchAllReplies(

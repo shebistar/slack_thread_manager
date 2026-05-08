@@ -8,6 +8,7 @@ export const envSchema = z.object({
   KEYCLOAK_CLIENT_ID: z.string().min(1),
   SLACK_BOT_TOKEN: z.string().startsWith('xoxb-').optional(),
   SLACK_TEAM_ID: z.string().optional(),
+  INGESTION_CRON_SCHEDULE: z.string().default('0 */4 * * *'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

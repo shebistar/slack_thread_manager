@@ -1,0 +1,1 @@
+ALTER TABLE "slack_channels" ADD COLUMN "last_polled_ts" timestamp with time zone;

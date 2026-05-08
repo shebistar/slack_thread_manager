@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
@@ -17,6 +18,7 @@ import { envSchema } from './config/app.config.js';
       isGlobal: true,
       validate: (config) => envSchema.parse(config),
     }),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     AuthModule,
     AdminModule,

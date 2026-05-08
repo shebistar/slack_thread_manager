@@ -29,6 +29,16 @@
 - `updateUserSchema` cannot express "clear slackNicknames to []" via null/omit — add explicit nullable handling when PATCH endpoint for users is implemented [`packages/shared/src/schemas/user.schema.ts`]
 - `tsx` in `devDependencies` — seed unavailable with `--omit=dev` production installs; move to `dependencies` or document that seed is strictly a dev-environment script [`packages/db/package.json`]
 
+## Deferred from: code review of 2-3-batch-polling-job-with-watermark (2026-05-08)
+
+- No mutex against overlapping cron runs — long batches can run concurrently with the next tick; add `if (this.busy) return` guard or configure `@Cron` with `disableOverlap` when available [`apps/api/src/modules/ingestion/polling.job.ts`]
+- No distributed lock for horizontal scaling — multiple API replicas poll the same channels in parallel; add advisory DB lock or queue-based deduplication before scaling horizontally [`apps/api/src/modules/ingestion/polling.job.ts`]
+- NestJS Logger structured JSON depends on logger config — second-arg object may serialize as `[Object]` with default logger; switch to JSON logger or custom formatter in production [`apps/api/src/modules/ingestion/polling.job.ts`]
+- `lastBatchStatus` semantics ambiguous for zero-channel runs — zero-channel batch reports `success`; consider a `no-channels` or `skipped` status [`apps/api/src/modules/ingestion/polling.job.ts`]
+- Watermark uses DB `now()` not last-message-ts — messages posted during the ingestion window can be skipped; consider setting watermark to last ingested message timestamp instead [`apps/api/src/modules/ingestion/polling.job.ts`]
+- No cron expression validation — invalid `INGESTION_CRON_SCHEDULE` string fails at runtime; add Zod `.refine()` to validate cron syntax at startup [`apps/api/src/config/app.config.ts`]
+- Migration rollback strategy not documented — add explicit down-migration for `last_polled_ts` column for rolling deployments [`packages/db/src/migrations/0004_futuristic_whirlwind.sql`]
+
 ## Deferred from: code review of 1-1-monorepo-scaffold-and-development-environment (2026-05-06)
 
 - `unplugin-swc` CJS deprecation warning on every `pnpm test` run — cosmetic upstream Vite/unplugin-swc issue; address when unplugin-swc cuts an ESM-first release [`apps/api/vitest.config.ts`]

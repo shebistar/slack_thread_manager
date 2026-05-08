@@ -63,6 +63,10 @@ function createMockDb() {
           },
         ]),
       },
+      slackThreads: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
     },
     transaction: vi.fn().mockImplementation(async (fn) => {
       const tx = {
@@ -293,6 +297,211 @@ describe('IngestionService', () => {
 
       expect(mockTx.insert).toHaveBeenCalled();
       expect(valuesReturn.onConflictDoUpdate).toHaveBeenCalled();
+    });
+  });
+
+  describe('ingestThread — skip-if-unchanged (AC: #4)', () => {
+    it('should skip and return "skipped" when latestReplyTs matches stored value', async () => {
+      db.query.slackThreads.findFirst.mockResolvedValue({
+        id: 'existing-thread-id',
+        latestReplyTs: '1700000001.000200',
+      });
+
+      const starter = {
+        ts: '1700000000.000100',
+        user: 'U01ABC',
+        text: 'Thread starter',
+        threadTs: '1700000000.000100',
+        latestReply: '1700000001.000200',
+        raw: { ts: '1700000000.000100', reply_count: 2, latest_reply: '1700000001.000200' },
+      };
+
+      const result = await service.ingestThread('channel-uuid-1', 'C01ABC123', starter);
+
+      expect(result).toBe('skipped');
+      expect(slackClient.fetchThreadReplies).not.toHaveBeenCalled();
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('should re-ingest and return "ingested" when latestReplyTs has changed', async () => {
+      db.query.slackThreads.findFirst.mockResolvedValue({
+        id: 'existing-thread-id',
+        latestReplyTs: '1700000001.000200',
+      });
+
+      const starter = {
+        ts: '1700000000.000100',
+        user: 'U01ABC',
+        text: 'Thread starter',
+        threadTs: '1700000000.000100',
+        latestReply: '1700000002.000300',
+        raw: { ts: '1700000000.000100', reply_count: 3, latest_reply: '1700000002.000300' },
+      };
+
+      const result = await service.ingestThread('channel-uuid-1', 'C01ABC123', starter);
+
+      expect(result).toBe('ingested');
+      expect(slackClient.fetchThreadReplies).toHaveBeenCalled();
+      expect(db.transaction).toHaveBeenCalled();
+    });
+
+    it('should ingest and return "ingested" when thread is new (not in DB)', async () => {
+      db.query.slackThreads.findFirst.mockResolvedValue(null);
+
+      const starter = {
+        ts: '1700000000.000100',
+        user: 'U01ABC',
+        text: 'New thread',
+        threadTs: '1700000000.000100',
+        latestReply: '1700000001.000200',
+        raw: { ts: '1700000000.000100', reply_count: 1 },
+      };
+
+      const result = await service.ingestThread('channel-uuid-1', 'C01ABC123', starter);
+
+      expect(result).toBe('ingested');
+      expect(slackClient.fetchThreadReplies).toHaveBeenCalled();
+      expect(db.transaction).toHaveBeenCalled();
+    });
+
+    it('should include pipelineState in upsert values', async () => {
+      db.query.slackThreads.findFirst.mockResolvedValue(null);
+
+      const capturedValues: Record<string, unknown>[] = [];
+      db.transaction.mockImplementation(async (fn) => {
+        const tx = {
+          insert: vi.fn().mockReturnValue({
+            values: vi.fn().mockImplementation((vals: Record<string, unknown>) => {
+              capturedValues.push(vals);
+              return {
+                onConflictDoUpdate: vi.fn().mockReturnValue({
+                  returning: vi.fn().mockResolvedValue([{ id: 'thread-uuid-1' }]),
+                }),
+              };
+            }),
+          }),
+          delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }),
+        };
+        return fn(tx);
+      });
+
+      const starter = {
+        ts: '1700000000.000100',
+        user: 'U01ABC',
+        text: 'Thread',
+        threadTs: '1700000000.000100',
+        latestReply: '1700000001.000200',
+        raw: { ts: '1700000000.000100', reply_count: 1 },
+      };
+
+      await service.ingestThread('channel-uuid-1', 'C01ABC123', starter);
+
+      const threadUpsert = capturedValues.find((v) => 'threadTs' in v);
+      expect(threadUpsert).toBeDefined();
+      expect(threadUpsert!.pipelineState).toBe('ingested');
+    });
+  });
+
+  describe('detectUpdatedThreads (AC: #1, #2, #4)', () => {
+    it('should call ingestThread for threads whose latestReplyTs has changed', async () => {
+      db.query.slackThreads.findMany.mockResolvedValue([
+        { id: 'thread-uuid-1', threadTs: '1700000000.000100', latestReplyTs: '1700000001.000200' },
+      ]);
+
+      // fetchThreadReplies returns root message with a NEWER latest_reply
+      slackClient.fetchThreadReplies.mockResolvedValueOnce({
+        messages: [
+          {
+            ts: '1700000000.000100',
+            user: 'U01ABC',
+            text: 'Thread root',
+            threadTs: '1700000000.000100',
+            latestReply: '1700000002.000300',
+            raw: { ts: '1700000000.000100', latest_reply: '1700000002.000300' },
+          },
+        ],
+        hasMore: false,
+      });
+
+      // findFirst for skip-check inside ingestThread should return mismatched ts
+      db.query.slackThreads.findFirst.mockResolvedValue({
+        id: 'thread-uuid-1',
+        latestReplyTs: '1700000001.000200',
+      });
+
+      // Full replies fetch inside ingestThread
+      slackClient.fetchThreadReplies.mockResolvedValueOnce({
+        messages: [
+          { ts: '1700000000.000100', user: 'U01ABC', text: 'root', threadTs: '1700000000.000100', raw: {} },
+          { ts: '1700000002.000300', user: 'U02DEF', text: 'new reply', threadTs: '1700000000.000100', raw: {} },
+        ],
+        hasMore: false,
+      });
+
+      const result = await service.detectUpdatedThreads('channel-uuid-1', 'C01ABC123');
+
+      expect(result.threadsChecked).toBe(1);
+      expect(result.threadsUpdated).toBe(1);
+      expect(result.errors).toBe(0);
+      expect(db.transaction).toHaveBeenCalled();
+    });
+
+    it('should skip threads with unchanged latestReplyTs (no ingestThread call)', async () => {
+      db.query.slackThreads.findMany.mockResolvedValue([
+        { id: 'thread-uuid-1', threadTs: '1700000000.000100', latestReplyTs: '1700000001.000200' },
+      ]);
+
+      // fetchThreadReplies returns same latest_reply as stored
+      slackClient.fetchThreadReplies.mockResolvedValueOnce({
+        messages: [
+          {
+            ts: '1700000000.000100',
+            user: 'U01ABC',
+            text: 'Thread root',
+            threadTs: '1700000000.000100',
+            latestReply: '1700000001.000200',
+            raw: { ts: '1700000000.000100', latest_reply: '1700000001.000200' },
+          },
+        ],
+        hasMore: false,
+      });
+
+      const result = await service.detectUpdatedThreads('channel-uuid-1', 'C01ABC123');
+
+      expect(result.threadsChecked).toBe(1);
+      expect(result.threadsUpdated).toBe(0);
+      expect(result.errors).toBe(0);
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('should isolate errors per thread and continue processing remaining threads', async () => {
+      db.query.slackThreads.findMany.mockResolvedValue([
+        { id: 'thread-uuid-1', threadTs: '1700000000.000100', latestReplyTs: '1700000001.000200' },
+        { id: 'thread-uuid-2', threadTs: '1700000003.000100', latestReplyTs: '1700000004.000200' },
+      ]);
+
+      // First thread throws, second thread is unchanged
+      slackClient.fetchThreadReplies
+        .mockRejectedValueOnce(new Error('Slack timeout'))
+        .mockResolvedValueOnce({
+          messages: [
+            {
+              ts: '1700000003.000100',
+              user: 'U01ABC',
+              text: 'Thread 2 root',
+              threadTs: '1700000003.000100',
+              latestReply: '1700000004.000200',
+              raw: { ts: '1700000003.000100', latest_reply: '1700000004.000200' },
+            },
+          ],
+          hasMore: false,
+        });
+
+      const result = await service.detectUpdatedThreads('channel-uuid-1', 'C01ABC123');
+
+      expect(result.errors).toBe(1);
+      expect(result.threadsChecked).toBe(1);
+      expect(result.threadsUpdated).toBe(0);
     });
   });
 });
