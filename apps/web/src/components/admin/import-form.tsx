@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button.js';
 import { Input } from '@/components/ui/input.js';
 import { Label } from '@/components/ui/label.js';
+import { Textarea } from '@/components/ui/textarea.js';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.js';
 import {
   Select,
   SelectContent,
@@ -11,6 +13,7 @@ import {
 } from '@/components/ui/select.js';
 import { useChannels } from '@/hooks/use-channels.js';
 import { useImportHistory } from '@/hooks/use-import.js';
+import { parseSlackText } from '@/lib/slack-text-parser.js';
 import type { ImportSummary } from '@slack-thread-manager/shared';
 
 export function ImportForm() {
@@ -20,7 +23,10 @@ export function ImportForm() {
   const [channelId, setChannelId] = useState('');
   const [slackTeamId, setSlackTeamId] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [pastedText, setPastedText] = useState('');
+  const [inputMode, setInputMode] = useState<string>('paste');
   const [lastResult, setLastResult] = useState<ImportSummary | null>(null);
+  const [parsePreview, setParsePreview] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeChannels = channels.filter((c) => c.isActive);
@@ -32,27 +38,45 @@ export function ImportForm() {
     }
   }
 
+  function handleTextChange(text: string) {
+    setPastedText(text);
+    if (text.trim()) {
+      const parsed = parseSlackText(text);
+      setParsePreview(parsed.length);
+    } else {
+      setParsePreview(null);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLastResult(null);
 
-    const allMessages: Record<string, unknown>[] = [];
+    let allMessages: Record<string, unknown>[] = [];
 
-    for (const file of selectedFiles) {
-      const text = await file.text();
-      try {
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed)) {
-          allMessages.push(...parsed);
-        } else {
-          throw new Error(`${file.name} is not a JSON array`);
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Parse error';
-        importMutation.reset();
-        setLastResult(null);
-        alert(`Failed to parse ${file.name}: ${msg}`);
+    if (inputMode === 'paste') {
+      const parsed = parseSlackText(pastedText);
+      if (parsed.length === 0) {
+        alert('No messages could be parsed from the pasted text. Check the format and try again.');
         return;
+      }
+      allMessages = parsed as unknown as Record<string, unknown>[];
+    } else {
+      for (const file of selectedFiles) {
+        const text = await file.text();
+        try {
+          const parsed = JSON.parse(text);
+          if (Array.isArray(parsed)) {
+            allMessages.push(...parsed);
+          } else {
+            throw new Error(`${file.name} is not a JSON array`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Parse error';
+          importMutation.reset();
+          alert(`Failed to parse ${file.name}: ${msg}`);
+          return;
+        }
       }
     }
 
@@ -64,8 +88,9 @@ export function ImportForm() {
     setLastResult(result);
   }
 
-  const canSubmit =
-    channelId && slackTeamId.trim() && selectedFiles.length > 0 && !importMutation.isPending;
+  const canSubmitPaste = channelId && slackTeamId.trim() && pastedText.trim() && !importMutation.isPending;
+  const canSubmitFile = channelId && slackTeamId.trim() && selectedFiles.length > 0 && !importMutation.isPending;
+  const canSubmit = inputMode === 'paste' ? canSubmitPaste : canSubmitFile;
 
   return (
     <div className="space-y-6">
@@ -74,9 +99,8 @@ export function ImportForm() {
           Import Slack History
         </h2>
         <p className="text-sm text-[--color-gray-50] mt-1">
-          Upload JSON files from a Slack workspace export to populate thread
-          data. Select the target channel, provide your Slack Team ID, and
-          choose one or more daily JSON files.
+          Populate thread data by pasting messages copied from Slack or uploading
+          JSON export files. Select the target channel and provide your Slack Team ID.
         </p>
       </div>
 
@@ -118,25 +142,49 @@ export function ImportForm() {
           </p>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="files">Export JSON Files</Label>
-          <Input
-            ref={fileInputRef}
-            id="files"
-            type="file"
-            accept=".json"
-            multiple
-            onChange={handleFileChange}
-            className="cursor-pointer"
-          />
-          {selectedFiles.length > 0 && (
-            <p className="text-xs text-[--color-gray-50]">
-              {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''}{' '}
-              selected:{' '}
-              {selectedFiles.map((f) => f.name).join(', ')}
-            </p>
-          )}
-        </div>
+        <Tabs value={inputMode} onValueChange={setInputMode}>
+          <TabsList className="w-full">
+            <TabsTrigger value="paste" className="flex-1">Paste Text</TabsTrigger>
+            <TabsTrigger value="file" className="flex-1">Upload JSON</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="paste" className="mt-3 space-y-2">
+            <Label htmlFor="pasteArea">Paste Messages from Slack</Label>
+            <Textarea
+              id="pasteArea"
+              placeholder={`Copy messages from Slack and paste here. Expected format:\n\nJohn Doe  10:30 AM\nHey team, here's the update on the migration\n\nJane Smith  10:32 AM\nThanks John! What's the timeline?`}
+              value={pastedText}
+              onChange={(e) => handleTextChange(e.target.value)}
+              rows={12}
+              className="font-mono text-xs"
+            />
+            {parsePreview !== null && (
+              <p className="text-xs text-[--color-gray-50]">
+                {parsePreview} message{parsePreview !== 1 ? 's' : ''} detected
+              </p>
+            )}
+          </TabsContent>
+
+          <TabsContent value="file" className="mt-3 space-y-2">
+            <Label htmlFor="files">Export JSON Files</Label>
+            <Input
+              ref={fileInputRef}
+              id="files"
+              type="file"
+              accept=".json"
+              multiple
+              onChange={handleFileChange}
+              className="cursor-pointer"
+            />
+            {selectedFiles.length > 0 && (
+              <p className="text-xs text-[--color-gray-50]">
+                {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''}{' '}
+                selected:{' '}
+                {selectedFiles.map((f) => f.name).join(', ')}
+              </p>
+            )}
+          </TabsContent>
+        </Tabs>
 
         <Button
           type="submit"
@@ -173,16 +221,28 @@ export function ImportForm() {
 
       <div className="rounded-md border border-[--color-gray-20] p-4 max-w-lg">
         <h3 className="text-sm font-medium text-[--color-gray-95] mb-2">
-          How to Export from Slack
+          How to Get Messages into the App
         </h3>
-        <ol className="text-sm text-[--color-gray-50] space-y-1 list-decimal list-inside">
-          <li>Go to your Slack workspace admin: Settings &amp; Administration &gt; Workspace settings</li>
-          <li>Click &quot;Import/Export Data&quot; then the &quot;Export&quot; tab</li>
-          <li>Choose a date range and start the export</li>
-          <li>Download and unzip the ZIP file when ready</li>
-          <li>Find the channel folder (e.g., <code className="text-xs bg-[--color-gray-10] px-1 rounded">general/</code>)</li>
-          <li>Select the daily JSON files (e.g., <code className="text-xs bg-[--color-gray-10] px-1 rounded">2026-05-01.json</code>) and upload them above</li>
-        </ol>
+        <div className="space-y-3 text-sm text-[--color-gray-50]">
+          <div>
+            <p className="font-medium text-[--color-gray-70] mb-1">Option 1: Copy &amp; Paste (easiest)</p>
+            <ol className="space-y-0.5 list-decimal list-inside">
+              <li>Open the Slack channel in your browser or desktop app</li>
+              <li>Scroll up to load the messages you want</li>
+              <li>Select the messages (click and drag, or Ctrl+A in the message area)</li>
+              <li>Copy (Ctrl+C) and paste into the text area above</li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-[--color-gray-70] mb-1">Option 2: Workspace Export (admin only)</p>
+            <ol className="space-y-0.5 list-decimal list-inside">
+              <li>Go to Slack admin: Settings &amp; Administration &gt; Workspace settings</li>
+              <li>Click &quot;Import/Export Data&quot; then the &quot;Export&quot; tab</li>
+              <li>Download and unzip the ZIP file</li>
+              <li>Upload the daily JSON files from the channel folder</li>
+            </ol>
+          </div>
+        </div>
       </div>
     </div>
   );
