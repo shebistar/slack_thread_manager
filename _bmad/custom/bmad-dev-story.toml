@@ -4,6 +4,14 @@
 
 [workflow]
 
+# Persistent facts appended after base facts (project-context.md already loads via base).
+# These are reminders that override default agent behavior.
+persistent_facts = [
+  "MANDATORY: Before marking the story 'review', you MUST perform end-to-end validation with real data. Import test data via text-paste import (POST /api/admin/channels/:id/import or CLI import-text), exercise the feature against it, and document the result in Completion Notes under 'E2E validation'. Green unit tests alone are NOT sufficient.",
+  "The text-paste import (ImportService/ImportController) is a PRIMARY ingestion mode, not a workaround. All pipeline features must work identically whether data came from Slack API or text-paste import.",
+  "After E2E validation, explicitly list any gaps discovered (missing transformations, UI gaps, unconnected pipeline stages, error paths hit with real data). Add gaps to Completion Notes and deferred-work.md if they affect future stories.",
+]
+
 # After the story status is set to 'review' and sprint-status.yaml is updated,
 # run these git governance steps automatically:
 on_complete = """

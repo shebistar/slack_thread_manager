@@ -1,0 +1,12 @@
+# Team override for bmad-create-story.
+# Committed to repo — applies to every developer on this project.
+# Merges over the base customize.toml per BMad structural rules.
+
+[workflow]
+
+# Persistent facts appended after base facts (project-context.md already loads via base).
+persistent_facts = [
+  "MANDATORY: Every story MUST include a task for E2E validation with real data. Add a task titled 'E2E validation with imported test data' that requires: (1) importing representative Slack chat via text-paste import, (2) exercising the story's feature against that data, (3) documenting what was validated and any gaps found. This task must appear BEFORE the story is marked review.",
+  "The text-paste import (ImportService at POST /api/admin/channels/:id/import) is a PRIMARY ingestion mode, not a workaround. Stories that add pipeline features must ensure they work identically whether data came from Slack API or text-paste import.",
+  "When writing Acceptance Criteria for stories, include at least one AC that describes the expected behavior when validated against text-paste-imported data (not just mocked unit tests).",
+]

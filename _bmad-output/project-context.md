@@ -151,6 +151,37 @@ Conventional Commits format: `<type>(<scope>): <description>`
 
 ---
 
+## End-to-End Validation (mandatory per story)
+
+Every story MUST include a validation step using real or representative data before marking `review`. This is NOT optional — green unit tests alone are insufficient.
+
+### Validation Process
+
+1. **Import test data**: use the text-paste import (`POST /api/admin/channels/:id/import` or CLI `pnpm --filter @slack-thread-manager/db import-text`) to load representative Slack conversations into the local database.
+2. **Exercise the feature end-to-end**: invoke the feature built in this story against the imported data (e.g. trigger polling, run backfill, call search, generate briefing).
+3. **Verify observable output**: check that the data flows through the pipeline correctly — query the database, check logs, or view the frontend.
+4. **Document the result**: in the story's `### Completion Notes List`, add an `E2E validation` entry describing what was tested, how, and the outcome.
+
+### Text-Paste Import as Primary Ingestion Mode
+
+The text-paste import (`ImportService` / `ImportController`) is NOT just a workaround — it is a **primary ingestion mode** for environments where direct Slack API connectivity is unavailable. Treat it with the same quality standards as Slack API ingestion:
+- It shares the same idempotent upsert path as live ingestion
+- It supports copy-paste from Slack desktop/web (name + timestamp + body format)
+- It is available via both the REST API (`POST /api/admin/channels/:id/import`) and CLI script
+- Future epics should ensure ALL pipeline features work identically regardless of whether data entered via Slack API polling or text-paste import
+
+### Gap Identification
+
+After E2E validation, explicitly list any gaps discovered:
+- Missing data transformations
+- UI elements that don't render the imported data
+- Pipeline stages that are not yet connected
+- Error paths hit with real data that unit tests didn't cover
+
+Add gaps to the story's `### Completion Notes List` and, if they affect future stories, to `deferred-work.md`.
+
+---
+
 ## Documentation Standards
 
 ### Per-Story Documentation (mandatory)
@@ -158,6 +189,7 @@ Conventional Commits format: `<type>(<scope>): <description>`
 The story file (`_bmad-output/implementation-artifacts/<story-key>.md`) IS the documentation record. After implementation:
 - All tasks must be checked off (`[x]`)
 - `### Completion Notes List` must summarize key decisions and deviations
+- `### E2E Validation` entry must describe what was tested, how, and the outcome
 - `### File List` must enumerate every created/modified file
 
 ### API Documentation
