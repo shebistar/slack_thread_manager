@@ -1,0 +1,1 @@
+CREATE INDEX "idx_pipeline_failures_thread_id" ON "pipeline_failures" USING btree ("thread_id");

@@ -82,8 +82,10 @@ export class PipelineStateService {
     stage: PipelineStateValue,
     error: Error,
     context?: Record<string, unknown>,
+    tx?: Pick<Database, 'insert'>,
   ): Promise<void> {
-    await this.db.insert(pipelineFailures).values({
+    const conn = tx ?? this.db;
+    await conn.insert(pipelineFailures).values({
       threadId,
       pipelineStage: stage,
       errorMessage: error.message,
@@ -103,6 +105,20 @@ export class PipelineStateService {
     error: Error,
   ): Promise<void> {
     await this.db.transaction(async (tx) => {
+      const [thread] = await tx
+        .select()
+        .from(slackThreads)
+        .where(eq(slackThreads.id, threadId));
+
+      if (!thread) {
+        throw new NotFoundException(`Thread ${threadId} not found`);
+      }
+
+      const currentState = thread.pipelineState ?? 'ingested';
+      if (!this.isValidTransition(currentState, 'pending_retry')) {
+        throw new InvalidStateTransitionError(threadId, currentState, 'pending_retry');
+      }
+
       await tx
         .update(slackThreads)
         .set({ pipelineState: 'pending_retry' as PipelineStateValue, updatedAt: sql`now()` })

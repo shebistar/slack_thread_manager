@@ -50,6 +50,13 @@
       "when": 1778280397353,
       "tag": "0006_spicy_glorian",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778281005146,
+      "tag": "0007_simple_paibok",
+      "breakpoints": true
     }
   ]
 }

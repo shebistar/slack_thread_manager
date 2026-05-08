@@ -1,6 +1,6 @@
 # Story 3.2: Pipeline State Machine & Failure Tracking
 
-Status: review
+Status: done
 
 ## Story
 
@@ -209,6 +209,31 @@ For transaction tests, `mockDb.transaction` should call the callback with a mock
 - [Source: _bmad-output/project-context.md#Known Deferred Work — pipelineState→pgEnum, pipeline_runs]
 - [Source: _bmad-output/implementation-artifacts/3-1-llm-abstraction-layer-and-provider-interface.md#Module Registration Chain]
 - [Source: _bmad-output/implementation-artifacts/deferred-work.md — BackfillService in-memory → pipeline_runs]
+
+## Senior Developer Review (AI)
+
+**Review Date:** 2026-05-08
+**Review Outcome:** Changes Requested
+**Layers Run:** Blind Hunter ✅ · Edge Case Hunter ✅ · Acceptance Auditor ✅
+
+### Action Items
+
+**Patches (must fix before `done`):**
+
+- [x] [Review][Patch] P1: `markPendingRetry` bypasses FSM validation — can move a `delivered` (terminal) thread to `pending_retry`, violating the FSM matrix which says `delivered` has no outgoing transitions [`pipeline-state.service.ts:105-117`]
+- [x] [Review][Patch] P2: No index on `pipeline_failures.thread_id` FK column — failure lookup queries will degrade as table grows [`packages/db/src/schema/pipeline-state.ts:29`]
+- [x] [Review][Patch] P3: `markFailed` runs outside any transaction — if caller is already in a transaction, the failure insert commits independently; should be documented or accept optional `tx` parameter [`pipeline-state.service.ts:85-98`]
+
+**Deferred:**
+
+- [x] [Review][Defer] Circular import between `pipeline-state.ts` and `threads.ts` — works due to ESM lazy FK pattern but adds fragility; refactor if schema files grow
+- [x] [Review][Defer] `pipeline_runs` has no index on `started_at` — sequential scan for `getLatestRuns`; fine at MVP volume (~100s runs)
+- [x] [Review][Defer] `pipeline_failures.thread_id` FK has no `ON DELETE CASCADE` — FK constraint prevents thread deletion while failures exist; add cascade when thread lifecycle management is implemented
+- [x] [Review][Defer] Unicode `→` in `InvalidStateTransitionError` message — may cause encoding issues in some log aggregators
+
+### Review Follow-ups (AI)
+
+*(populated by dev agent when addressing review findings)*
 
 ## Dev Agent Record
 

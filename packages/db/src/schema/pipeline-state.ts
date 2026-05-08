@@ -1,4 +1,4 @@
-import { integer, jsonb, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { slackThreads } from './threads.js';
 
 export const pipelineStateEnum = pgEnum('pipeline_state', [
@@ -24,16 +24,22 @@ export const pipelineRuns = pgTable('pipeline_runs', {
   fallbackCount: integer('fallback_count').notNull().default(0),
 });
 
-export const pipelineFailures = pgTable('pipeline_failures', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  threadId: uuid('thread_id')
-    .notNull()
-    .references(() => slackThreads.id),
-  pipelineStage: pipelineStateEnum('pipeline_stage').notNull(),
-  errorMessage: text('error_message').notNull(),
-  errorContext: jsonb('error_context').notNull().default({}),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const pipelineFailures = pgTable(
+  'pipeline_failures',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    threadId: uuid('thread_id')
+      .notNull()
+      .references(() => slackThreads.id),
+    pipelineStage: pipelineStateEnum('pipeline_stage').notNull(),
+    errorMessage: text('error_message').notNull(),
+    errorContext: jsonb('error_context').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_pipeline_failures_thread_id').on(table.threadId),
+  ],
+);
 
 export type PipelineRun = typeof pipelineRuns.$inferSelect;
 export type NewPipelineRun = typeof pipelineRuns.$inferInsert;

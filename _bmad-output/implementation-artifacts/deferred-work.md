@@ -1,5 +1,12 @@
 # Deferred Work
 
+## Deferred from: code review of 3-2-pipeline-state-machine-and-failure-tracking (2026-05-08)
+
+- Circular import between `pipeline-state.ts` and `threads.ts` — works due to ESM lazy FK pattern (`() => slackThreads.id`) but adds fragility; refactor if schema files grow or if build tools report cycle warnings [`packages/db/src/schema/pipeline-state.ts`, `packages/db/src/schema/threads.ts`]
+- `pipeline_runs` table has no index on `started_at` — `getLatestRuns` uses `orderBy(desc(startedAt))` which is a sequential scan; fine at MVP volume with ~100s of runs; add index when run history grows past 10K [`packages/db/src/schema/pipeline-state.ts`]
+- `pipeline_failures.thread_id` FK has no `ON DELETE CASCADE` — FK constraint prevents thread deletion while failures exist; current behavior is safe (failures preserved for debugging); add cascade when thread lifecycle management (cleanup/archival) is implemented [`packages/db/src/schema/pipeline-state.ts`]
+- Unicode `→` character in `InvalidStateTransitionError` message — may cause encoding issues in some log aggregation systems that don't handle UTF-8 properly; replace with `->` if log ingestion issues arise [`apps/api/src/modules/pipeline/pipeline.errors.ts`]
+
 ## Deferred from: code review of 3-1-llm-abstraction-layer-and-provider-interface (2026-05-08)
 
 - `LlmService.embed()` delegates to primary only with no Gemini fallback — by spec design; dev notes explicitly defer embedding fallback; revisit when embedding pipeline is production-critical [`apps/api/src/modules/pipeline/llm/llm.service.ts`]

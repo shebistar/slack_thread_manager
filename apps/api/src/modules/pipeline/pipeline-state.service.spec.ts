@@ -197,10 +197,33 @@ describe('PipelineStateService', () => {
         }),
       );
     });
+
+    it('uses provided tx instead of db when tx is passed', async () => {
+      const txValuesFn = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([]),
+      });
+      const externalTx = { insert: vi.fn().mockReturnValue({ values: txValuesFn }) };
+
+      await service.markFailed(
+        'thread-1',
+        'classified',
+        new Error('tx error'),
+        undefined,
+        externalTx as unknown as Parameters<typeof service.markFailed>[5],
+      );
+
+      expect(externalTx.insert).toHaveBeenCalled();
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
   });
 
   describe('markPendingRetry', () => {
     it('sets thread state to pending_retry and inserts failure row', async () => {
+      const selectWhere = vi.fn().mockResolvedValue([makeThread({ pipelineState: 'classified' })]);
+      mockTx.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({ where: selectWhere }),
+      });
+
       const setFn = vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue([]),
       });
@@ -226,6 +249,17 @@ describe('PipelineStateService', () => {
           errorContext: { retryable: true },
         }),
       );
+    });
+
+    it('throws InvalidStateTransitionError for terminal state (delivered)', async () => {
+      const selectWhere = vi.fn().mockResolvedValue([makeThread({ pipelineState: 'delivered' })]);
+      mockTx.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({ where: selectWhere }),
+      });
+
+      await expect(
+        service.markPendingRetry('thread-1', 'delivered', new Error('should fail')),
+      ).rejects.toThrow(InvalidStateTransitionError);
     });
   });
 
