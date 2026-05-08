@@ -5,6 +5,7 @@ import { AppController } from './app.controller.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
 import { SlackModule } from './modules/slack/slack.module.js';
+import { IngestionModule } from './modules/ingestion/ingestion.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './modules/auth/guards/roles.guard.js';
@@ -20,6 +21,7 @@ import { envSchema } from './config/app.config.js';
     AuthModule,
     AdminModule,
     SlackModule,
+    IngestionModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,5 +1,9 @@
 # Deferred Work
 
+## Deferred from: code review of 2-2-thread-ingestion-and-storage (2026-05-07)
+
+- Zod schema `z.string().datetime()` for `createdAt`/`updatedAt` in `slackThreadSchema` will not match Drizzle `Date` objects if used to validate DB results directly — not consumed for that purpose yet; align when API response contracts are formalized [`packages/shared/src/schemas/thread.schema.ts`]
+
 ## Deferred from: code review of 1-6-team-roster-management (2026-05-07)
 
 - `createDb('')` on missing `DATABASE_URL` silently defers crash to first query instead of failing at startup — pre-existing config pattern across the DatabaseModule [`apps/api/src/database/database.module.ts`]
