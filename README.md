@@ -89,7 +89,12 @@ podman-compose down    # Stop PostgreSQL container
 | PATCH | `/api/admin/channels/:id/toggle` | Toggle channel active status |
 | DELETE | `/api/admin/channels/:id` | Remove a channel |
 
-All `/admin/*` endpoints require the `ADMIN` role.
+| GET | `/api/slack/status` | Slack integration health check |
+| GET | `/api/slack/channels/:channelId` | Get Slack channel info |
+| GET | `/api/slack/channels/:channelId/history` | Fetch channel message history |
+| GET | `/api/slack/channels/:channelId/threads/:threadTs` | Fetch thread replies |
+
+All `/admin/*` and `/slack/*` endpoints require the `ADMIN` role.
 
 ## Tech Stack
 
