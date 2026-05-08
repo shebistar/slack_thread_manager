@@ -3,3 +3,4 @@ export * from './workstream.schema.js';
 export * from './channel.schema.js';
 export * from './thread.schema.js';
 export * from './backfill.schema.js';
+export * from './pipeline.schema.js';

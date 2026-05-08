@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {
   LlmCompletionOptions,
@@ -19,7 +19,7 @@ interface OpenAiEmbeddingResponse {
 export class CpuModelProvider implements LlmProviderInterface {
   private readonly logger = new Logger(CpuModelProvider.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(@Inject(ConfigService) private readonly configService: ConfigService) {}
 
   async complete(prompt: string, options?: LlmCompletionOptions): Promise<LlmCompletionResult> {
     const url = this.configService.get<string>('CPU_MODEL_URL');

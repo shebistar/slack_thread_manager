@@ -1,0 +1,20 @@
+[
+  {
+    "primary_topic": "Storage Migration",
+    "secondary_topics": ["Infrastructure", "VM Compatibility"],
+    "workstream_id": "infrastructure",
+    "confidence_score": 0.92
+  },
+  {
+    "primary_topic": "Network Configuration",
+    "secondary_topics": ["Firewall Rules"],
+    "workstream_id": "networking",
+    "confidence_score": 0.78
+  },
+  {
+    "primary_topic": "Team Onboarding",
+    "secondary_topics": [],
+    "workstream_id": null,
+    "confidence_score": 0.85
+  }
+]

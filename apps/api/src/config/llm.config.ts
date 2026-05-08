@@ -8,6 +8,7 @@ export const llmConfigSchema = z.object({
   GEMINI_MODEL_NAME: z.string().optional().default('gemini-2.5-flash'),
   LLM_TIMEOUT_MS: z.coerce.number().optional().default(60_000),
   LLM_FALLBACK_RATE_THRESHOLD: z.coerce.number().min(0).max(1).optional().default(0.5),
+  CLASSIFICATION_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).optional().default(0.6),
 });
 
 export type LlmConfig = z.infer<typeof llmConfigSchema>;

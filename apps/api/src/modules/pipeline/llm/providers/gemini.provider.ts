@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type {
@@ -13,7 +13,7 @@ export class GeminiProvider implements LlmProviderInterface {
   private readonly logger = new Logger(GeminiProvider.name);
   private readonly genAI: GoogleGenerativeAI;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(@Inject(ConfigService) private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY') ?? '';
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
