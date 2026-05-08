@@ -9,7 +9,8 @@
     "generate": "drizzle-kit generate",
     "migrate": "dotenv -e ../../.env -- drizzle-kit migrate",
     "push": "dotenv -e ../../.env -- drizzle-kit push",
-    "seed": "dotenv -e ../../.env -- tsx src/seed.ts"
+    "seed": "dotenv -e ../../.env -- tsx src/seed.ts",
+    "import-text": "dotenv -e ../../.env -- tsx src/import-text.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.41.0",

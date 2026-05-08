@@ -1,21 +1,17 @@
 /**
- * Parses plain text copied from Slack's UI into the SlackExportMessage format.
+ * Parses plain text copied from Slack's UI into the import message format.
  *
- * Slack copy-paste format (varies slightly by platform):
+ * Primary format (two-line header — name then indented timestamp):
  *
- *   DisplayName  12:30 PM
- *   Message text here
+ *   Raffaele Spazzoli
+ *     10:38
+ *   [bsod] This is the message text
  *   that can span multiple lines
  *
- *   AnotherUser  1:45 PM
- *   Another message
+ * Secondary format (inline bracket timestamp):
  *
- * Also handles formats with dates:
- *   DisplayName  May 7th, 2026 at 12:30 PM
- *   Message text
- *
- * And bracket-prefixed formats:
- *   [12:30 PM] DisplayName: Message text
+ *   Stefanie Chiras  [12:50 PM]
+ *   Hi Anne! That is wonderful news!
  */
 
 interface ParsedMessage {
@@ -25,26 +21,27 @@ interface ParsedMessage {
   type: 'message';
 }
 
-const HEADER_RE =
-  /^(.+?)\s{2,}(?:(\w+\s+\d+\w*,?\s+\d{4})\s+at\s+)?(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)$/;
+const INDENTED_TIME_RE = /^\s+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM|am|pm))?)\s*$/;
 
-const BRACKET_RE =
-  /^\[(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\]\s+(.+?):\s+(.+)$/;
+const INLINE_BRACKET_RE = /^(.+?)\s+\[(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\]\s*$/;
+
+const SKIP_LINE_RE = /^(?:image\.png|.*\.(?:png|jpg|jpeg|gif|svg|mp4|mov)|:[\w+-]+:|\s*)$/;
+
+function isNameLine(line: string, nextLine: string | undefined): boolean {
+  if (!line.trim() || line.startsWith(' ') || line.startsWith('\t')) return false;
+  if (!nextLine) return false;
+  return INDENTED_TIME_RE.test(nextLine);
+}
 
 function makeSyntheticTs(index: number, baseEpoch: number): string {
   const epoch = baseEpoch + index;
   return `${epoch}.000${String(index).padStart(3, '0')}`;
 }
 
-function parseTimeToEpoch(timeStr: string, dateStr?: string): number {
+function parseTimeToEpoch(timeStr: string): number {
   const now = new Date();
-  const dateBase = dateStr ? new Date(dateStr) : now;
-  if (isNaN(dateBase.getTime())) {
-    return Math.floor(now.getTime() / 1000);
-  }
-
   const match = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?/);
-  if (!match) return Math.floor(dateBase.getTime() / 1000);
+  if (!match) return Math.floor(now.getTime() / 1000);
 
   let hours = parseInt(match[1], 10);
   const minutes = parseInt(match[2], 10);
@@ -54,8 +51,9 @@ function parseTimeToEpoch(timeStr: string, dateStr?: string): number {
   if (period === 'PM' && hours < 12) hours += 12;
   if (period === 'AM' && hours === 12) hours = 0;
 
-  dateBase.setHours(hours, minutes, seconds, 0);
-  return Math.floor(dateBase.getTime() / 1000);
+  const base = new Date(now);
+  base.setHours(hours, minutes, seconds, 0);
+  return Math.floor(base.getTime() / 1000);
 }
 
 export function parseSlackText(text: string): ParsedMessage[] {
@@ -64,16 +62,15 @@ export function parseSlackText(text: string): ParsedMessage[] {
   const baseEpoch = Math.floor(Date.now() / 1000) - 86400;
 
   let currentUser: string | null = null;
-  let currentTime: string | null = null;
-  let currentDate: string | undefined;
+  let currentTimeStr: string | null = null;
   let currentTextLines: string[] = [];
 
   function flush() {
     if (currentUser && currentTextLines.length > 0) {
       const msgText = currentTextLines.join('\n').trim();
       if (msgText) {
-        const epoch = currentTime
-          ? parseTimeToEpoch(currentTime, currentDate)
+        const epoch = currentTimeStr
+          ? parseTimeToEpoch(currentTimeStr)
           : baseEpoch + messages.length;
         messages.push({
           ts: makeSyntheticTs(messages.length, epoch),
@@ -84,49 +81,43 @@ export function parseSlackText(text: string): ParsedMessage[] {
       }
     }
     currentUser = null;
-    currentTime = null;
-    currentDate = undefined;
+    currentTimeStr = null;
     currentTextLines = [];
   }
 
-  for (const rawLine of lines) {
-    const line = rawLine.trimEnd();
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
 
-    if (!line.trim()) {
-      if (currentUser && currentTextLines.length > 0) {
-        flush();
-      }
+    const inlineBracket = line.match(INLINE_BRACKET_RE);
+    if (inlineBracket) {
+      flush();
+      currentUser = inlineBracket[1].trim();
+      currentTimeStr = inlineBracket[2];
+      i++;
       continue;
     }
 
-    const bracketMatch = line.match(BRACKET_RE);
-    if (bracketMatch) {
+    if (isNameLine(line, nextLine)) {
       flush();
-      const epoch = parseTimeToEpoch(bracketMatch[1]);
-      messages.push({
-        ts: makeSyntheticTs(messages.length, epoch),
-        user: bracketMatch[2].trim(),
-        text: bracketMatch[3].trim(),
-        type: 'message',
-      });
+      currentUser = line.trim();
+      const timeMatch = nextLine!.match(INDENTED_TIME_RE);
+      currentTimeStr = timeMatch ? timeMatch[1].trim() : null;
+      i += 2;
       continue;
     }
 
-    const headerMatch = line.match(HEADER_RE);
-    if (headerMatch) {
-      flush();
-      currentUser = headerMatch[1].trim();
-      currentDate = headerMatch[2] || undefined;
-      currentTime = headerMatch[3];
+    if (SKIP_LINE_RE.test(line)) {
+      i++;
       continue;
     }
 
     if (currentUser) {
       currentTextLines.push(line);
-    } else {
-      currentUser = 'unknown';
-      currentTextLines.push(line);
     }
+
+    i++;
   }
 
   flush();
