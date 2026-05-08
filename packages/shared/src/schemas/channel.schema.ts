@@ -10,7 +10,7 @@ export const createChannelSchema = z.object({
       'Invalid Slack channel ID format (expected e.g. C01ABC123)',
     ),
   name: z.string().min(1).max(100),
-  workstreamId: z.string().uuid(),
+  workstreamId: z.string().uuid().nullish(),
   isActive: z.boolean().default(true),
 });
 export type CreateChannel = z.infer<typeof createChannelSchema>;
@@ -21,5 +21,6 @@ export type UpdateChannel = z.infer<typeof updateChannelSchema>;
 export const channelSchema = createChannelSchema.extend({
   id: z.string().uuid(),
   createdAt: z.string().datetime(),
+  workstreamId: z.string().uuid().nullish(),
 });
 export type Channel = z.infer<typeof channelSchema>;

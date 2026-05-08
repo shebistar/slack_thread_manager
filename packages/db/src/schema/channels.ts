@@ -8,9 +8,7 @@ export const slackChannels = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     slackChannelId: text('slack_channel_id').notNull(),
     name: text('name').notNull(),
-    workstreamId: uuid('workstream_id')
-      .notNull()
-      .references(() => workstreams.id),
+    workstreamId: uuid('workstream_id').references(() => workstreams.id),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

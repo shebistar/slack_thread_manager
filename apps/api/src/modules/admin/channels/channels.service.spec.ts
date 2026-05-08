@@ -87,6 +87,17 @@ describe('ChannelsService', () => {
       expect(result.slackChannelId).toBe('C01ABC123');
     });
 
+    it('creates a channel without a workstream (general-purpose)', async () => {
+      const result = await service.create({
+        slackChannelId: 'C01XYZ789',
+        name: 'general-chat',
+        isActive: true,
+      });
+
+      expect(dbMock.insert).toHaveBeenCalled();
+      expect(result.slackChannelId).toBe('C01ABC123');
+    });
+
     it('throws ConflictException on duplicate slack channel ID', async () => {
       dbMock.where.mockResolvedValueOnce([{ id: mockWorkstreamId }]);
       dbMock.returning.mockRejectedValueOnce({ code: '23505' });

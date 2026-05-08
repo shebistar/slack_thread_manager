@@ -33,7 +33,7 @@ describe('ChannelFormDialog — create mode', () => {
     render(<ChannelFormDialog {...defaultProps} />);
     expect(screen.getByLabelText('Slack Channel ID')).toBeInTheDocument();
     expect(screen.getByLabelText('Channel Name')).toBeInTheDocument();
-    expect(screen.getByLabelText('Workstream')).toBeInTheDocument();
+    expect(screen.getByLabelText('Workstream (optional)')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add Channel' })).toBeInTheDocument();
   });
 

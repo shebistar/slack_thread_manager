@@ -7,10 +7,10 @@ export interface ChannelWithWorkstream {
   id: string;
   slackChannelId: string;
   name: string;
-  workstreamId: string;
+  workstreamId: string | null;
   isActive: boolean;
   createdAt: string;
-  workstreamName: string;
+  workstreamName: string | null;
 }
 
 export function useChannels() {

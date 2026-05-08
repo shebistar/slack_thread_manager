@@ -12,9 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Thread Ingestion & Storage (Story 2.2):** `IngestionService` that polls active Slack channels, identifies thread-starting messages, fetches all replies, and stores threads + individual messages in the database. Idempotent upsert via `ON CONFLICT DO UPDATE` on composite unique `(slack_team_id, channel_id, thread_ts)`. Per-thread transaction isolation — one thread failure does not block others. Participant ID extraction from thread messages. Drizzle schema for `slack_threads` (10 columns, 3 indexes) and `thread_messages` (6 columns, cascade delete FK). Zod schemas for thread/message DTOs and ingestion summary.
 - **Slack History Upload (Workaround):** Manual import path for populating thread data from Slack workspace exports, bypassing the need for a live Slack API connection. `ImportService` groups exported messages into threads by `thread_ts`, transforms to internal format, and reuses the same transactional upsert pattern. `ImportController` at `POST /admin/channels/:id/import` with Zod validation. Frontend "Import History" tab in Admin page with channel selector, Slack Team ID input, multi-file JSON picker, result summary display, and step-by-step Slack export instructions. Idempotent — re-uploading the same files updates existing threads without duplicates.
 
+### Changed
+
+- **Channel-Workstream Mapping:** Workstream assignment on channels is now optional — channels can be general-purpose (not tied to a specific workstream). The "Add Channel" form defaults to "None (general purpose)" and the Channels table shows "General" for unassigned channels.
+
 ### Infrastructure
 
 - Database migration `0002_gorgeous_starjammers` adds `slack_threads` and `thread_messages` tables with foreign keys, composite unique index, and supporting indexes.
+- Database migration `0003_busy_dracula` makes `workstream_id` nullable on `slack_channels`.
 - `IngestionModule` registered in `AppModule` providing both `IngestionService` and `ImportService`.
 
 ## [0.2.0] - 2026-05-07

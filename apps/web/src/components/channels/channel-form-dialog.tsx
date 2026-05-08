@@ -36,6 +36,8 @@ interface ChannelFormDialogProps {
   onSubmitUpdate?: (dto: UpdateChannel & { id: string }) => Promise<unknown>;
 }
 
+const NO_WORKSTREAM = '__none__';
+
 interface FormState {
   slackChannelId: string;
   name: string;
@@ -47,7 +49,7 @@ function getInitialState(channel?: ChannelWithWorkstream): FormState {
   return {
     slackChannelId: channel?.slackChannelId ?? '',
     name: channel?.name ?? '',
-    workstreamId: channel?.workstreamId ?? '',
+    workstreamId: channel?.workstreamId ?? NO_WORKSTREAM,
     isActive: channel?.isActive ?? true,
   };
 }
@@ -82,10 +84,13 @@ export function ChannelFormDialog({
 
     setSubmitting(true);
     try {
+      const resolvedWorkstreamId =
+        form.workstreamId === NO_WORKSTREAM ? null : form.workstreamId || null;
+
       if (isEdit && onSubmitUpdate) {
         const result = updateChannelSchema.safeParse({
           name: form.name || undefined,
-          workstreamId: form.workstreamId || undefined,
+          workstreamId: resolvedWorkstreamId,
           isActive: form.isActive,
         });
         if (!result.success) {
@@ -101,7 +106,7 @@ export function ChannelFormDialog({
         const result = createChannelSchema.safeParse({
           slackChannelId: form.slackChannelId,
           name: form.name,
-          workstreamId: form.workstreamId,
+          workstreamId: resolvedWorkstreamId,
           isActive: form.isActive,
         });
         if (!result.success) {
@@ -194,7 +199,7 @@ export function ChannelFormDialog({
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="workstream">Workstream</Label>
+            <Label htmlFor="workstream">Workstream (optional)</Label>
             <Select
               value={form.workstreamId}
               onValueChange={(val) =>
@@ -202,9 +207,12 @@ export function ChannelFormDialog({
               }
             >
               <SelectTrigger id="workstream">
-                <SelectValue placeholder="Select workstream…" />
+                <SelectValue placeholder="None (general purpose)" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={NO_WORKSTREAM}>
+                  None (general purpose)
+                </SelectItem>
                 {workstreams.map((ws) => (
                   <SelectItem key={ws.id} value={ws.id}>
                     {ws.name}

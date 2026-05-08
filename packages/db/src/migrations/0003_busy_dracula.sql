@@ -1,0 +1,1 @@
+ALTER TABLE "slack_channels" ALTER COLUMN "workstream_id" DROP NOT NULL;

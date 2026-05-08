@@ -6,7 +6,7 @@ import { slackChannels, workstreams } from '@slack-thread-manager/db';
 import type { CreateChannel, UpdateChannel, Channel } from '@slack-thread-manager/shared';
 
 export interface ChannelWithWorkstream extends Channel {
-  workstreamName: string;
+  workstreamName: string | null;
 }
 
 @Injectable()
@@ -28,14 +28,16 @@ export class ChannelsService {
       workstreamId: c.workstreamId,
       isActive: c.isActive,
       createdAt: c.createdAt.toISOString(),
-      workstreamName: c.workstream.name,
+      workstreamName: c.workstream?.name ?? null,
     }));
   }
 
   async create(dto: CreateChannel): Promise<ChannelWithWorkstream> {
     this.logger.log('Creating channel');
 
-    await this.validateWorkstreamId(dto.workstreamId);
+    if (dto.workstreamId) {
+      await this.validateWorkstreamId(dto.workstreamId);
+    }
 
     try {
       const [channel] = await this.db
@@ -43,7 +45,7 @@ export class ChannelsService {
         .values({
           slackChannelId: dto.slackChannelId,
           name: dto.name,
-          workstreamId: dto.workstreamId,
+          workstreamId: dto.workstreamId ?? null,
           isActive: dto.isActive ?? true,
         })
         .returning();
@@ -58,7 +60,7 @@ export class ChannelsService {
   async update(id: string, dto: UpdateChannel): Promise<ChannelWithWorkstream> {
     this.logger.log('Updating channel');
 
-    if (dto.workstreamId !== undefined) {
+    if (dto.workstreamId) {
       await this.validateWorkstreamId(dto.workstreamId);
     }
 
@@ -150,7 +152,7 @@ export class ChannelsService {
       workstreamId: result.workstreamId,
       isActive: result.isActive,
       createdAt: result.createdAt.toISOString(),
-      workstreamName: result.workstream.name,
+      workstreamName: result.workstream?.name ?? null,
     };
   }
 }

@@ -7,7 +7,7 @@ A self-hosted project intelligence platform that passively observes Slack conver
 - **Authentication & Authorization** — Keycloak OIDC single sign-on with role-based access control (`@Roles('ADMIN')` decorator, `RolesGuard`, route-level guards)
 - **Admin Panel** — Tabbed administration interface (Roster, Channels, Import History, System) restricted to ADMIN users
 - **Team Roster Management** — Full CRUD for team members with email, Slack handle, role assignment, and multi-workstream mapping; sortable table with inline editing and confirmation dialogs
-- **Channel Configuration** — Configure which Slack channels the system monitors; map channels to workstreams; toggle active/inactive status; Slack Channel ID format validation (`C`, `G`, or `D` prefix)
+- **Channel Configuration** — Configure which Slack channels the system monitors; optionally map channels to workstreams or leave as general-purpose; toggle active/inactive status; Slack Channel ID format validation (`C`, `G`, or `D` prefix)
 - **Thread Ingestion & Storage** — Automatic polling of active channels for threaded conversations; idempotent upsert with per-thread transaction isolation; participant extraction; `slack_threads` and `thread_messages` tables with cascade delete
 - **Slack History Upload** — Manual import of Slack workspace export JSON files via Admin UI; groups messages into threads; reuses the same idempotent storage path; step-by-step export instructions built into the UI
 - **Slack API Client** — Bot token-based integration with `@slack/web-api`; channel history, thread replies, and channel info retrieval; exponential backoff with jitter; Slack rate-limit (`Retry-After`) awareness; graceful degradation when unconfigured
