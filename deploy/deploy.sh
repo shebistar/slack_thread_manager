@@ -41,6 +41,11 @@ podman push --tls-verify=false "${WEB_IMAGE}"
 echo "--- Pushing api image ---"
 podman push --tls-verify=false "${API_IMAGE}"
 
+# ---------- Clean up local images ----------
+echo "--- Removing local images to free disk space ---"
+podman rmi "${WEB_IMAGE}" "${API_IMAGE}" 2>/dev/null || true
+podman image prune -f 2>/dev/null || true
+
 # ---------- Deploy to OpenShift ----------
 echo "--- Switching to project ${PROJECT} ---"
 oc project "${PROJECT}" 2>/dev/null || oc new-project "${PROJECT}"
