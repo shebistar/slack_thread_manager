@@ -19,7 +19,7 @@ export class GeminiProvider implements LlmProviderInterface {
   }
 
   async complete(prompt: string, options?: LlmCompletionOptions): Promise<LlmCompletionResult> {
-    const modelName = this.configService.get<string>('GEMINI_MODEL_NAME') ?? 'gemini-pro';
+    const modelName = this.configService.get<string>('GEMINI_MODEL_NAME') ?? 'gemini-2.5-flash';
     const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 30_000;
     const model = this.genAI.getGenerativeModel({
       model: modelName,
@@ -50,7 +50,7 @@ export class GeminiProvider implements LlmProviderInterface {
   }
 
   async healthCheck(): Promise<boolean> {
-    const modelName = this.configService.get<string>('GEMINI_MODEL_NAME') ?? 'gemini-pro';
+    const modelName = this.configService.get<string>('GEMINI_MODEL_NAME') ?? 'gemini-2.5-flash';
     const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 30_000;
     try {
       const model = this.genAI.getGenerativeModel({ model: modelName });

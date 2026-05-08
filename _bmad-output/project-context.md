@@ -114,7 +114,7 @@ develop       ← integration; receives completed epics via PR
 feature/epic-X-<name>  ← one branch per epic (e.g. feature/epic-2-slack-ingestion)
 ```
 
-**Current active branch**: `feature/epic-2-slack-ingestion`
+**Current active branch**: `feature/epic-2-slack-ingestion` (carries Epic 2 + Story 3.1; will be renamed or split before Epic 3 PR)
 
 ### Commit Convention
 
@@ -209,16 +209,23 @@ Any `pnpm db:generate` run must be mentioned in the commit message: `feat(2.4): 
 
 ## Environment Variables
 
-All environment variables are validated on startup via Zod in `apps/api/src/config/app.config.ts`. Required variables:
+All environment variables are validated on startup via Zod in `apps/api/src/config/app.config.ts` (base schema + `llmConfigSchema` merged from `llm.config.ts`). Required variables:
 
-| Variable | Notes |
-|----------|-------|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `KEYCLOAK_REALM_URL` | OIDC realm URL |
-| `KEYCLOAK_CLIENT_ID` | OIDC client ID |
-| `SLACK_BOT_TOKEN` | Optional (starts with `xoxb-`) — Slack disabled if absent |
-| `SLACK_TEAM_ID` | Optional — ingestion skipped if absent |
-| `INGESTION_CRON_SCHEDULE` | Default: `'0 */4 * * *'` |
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `DATABASE_URL` | — | PostgreSQL connection string (required) |
+| `KEYCLOAK_REALM_URL` | — | OIDC realm URL (required) |
+| `KEYCLOAK_CLIENT_ID` | — | OIDC client ID (required) |
+| `SLACK_BOT_TOKEN` | — | Optional (starts with `xoxb-`) — Slack disabled if absent |
+| `SLACK_TEAM_ID` | — | Optional — ingestion skipped if absent |
+| `INGESTION_CRON_SCHEDULE` | `0 */4 * * *` | Cron expression for polling interval |
+| `CPU_MODEL_URL` | — | Optional — Ollama / OpenAI-compatible endpoint URL |
+| `CPU_MODEL_NAME` | `phi3:mini` | Completion model name for local inference |
+| `CPU_EMBED_MODEL_NAME` | `nomic-embed-text` | Embedding model name (decoupled from completion) |
+| `GEMINI_API_KEY` | — | Optional — Google Gemini API key; fallback disabled if absent |
+| `GEMINI_MODEL_NAME` | `gemini-2.5-flash` | Gemini model for completion fallback |
+| `LLM_TIMEOUT_MS` | `60000` | Per-call timeout for both providers |
+| `LLM_FALLBACK_RATE_THRESHOLD` | `0.5` | Warn when batch fallback rate exceeds this |
 
 **NEVER** add new required env vars without updating `envSchema` in `app.config.ts`.
 
@@ -226,13 +233,17 @@ All environment variables are validated on startup via Zod in `apps/api/src/conf
 
 ## Known Deferred Work (Forward Dependencies)
 
-| Item | Deferred to |
-|------|-------------|
-| `pipelineState` → pgEnum | Story 3.2 |
-| `pipeline_runs` table for persistent batch tracking | Story 3.2 |
-| E2E / integration tests | After stable UI |
-| Swagger / OpenAPI decorators | Epic 3+ |
-| Gemini Pro fallback | Story 3.1 |
-| pgvector HNSW index | Story 3.5 |
+| Item | Deferred to | Status |
+|------|-------------|--------|
+| `pipelineState` → pgEnum | Story 3.2 | pending |
+| `pipeline_runs` table for persistent batch tracking | Story 3.2 | pending |
+| E2E / integration tests | After stable UI | pending |
+| Swagger / OpenAPI decorators | Epic 3+ | pending |
+| ~~Gemini Pro fallback~~ | ~~Story 3.1~~ | done (v0.5.0) |
+| pgvector HNSW index | Story 3.5 | pending |
+| `embed()` fallback to Gemini (primary-only by design) | When embedding pipeline is production-critical | pending |
+| Batch fallback counter concurrency safety | When horizontal scaling is needed | pending |
+| CPU model auth header (`CPU_MODEL_API_KEY`) | When Ollama is exposed to non-localhost | pending |
+| Gemini safety block distinction (blocked vs. failed) | When prompt safety monitoring is added | pending |
 
 Do NOT implement these early even if they seem like obvious improvements — they have deliberate ordering.
