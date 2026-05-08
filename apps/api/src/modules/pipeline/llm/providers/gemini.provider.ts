@@ -20,9 +20,17 @@ export class GeminiProvider implements LlmProviderInterface {
 
   async complete(prompt: string, options?: LlmCompletionOptions): Promise<LlmCompletionResult> {
     const modelName = this.configService.get<string>('GEMINI_MODEL_NAME') ?? 'gemini-pro';
-    const model = this.genAI.getGenerativeModel({ model: modelName });
+    const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 30_000;
+    const model = this.genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        ...(options?.temperature !== undefined && { temperature: options.temperature }),
+        ...(options?.maxTokens !== undefined && { maxOutputTokens: options.maxTokens }),
+      },
+    });
+
     const start = Date.now();
-    const result = await model.generateContent(prompt);
+    const result = await this.withTimeout(model.generateContent(prompt), timeoutMs);
     return {
       content: result.response.text(),
       modelVersion: modelName,
@@ -32,8 +40,9 @@ export class GeminiProvider implements LlmProviderInterface {
   }
 
   async embed(text: string): Promise<LlmEmbedResult> {
+    const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 30_000;
     const model = this.genAI.getGenerativeModel({ model: 'text-embedding-004' });
-    const result = await model.embedContent(text);
+    const result = await this.withTimeout(model.embedContent(text), timeoutMs);
     return {
       embedding: result.embedding.values,
       modelVersion: 'text-embedding-004',
@@ -42,9 +51,10 @@ export class GeminiProvider implements LlmProviderInterface {
 
   async healthCheck(): Promise<boolean> {
     const modelName = this.configService.get<string>('GEMINI_MODEL_NAME') ?? 'gemini-pro';
+    const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 30_000;
     try {
       const model = this.genAI.getGenerativeModel({ model: modelName });
-      await model.generateContent('ping');
+      await this.withTimeout(model.generateContent('ping'), timeoutMs);
       return true;
     } catch (err: unknown) {
       this.logger.warn('Gemini health check failed', {
@@ -52,5 +62,14 @@ export class GeminiProvider implements LlmProviderInterface {
       });
       return false;
     }
+  }
+
+  private withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Gemini call timed out after ${timeoutMs}ms`)), timeoutMs),
+      ),
+    ]);
   }
 }

@@ -11,6 +11,7 @@ import {
 
 export interface LlmCompleteResult extends LlmCompletionResult {
   usedFallback: boolean;
+  promptVersion?: string;
 }
 
 @Injectable()
@@ -34,7 +35,7 @@ export class LlmService {
       try {
         const result = await this.primary.complete(prompt, options);
         this.logCall('cpu-model', result, options?.promptVersion);
-        return { ...result, usedFallback: false };
+        return { ...result, usedFallback: false, promptVersion: options?.promptVersion };
       } catch (err: unknown) {
         this.logger.warn(`CPU model attempt ${attempt} failed`, {
           error: err instanceof Error ? err.message : String(err),
@@ -48,7 +49,7 @@ export class LlmService {
         const result = await this.fallback.complete(prompt, options);
         this.batchFallback++;
         this.logCall('gemini', result, options?.promptVersion);
-        return { ...result, usedFallback: true };
+        return { ...result, usedFallback: true, promptVersion: options?.promptVersion };
       } catch (err: unknown) {
         this.logger.warn(`Gemini attempt ${attempt} failed`, {
           error: err instanceof Error ? err.message : String(err),
@@ -58,7 +59,7 @@ export class LlmService {
 
     // All 4 attempts exhausted
     this.logger.error('All LLM providers failed', { prompt: prompt.slice(0, 80) });
-    throw new LlmPendingRetryError('All LLM providers failed after retries', 'gemini');
+    throw new LlmPendingRetryError('All LLM providers failed after retries', 'all');
   }
 
   async embed(text: string): Promise<LlmEmbedResult> {
@@ -79,7 +80,7 @@ export class LlmService {
 
     if (rate > threshold) {
       this.logger.warn('LLM fallback rate exceeded threshold', {
-        llm_fallback_rate: rate,
+        'llm.fallback_rate': rate,
         batchFallback: this.batchFallback,
         batchTotal: this.batchTotal,
         threshold,

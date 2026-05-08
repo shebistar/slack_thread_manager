@@ -1,5 +1,14 @@
 # Deferred Work
 
+## Deferred from: code review of 3-1-llm-abstraction-layer-and-provider-interface (2026-05-08)
+
+- `LlmService.embed()` delegates to primary only with no Gemini fallback — by spec design; dev notes explicitly defer embedding fallback; revisit when embedding pipeline is production-critical [`apps/api/src/modules/pipeline/llm/llm.service.ts`]
+- Batch fallback counters (`batchTotal`, `batchFallback`) can miscount under concurrent `complete()` calls — single-process architecture assumption holds for now; add mutex/scoped-batch-context when horizontal scaling is needed [`apps/api/src/modules/pipeline/llm/llm.service.ts`]
+- Up to 80 chars of prompt content included in error-level log when all providers fail — operational/security policy decision; redact or hash when log retention/compliance policy is formalized [`apps/api/src/modules/pipeline/llm/llm.service.ts`]
+- CPU model provider has no `CPU_MODEL_API_KEY` auth header support — local inference assumed network-isolated; add optional bearer token env var when Ollama is exposed to non-localhost [`apps/api/src/modules/pipeline/llm/providers/cpu-model.provider.ts`]
+- Gemini safety blocks and no-text responses treated as transport errors (caught, retried, then `LlmPendingRetryError`) — current behavior is safe but not explicitly handled; distinguish blocked vs failed responses when prompt safety monitoring is added [`apps/api/src/modules/pipeline/llm/providers/gemini.provider.ts`]
+- `GeminiProvider` initializes `GoogleGenerativeAI` with empty string when `GEMINI_API_KEY` is absent — first API call fails and propagates up to retry chain as expected; no startup crash by design [`apps/api/src/modules/pipeline/llm/providers/gemini.provider.ts`]
+
 ## Deferred from: code review of 2-2-thread-ingestion-and-storage (2026-05-07)
 
 - Zod schema `z.string().datetime()` for `createdAt`/`updatedAt` in `slackThreadSchema` will not match Drizzle `Date` objects if used to validate DB results directly — not consumed for that purpose yet; align when API response contracts are formalized [`packages/shared/src/schemas/thread.schema.ts`]

@@ -187,7 +187,7 @@ describe('LlmService', () => {
 
       expect(warnSpy).toHaveBeenCalledWith(
         'LLM fallback rate exceeded threshold',
-        expect.objectContaining({ llm_fallback_rate: 1, batchTotal: 2, batchFallback: 2 }),
+        expect.objectContaining({ 'llm.fallback_rate': 1, batchTotal: 2, batchFallback: 2 }),
       );
     });
 

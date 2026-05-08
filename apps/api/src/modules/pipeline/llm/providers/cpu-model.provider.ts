@@ -51,8 +51,12 @@ export class CpuModelProvider implements LlmProviderInterface {
       }
 
       const data = (await res.json()) as OpenAiChatResponse;
+      const content = data.choices?.[0]?.message?.content;
+      if (typeof content !== 'string') {
+        throw new Error('CPU model returned invalid response: missing choices[0].message.content');
+      }
       return {
-        content: data.choices[0].message.content,
+        content,
         modelVersion: model,
         latencyMs: Date.now() - start,
         success: true,
@@ -86,8 +90,12 @@ export class CpuModelProvider implements LlmProviderInterface {
       }
 
       const data = (await res.json()) as OpenAiEmbeddingResponse;
+      const embedding = data.data?.[0]?.embedding;
+      if (!Array.isArray(embedding)) {
+        throw new Error('CPU model returned invalid embedding response: missing data[0].embedding');
+      }
       return {
-        embedding: data.data[0].embedding,
+        embedding,
         modelVersion: model,
       };
     } finally {
@@ -99,14 +107,20 @@ export class CpuModelProvider implements LlmProviderInterface {
     const url = this.configService.get<string>('CPU_MODEL_URL');
     if (!url) return false;
 
+    const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 30_000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
-      const res = await fetch(`${url}/v1/models`);
+      const res = await fetch(`${url}/v1/models`, { signal: controller.signal });
       return res.ok;
     } catch (err: unknown) {
       this.logger.warn('CPU model health check failed', {
         error: err instanceof Error ? err.message : String(err),
       });
       return false;
+    } finally {
+      clearTimeout(timer);
     }
   }
 }

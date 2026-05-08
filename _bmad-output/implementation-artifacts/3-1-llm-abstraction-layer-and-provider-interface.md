@@ -1,6 +1,6 @@
 # Story 3.1: LLM Abstraction Layer & Provider Interface
 
-Status: review
+Status: done
 
 ## Story
 
@@ -374,6 +374,38 @@ NestJS `ConfigModule` is `isGlobal: true` in `AppModule` — `ConfigService` is 
 - [Source: apps/api/src/app.module.ts — module registration pattern]
 - [Source: apps/api/src/modules/ingestion/ingestion.module.ts — module structure pattern]
 - [Source: _bmad-output/implementation-artifacts/2-5-historical-backfill.md — previous story patterns]
+
+## Senior Developer Review (AI)
+
+**Review Date:** 2026-05-08
+**Review Outcome:** Changes Requested
+**Layers Run:** Blind Hunter ✅ · Edge Case Hunter ✅ · Acceptance Auditor ✅
+
+### Action Items
+
+**Patches (must fix before `done`):**
+
+- [x] [Review][Patch] P1: Log key `llm_fallback_rate` → `llm.fallback_rate` to match AC8 spec [`llm.service.ts:77`]
+- [x] [Review][Patch] P2: Add timeout (LLM_TIMEOUT_MS) to Gemini `complete()` — unbounded hang risk [`gemini.provider.ts:25`]
+- [x] [Review][Patch] P3: Add timeout (LLM_TIMEOUT_MS) to Gemini `embed()` — no AbortController [`gemini.provider.ts:38`]
+- [x] [Review][Patch] P4: Add timeout (LLM_TIMEOUT_MS) to CPU `healthCheck()` — no AbortController [`cpu-model.provider.ts:98`]
+- [x] [Review][Patch] P5: Guard `choices[0]` / `data[0]` array bounds in CPU responses — TypeError on empty array [`cpu-model.provider.ts:57,87`]
+- [x] [Review][Patch] P6: Change hardcoded `'gemini'` → `'all'` in `LlmPendingRetryError` throw — wrong blame attribution [`llm.service.ts:60`]
+- [x] [Review][Patch] P7: Add `promptVersion?: string` to `LlmCompleteResult` return type — AC1 violation [`llm-provider.interface.ts`, `llm.service.ts`]
+- [x] [Review][Patch] P8: Pass `temperature`/`maxTokens` from options to Gemini `generateContent` — silently ignored on fallback path [`gemini.provider.ts:25`]
+
+**Deferred:**
+
+- [x] [Review][Defer] `embed()` has no fallback to Gemini — by spec design, dev notes explicitly state primary-only
+- [x] [Review][Defer] Fallback-rate stats can miscount under concurrent calls — single-process by architecture assumption
+- [x] [Review][Defer] Prompt content (80 chars) in error log — operational policy decision, not in story scope
+- [x] [Review][Defer] CPU model has no auth header (`CPU_MODEL_API_KEY`) — not in story scope, add when needed
+- [x] [Review][Defer] Gemini safety blocks treated as transport error — currently handled by retry+LlmPendingRetryError chain
+- [x] [Review][Defer] `GEMINI_API_KEY` absent → empty string init — graceful degradation by design (fails on first call)
+
+### Review Follow-ups (AI)
+
+*(populated by dev agent when addressing review findings)*
 
 ## Dev Agent Record
 
