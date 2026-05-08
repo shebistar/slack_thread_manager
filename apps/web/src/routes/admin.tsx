@@ -22,6 +22,7 @@ import {
   useDeleteChannel,
 } from '@/hooks/use-channels.js';
 import type { ChannelWithWorkstream } from '@/hooks/use-channels.js';
+import { ImportForm } from '@/components/admin/import-form.js';
 import type { RosterMember } from '@slack-thread-manager/shared';
 
 export const Route = createFileRoute('/admin')({
@@ -47,6 +48,7 @@ function AdminPage() {
         <TabsList>
           <TabsTrigger value="roster">Roster</TabsTrigger>
           <TabsTrigger value="channels">Channels</TabsTrigger>
+          <TabsTrigger value="import">Import History</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
         </TabsList>
         <TabsContent value="roster" className="mt-6">
@@ -54,6 +56,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="channels" className="mt-6">
           <ChannelsTabContent />
+        </TabsContent>
+        <TabsContent value="import" className="mt-6">
+          <ImportForm />
         </TabsContent>
         <TabsContent value="system" className="mt-6">
           <p className="text-sm text-[--color-gray-50]">
