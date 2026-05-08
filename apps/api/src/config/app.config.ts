@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { llmConfigSchema } from './llm.config.js';
 
-export const envSchema = z.object({
+const baseSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3000),
   DATABASE_URL: z.string().url(),
@@ -10,5 +11,7 @@ export const envSchema = z.object({
   SLACK_TEAM_ID: z.string().optional(),
   INGESTION_CRON_SCHEDULE: z.string().default('0 */4 * * *'),
 });
+
+export const envSchema = baseSchema.merge(llmConfigSchema);
 
 export type EnvConfig = z.infer<typeof envSchema>;
