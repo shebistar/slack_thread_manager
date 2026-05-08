@@ -114,7 +114,7 @@ develop       ← integration; receives completed epics via PR
 feature/epic-X-<name>  ← one branch per epic (e.g. feature/epic-2-slack-ingestion)
 ```
 
-**Current active branch**: `feature/epic-2-slack-ingestion` (carries Epic 2 + Story 3.1; will be renamed or split before Epic 3 PR)
+**Current active branch**: `feature/epic-3-knowledge-pipeline` (branched from `feature/epic-2-slack-ingestion` at Story 3.1 completion)
 
 ### Commit Convention
 
