@@ -6,6 +6,8 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   KEYCLOAK_REALM_URL: z.string().url(),
   KEYCLOAK_CLIENT_ID: z.string().min(1),
+  SLACK_BOT_TOKEN: z.string().startsWith('xoxb-').optional(),
+  SLACK_TEAM_ID: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
