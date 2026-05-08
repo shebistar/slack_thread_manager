@@ -1,0 +1,36 @@
+# Team override for bmad-dev-story.
+# Committed to repo — applies to every developer on this project.
+# Merges over the base customize.toml per BMad structural rules.
+
+[workflow]
+
+# After the story status is set to 'review' and sprint-status.yaml is updated,
+# run these git governance steps automatically:
+on_complete = """
+Git + documentation wrap-up (run after every story):
+
+1. Stage all modified and new files:
+   - All source files created or changed for this story
+   - All spec/test files
+   - Any Drizzle migration SQL + meta JSON (packages/db/src/migrations/)
+   - The story file (_bmad-output/implementation-artifacts/<story-key>.md) — now at status: review
+   - The sprint status file (_bmad-output/implementation-artifacts/sprint-status.yaml)
+
+2. Commit using Conventional Commits format:
+   feat(<story-id>): <one-line summary of what the story implemented>
+   Example: feat(2.5): add historical backfill endpoint with async job tracking
+
+   If a DB migration was generated, mention it in the message:
+   feat(2.4): add thread update detection; add pipeline_state column
+
+3. Push to the current feature branch:
+   git push origin HEAD
+
+4. Report to the user:
+   - The commit hash and message
+   - The branch it was pushed to
+   - How many files were committed
+   - Reminder: when ALL stories in this epic reach 'done', say so and offer to create the PR to develop
+
+Do NOT create the epic PR after each story — only after all epic stories are complete or the user explicitly asks.
+"""
