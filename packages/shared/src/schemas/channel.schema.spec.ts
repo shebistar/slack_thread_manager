@@ -66,6 +66,23 @@ describe('createChannelSchema', () => {
     ).toBe(false);
   });
 
+  it('accepts null workstreamId for general-purpose channels', () => {
+    const result = createChannelSchema.safeParse({ ...validChannel, workstreamId: null });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.workstreamId).toBeNull();
+    }
+  });
+
+  it('accepts omitted workstreamId for general-purpose channels', () => {
+    const { workstreamId: _, ...noWorkstream } = validChannel;
+    const result = createChannelSchema.safeParse(noWorkstream);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.workstreamId).toBeUndefined();
+    }
+  });
+
   it('rejects missing required fields', () => {
     expect(createChannelSchema.safeParse({}).success).toBe(false);
   });

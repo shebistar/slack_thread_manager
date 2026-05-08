@@ -1,0 +1,1 @@
+ALTER TABLE "slack_threads" ADD COLUMN "pipeline_state" text DEFAULT 'ingested';

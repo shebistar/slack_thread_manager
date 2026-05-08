@@ -186,6 +186,21 @@ FR38: Epic 6 - Search interface through dashboard
 FR39: Epic 7 - PM silence detection dashboard view
 FR40: Epic 1 - Admin panel access (roster, channels, staging, thresholds, blocklist)
 
+## Cross-Cutting Definition of Done (All Stories)
+
+Every story, regardless of epic, must satisfy these criteria before moving to `review`:
+
+1. **Unit tests green** — all existing tests pass; new functionality has dedicated test coverage
+2. **E2E validation with real data** — the feature is exercised against text-paste-imported Slack conversations (not just mocked data). The validation is documented in the story's Completion Notes.
+3. **Text-paste compatibility** — features work identically whether data entered via Slack API polling or text-paste import (`POST /api/admin/channels/:id/import`)
+4. **Gap identification** — after E2E validation, any discovered gaps (missing transformations, UI rendering issues, unconnected pipeline stages) are documented in Completion Notes and `deferred-work.md`
+5. **Git governance** — all story files committed with conventional commit format and pushed to the feature branch
+6. **Documentation** — story file has all tasks checked, Completion Notes filled, File List complete, and E2E validation entry present
+
+### Text-Paste Import as Primary Ingestion Mode
+
+The text-paste import is a primary ingestion mode for environments where direct Slack API connectivity is unavailable. All pipeline features (classification, summarization, embedding, search, briefing generation) MUST work identically regardless of ingestion source. This path is NOT a workaround — it is a product feature that ensures the system delivers value even without Slack API access.
+
 ## Epic List
 
 ### Epic 1: Project Foundation & System Administration

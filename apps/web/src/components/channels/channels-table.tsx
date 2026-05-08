@@ -129,7 +129,11 @@ export function ChannelsTable({
                   <TableCell className="font-mono text-xs">
                     {channel.slackChannelId}
                   </TableCell>
-                  <TableCell>{channel.workstreamName}</TableCell>
+                  <TableCell>
+                    {channel.workstreamName ?? (
+                      <span className="text-[--color-gray-30] italic">General</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={channel.isActive ? 'default' : 'secondary'}

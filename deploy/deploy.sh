@@ -41,6 +41,11 @@ podman push --tls-verify=false "${WEB_IMAGE}"
 echo "--- Pushing api image ---"
 podman push --tls-verify=false "${API_IMAGE}"
 
+# ---------- Clean up local images ----------
+echo "--- Removing local images to free disk space ---"
+podman rmi "${WEB_IMAGE}" "${API_IMAGE}" 2>/dev/null || true
+podman image prune -f 2>/dev/null || true
+
 # ---------- Deploy to OpenShift ----------
 echo "--- Switching to project ${PROJECT} ---"
 oc project "${PROJECT}" 2>/dev/null || oc new-project "${PROJECT}"
@@ -50,6 +55,23 @@ oc apply -f "${SCRIPT_DIR}/openshift/postgres.yaml"
 
 echo "--- Waiting for PostgreSQL readiness ---"
 oc rollout status deployment/stm-postgres --timeout=120s || true
+
+# ---------- Database migrations ----------
+echo "--- Running database migrations ---"
+LOCAL_PG_PORT=15432
+oc port-forward svc/stm-postgres "${LOCAL_PG_PORT}:5432" &
+PF_PID=$!
+sleep 3
+
+MIGRATE_URL="postgresql://stm_dev:stm_dev_password@localhost:${LOCAL_PG_PORT}/slack_thread_manager"
+if DATABASE_URL="${MIGRATE_URL}" pnpm --filter @slack-thread-manager/db migrate; then
+  echo "--- Migrations applied successfully ---"
+else
+  echo "WARNING: Migration failed — check database connectivity and retry manually"
+fi
+
+kill "${PF_PID}" 2>/dev/null || true
+wait "${PF_PID}" 2>/dev/null || true
 
 echo "--- Applying API ---"
 oc apply -f "${SCRIPT_DIR}/openshift/api.yaml"

@@ -160,7 +160,12 @@ function GettingStartedSection() {
             </li>
             <li>
               <strong>Channels</strong> — configure which Slack channels the
-              system monitors and map them to workstreams.
+              system monitors. Channels can be general-purpose or optionally
+              mapped to a workstream.
+            </li>
+            <li>
+              <strong>Import History</strong> — populate thread data by pasting
+              messages copied from Slack or uploading JSON export files.
             </li>
             <li>
               <strong>System</strong> — view pipeline health and system status.
@@ -221,9 +226,24 @@ function FeaturesSection() {
             Channel Configuration
           </h3>
           <p className="text-sm text-[--color-gray-70]">
-            Admins configure which Slack channels the system monitors. Each
-            channel is mapped to a workstream and can be toggled active or
-            inactive to pause ingestion without removing the configuration.
+            Admins configure which Slack channels the system monitors. Channels
+            can be general-purpose or optionally mapped to a workstream, and
+            can be toggled active or inactive to pause ingestion without
+            removing the configuration.
+          </p>
+        </div>
+
+        <div>
+          <h3 className="text-base font-medium text-[--color-gray-95] mb-2">
+            Import History
+          </h3>
+          <p className="text-sm text-[--color-gray-70]">
+            When live Slack API access isn't available, admins can populate
+            thread data manually. Copy messages directly from Slack's UI and
+            paste them into the Import History tab, or upload JSON files from a
+            Slack workspace export. The system groups messages into threads,
+            extracts participants, and stores everything using the same
+            idempotent pipeline — re-importing the same data is safe.
           </p>
         </div>
 
@@ -307,9 +327,47 @@ function ChangelogSection() {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <h3 className="text-base font-medium text-[--color-gray-95]">
-              v0.1.0
+              v0.3.0
             </h3>
             <Badge variant="secondary">Current</Badge>
+            <span className="text-xs text-[--color-gray-50]">2026-05-08</span>
+          </div>
+          <p className="text-sm text-[--color-gray-70] mb-2">
+            Thread ingestion, manual import, and general-purpose channels.
+          </p>
+          <ul className="list-disc pl-5 text-sm text-[--color-gray-70] space-y-1">
+            <li>Thread ingestion service with idempotent upsert and per-thread transaction isolation</li>
+            <li>Database tables for slack_threads and thread_messages with cascade delete</li>
+            <li>Import History tab with paste-text mode (copy from Slack UI) and JSON file upload</li>
+            <li>Slack message parser for copy-paste format detection</li>
+            <li>Channels no longer require a workstream — can be general-purpose</li>
+            <li>Automatic database migrations in OpenShift deploy script</li>
+          </ul>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-base font-medium text-[--color-gray-95]">
+              v0.2.0
+            </h3>
+            <span className="text-xs text-[--color-gray-50]">2026-05-07</span>
+          </div>
+          <p className="text-sm text-[--color-gray-70] mb-2">
+            Slack API integration foundation.
+          </p>
+          <ul className="list-disc pl-5 text-sm text-[--color-gray-70] space-y-1">
+            <li>Slack API client with bot token authentication and rate-limit handling</li>
+            <li>Channel history and thread reply retrieval via Slack SDK</li>
+            <li>Exponential backoff with jitter for robust retries</li>
+            <li>Graceful degradation when Slack token is not configured</li>
+          </ul>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-base font-medium text-[--color-gray-95]">
+              v0.1.0
+            </h3>
             <span className="text-xs text-[--color-gray-50]">2026-05-07</span>
           </div>
           <p className="text-sm text-[--color-gray-70] mb-2">

@@ -5,9 +5,11 @@ A self-hosted project intelligence platform that passively observes Slack conver
 ## Features
 
 - **Authentication & Authorization** — Keycloak OIDC single sign-on with role-based access control (`@Roles('ADMIN')` decorator, `RolesGuard`, route-level guards)
-- **Admin Panel** — Tabbed administration interface (Roster, Channels, System) restricted to ADMIN users
+- **Admin Panel** — Tabbed administration interface (Roster, Channels, Import History, System) restricted to ADMIN users
 - **Team Roster Management** — Full CRUD for team members with email, Slack handle, role assignment, and multi-workstream mapping; sortable table with inline editing and confirmation dialogs
-- **Channel Configuration** — Configure which Slack channels the system monitors; map channels to workstreams; toggle active/inactive status; Slack Channel ID format validation (`C`, `G`, or `D` prefix)
+- **Channel Configuration** — Configure which Slack channels the system monitors; optionally map channels to workstreams or leave as general-purpose; toggle active/inactive status; Slack Channel ID format validation (`C`, `G`, or `D` prefix)
+- **Thread Ingestion & Storage** — Automatic polling of active channels for threaded conversations; idempotent upsert with per-thread transaction isolation; participant extraction; `slack_threads` and `thread_messages` tables with cascade delete
+- **Slack History Upload** — Manual import of Slack workspace export JSON files via Admin UI; groups messages into threads; reuses the same idempotent storage path; step-by-step export instructions built into the UI
 - **Slack API Client** — Bot token-based integration with `@slack/web-api`; channel history, thread replies, and channel info retrieval; exponential backoff with jitter; Slack rate-limit (`Retry-After`) awareness; graceful degradation when unconfigured
 - **Dashboard Shell** — Responsive navigation with role-gated links, Red Hat typography, branded header with role badge and logout, dynamic page titles
 - **In-App Help** — Documentation page with Getting Started guide, feature descriptions, role/permission reference, and changelog; accessible from navbar and footer
@@ -88,6 +90,7 @@ podman-compose down    # Stop PostgreSQL container
 | PATCH | `/api/admin/channels/:id` | Update a channel |
 | PATCH | `/api/admin/channels/:id/toggle` | Toggle channel active status |
 | DELETE | `/api/admin/channels/:id` | Remove a channel |
+| POST | `/api/admin/channels/:id/import` | Import Slack export JSON into channel |
 
 | GET | `/api/slack/status` | Slack integration health check |
 | GET | `/api/slack/channels/:channelId` | Get Slack channel info |

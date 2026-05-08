@@ -1,5 +1,18 @@
 # Deferred Work
 
+## Deferred from: code review of 3-1-llm-abstraction-layer-and-provider-interface (2026-05-08)
+
+- `LlmService.embed()` delegates to primary only with no Gemini fallback — by spec design; dev notes explicitly defer embedding fallback; revisit when embedding pipeline is production-critical [`apps/api/src/modules/pipeline/llm/llm.service.ts`]
+- Batch fallback counters (`batchTotal`, `batchFallback`) can miscount under concurrent `complete()` calls — single-process architecture assumption holds for now; add mutex/scoped-batch-context when horizontal scaling is needed [`apps/api/src/modules/pipeline/llm/llm.service.ts`]
+- Up to 80 chars of prompt content included in error-level log when all providers fail — operational/security policy decision; redact or hash when log retention/compliance policy is formalized [`apps/api/src/modules/pipeline/llm/llm.service.ts`]
+- CPU model provider has no `CPU_MODEL_API_KEY` auth header support — local inference assumed network-isolated; add optional bearer token env var when Ollama is exposed to non-localhost [`apps/api/src/modules/pipeline/llm/providers/cpu-model.provider.ts`]
+- Gemini safety blocks and no-text responses treated as transport errors (caught, retried, then `LlmPendingRetryError`) — current behavior is safe but not explicitly handled; distinguish blocked vs failed responses when prompt safety monitoring is added [`apps/api/src/modules/pipeline/llm/providers/gemini.provider.ts`]
+- `GeminiProvider` initializes `GoogleGenerativeAI` with empty string when `GEMINI_API_KEY` is absent — first API call fails and propagates up to retry chain as expected; no startup crash by design [`apps/api/src/modules/pipeline/llm/providers/gemini.provider.ts`]
+
+## Deferred from: code review of 2-2-thread-ingestion-and-storage (2026-05-07)
+
+- Zod schema `z.string().datetime()` for `createdAt`/`updatedAt` in `slackThreadSchema` will not match Drizzle `Date` objects if used to validate DB results directly — not consumed for that purpose yet; align when API response contracts are formalized [`packages/shared/src/schemas/thread.schema.ts`]
+
 ## Deferred from: code review of 1-6-team-roster-management (2026-05-07)
 
 - `createDb('')` on missing `DATABASE_URL` silently defers crash to first query instead of failing at startup — pre-existing config pattern across the DatabaseModule [`apps/api/src/database/database.module.ts`]
@@ -24,6 +37,23 @@
 - `z.string().datetime()` does not enforce timezone offset — may diverge from `timestamptz` serialization; standardize on `.datetime({ offset: true })` when API contracts are formalized [`packages/shared/src/schemas/`]
 - `updateUserSchema` cannot express "clear slackNicknames to []" via null/omit — add explicit nullable handling when PATCH endpoint for users is implemented [`packages/shared/src/schemas/user.schema.ts`]
 - `tsx` in `devDependencies` — seed unavailable with `--omit=dev` production installs; move to `dependencies` or document that seed is strictly a dev-environment script [`packages/db/package.json`]
+
+## Deferred from: code review of stories 2-4 and 2-5 (2026-05-08)
+
+- `detectUpdatedThreads` makes N `conversations.replies(limit:1)` calls per stored thread with no activity filter or pagination — acceptable at current ~100s thread volume; add last-activity filter or batching before scaling to 1000s of threads [`apps/api/src/modules/ingestion/ingestion.service.ts:186`]
+- `jobs` Map in `BackfillService` grows unboundedly with no TTL or eviction — V1 in-memory simplification; replace with persistent `pipeline_runs` table in Story 3.2 [`apps/api/src/modules/ingestion/backfill.service.ts:25`]
+- No concurrency guard prevents simultaneous backfill jobs on same channels — single-admin scenario; upsert semantics protect data integrity; add guard if admin count grows [`apps/api/src/modules/ingestion/backfill.service.ts:40`]
+- `oldestTs` validated only as `min(1)` — Slack will reject invalid timestamp formats but validation boundary is at the API layer not the controller; add `.regex(/^\d+\.\d+$/)` when formalizing contracts [`packages/shared/src/schemas/backfill.schema.ts`]
+
+## Deferred from: code review of 2-3-batch-polling-job-with-watermark (2026-05-08)
+
+- No mutex against overlapping cron runs — long batches can run concurrently with the next tick; add `if (this.busy) return` guard or configure `@Cron` with `disableOverlap` when available [`apps/api/src/modules/ingestion/polling.job.ts`]
+- No distributed lock for horizontal scaling — multiple API replicas poll the same channels in parallel; add advisory DB lock or queue-based deduplication before scaling horizontally [`apps/api/src/modules/ingestion/polling.job.ts`]
+- NestJS Logger structured JSON depends on logger config — second-arg object may serialize as `[Object]` with default logger; switch to JSON logger or custom formatter in production [`apps/api/src/modules/ingestion/polling.job.ts`]
+- `lastBatchStatus` semantics ambiguous for zero-channel runs — zero-channel batch reports `success`; consider a `no-channels` or `skipped` status [`apps/api/src/modules/ingestion/polling.job.ts`]
+- Watermark uses DB `now()` not last-message-ts — messages posted during the ingestion window can be skipped; consider setting watermark to last ingested message timestamp instead [`apps/api/src/modules/ingestion/polling.job.ts`]
+- No cron expression validation — invalid `INGESTION_CRON_SCHEDULE` string fails at runtime; add Zod `.refine()` to validate cron syntax at startup [`apps/api/src/config/app.config.ts`]
+- Migration rollback strategy not documented — add explicit down-migration for `last_polled_ts` column for rolling deployments [`packages/db/src/migrations/0004_futuristic_whirlwind.sql`]
 
 ## Deferred from: code review of 1-1-monorepo-scaffold-and-development-environment (2026-05-06)
 
