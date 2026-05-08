@@ -26,8 +26,8 @@ export class CpuModelProvider implements LlmProviderInterface {
     if (!url) {
       throw new Error('CPU_MODEL_URL is not configured');
     }
-    const model = this.configService.get<string>('CPU_MODEL_NAME') ?? 'mistral';
-    const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 30_000;
+    const model = this.configService.get<string>('CPU_MODEL_NAME') ?? 'phi3:mini';
+    const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 60_000;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -71,8 +71,8 @@ export class CpuModelProvider implements LlmProviderInterface {
     if (!url) {
       throw new Error('CPU_MODEL_URL is not configured');
     }
-    const model = this.configService.get<string>('CPU_MODEL_NAME') ?? 'mistral';
-    const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 30_000;
+    const model = this.configService.get<string>('CPU_EMBED_MODEL_NAME') ?? 'nomic-embed-text';
+    const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 60_000;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -107,7 +107,7 @@ export class CpuModelProvider implements LlmProviderInterface {
     const url = this.configService.get<string>('CPU_MODEL_URL');
     if (!url) return false;
 
-    const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 30_000;
+    const timeoutMs = this.configService.get<number>('LLM_TIMEOUT_MS') ?? 60_000;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 

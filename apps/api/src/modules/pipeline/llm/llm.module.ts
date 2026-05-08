@@ -5,6 +5,6 @@ import { LlmService } from './llm.service.js';
 
 @Module({
   providers: [CpuModelProvider, GeminiProvider, LlmService],
-  exports: [LlmService],
+  exports: [LlmService, CpuModelProvider, GeminiProvider],
 })
 export class LlmModule {}
