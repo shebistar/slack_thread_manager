@@ -6,6 +6,7 @@ import {
   HttpStatus,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
 import { BackfillService } from './backfill.service.js';
@@ -29,7 +30,7 @@ export class BackfillController {
   }
 
   @Get('backfill/:jobId')
-  getBackfillStatus(@Param('jobId') jobId: string) {
+  getBackfillStatus(@Param('jobId', new ParseUUIDPipe()) jobId: string) {
     const status = this.backfillService.getBackfillStatus(jobId);
     if (!status) {
       throw new NotFoundException(`Backfill job not found: ${jobId}`);

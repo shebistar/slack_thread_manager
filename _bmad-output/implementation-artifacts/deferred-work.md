@@ -29,6 +29,13 @@
 - `updateUserSchema` cannot express "clear slackNicknames to []" via null/omit — add explicit nullable handling when PATCH endpoint for users is implemented [`packages/shared/src/schemas/user.schema.ts`]
 - `tsx` in `devDependencies` — seed unavailable with `--omit=dev` production installs; move to `dependencies` or document that seed is strictly a dev-environment script [`packages/db/package.json`]
 
+## Deferred from: code review of stories 2-4 and 2-5 (2026-05-08)
+
+- `detectUpdatedThreads` makes N `conversations.replies(limit:1)` calls per stored thread with no activity filter or pagination — acceptable at current ~100s thread volume; add last-activity filter or batching before scaling to 1000s of threads [`apps/api/src/modules/ingestion/ingestion.service.ts:186`]
+- `jobs` Map in `BackfillService` grows unboundedly with no TTL or eviction — V1 in-memory simplification; replace with persistent `pipeline_runs` table in Story 3.2 [`apps/api/src/modules/ingestion/backfill.service.ts:25`]
+- No concurrency guard prevents simultaneous backfill jobs on same channels — single-admin scenario; upsert semantics protect data integrity; add guard if admin count grows [`apps/api/src/modules/ingestion/backfill.service.ts:40`]
+- `oldestTs` validated only as `min(1)` — Slack will reject invalid timestamp formats but validation boundary is at the API layer not the controller; add `.regex(/^\d+\.\d+$/)` when formalizing contracts [`packages/shared/src/schemas/backfill.schema.ts`]
+
 ## Deferred from: code review of 2-3-batch-polling-job-with-watermark (2026-05-08)
 
 - No mutex against overlapping cron runs — long batches can run concurrently with the next tick; add `if (this.busy) return` guard or configure `@Cron` with `disableOverlap` when available [`apps/api/src/modules/ingestion/polling.job.ts`]

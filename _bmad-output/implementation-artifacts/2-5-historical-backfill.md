@@ -1,6 +1,6 @@
 # Story 2.5: Historical Backfill
 
-Status: review
+Status: done
 
 ## Story
 
@@ -350,3 +350,9 @@ claude-sonnet-4-5
 - `apps/api/src/modules/ingestion/ingestion.module.ts` — added `BackfillController` and `BackfillService`
 - `apps/api/src/modules/ingestion/backfill.service.spec.ts` — 8 unit tests for `BackfillService`
 - `apps/api/src/modules/ingestion/backfill.controller.spec.ts` — 3 unit tests for `BackfillController`
+
+### Review Findings
+
+- [x] [Review][Patch] `@Param('jobId')` not UUID-validated [`apps/api/src/modules/ingestion/backfill.controller.ts:33`] — fixed: added `ParseUUIDPipe` to `@Param('jobId', new ParseUUIDPipe())`
+- [x] [Review][Defer] `jobs` Map grows unboundedly — no TTL or eviction [`apps/api/src/modules/ingestion/backfill.service.ts:25`] — deferred, V1 in-memory simplification; replace with pipeline_runs table in Story 3.2
+- [x] [Review][Defer] Concurrent backfill jobs not prevented [`apps/api/src/modules/ingestion/backfill.service.ts:40`] — deferred, single-admin use case; upsert semantics protect data integrity

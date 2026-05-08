@@ -116,9 +116,15 @@ export class IngestionService {
       columns: { id: true, latestReplyTs: true },
     });
 
-    if (existing && existing.latestReplyTs === slackLatestReply) {
-      this.logger.debug('Thread unchanged, skipping', { threadTs });
-      return 'skipped';
+    if (existing) {
+      // A thread is unchanged if both sides agree there are no replies (null stored, no latestReply from Slack)
+      // or if the stored latest-reply ts matches what Slack reports.
+      const noReplyOnBothSides = !existing.latestReplyTs && !starterMessage.latestReply;
+      const sameReply = existing.latestReplyTs === slackLatestReply;
+      if (noReplyOnBothSides || sameReply) {
+        this.logger.debug('Thread unchanged, skipping', { threadTs });
+        return 'skipped';
+      }
     }
 
     const replies = await this.fetchAllReplies(slackChannelId, threadTs);

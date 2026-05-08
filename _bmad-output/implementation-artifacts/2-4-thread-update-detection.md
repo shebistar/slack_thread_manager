@@ -1,6 +1,6 @@
 # Story 2.4: Thread Update Detection
 
-Status: review
+Status: done
 
 ## Story
 
@@ -390,3 +390,9 @@ claude-sonnet-4-5
 - `apps/api/src/modules/ingestion/polling.job.ts` — Phase 2 try/catch block; `threadsUpdated` in summary
 - `apps/api/src/modules/ingestion/ingestion.service.spec.ts` — 7 new tests (Tasks 6.1–6.7); `slackThreads.findFirst` and `findMany` added to mock DB
 - `apps/api/src/modules/ingestion/polling.job.spec.ts` — 2 new tests (Tasks 6.8–6.9); `detectUpdatedThreads` mock added to `mockIngestionService`
+
+### Review Findings
+
+- [x] [Review][Patch] Phase 2 silently skipped when Phase 1 has partial errors [`apps/api/src/modules/ingestion/polling.job.ts`] — fixed: removed `continue` from partial-errors and watermark-failure paths; Phase 2 now runs unconditionally per channel via restructured if/else
+- [x] [Review][Patch] No-reply threads always re-ingested — skip-if-unchanged logic broken [`apps/api/src/modules/ingestion/ingestion.service.ts:119`] — fixed: replaced `existing.latestReplyTs === slackLatestReply` with explicit `noReplyOnBothSides || sameReply` check
+- [x] [Review][Defer] `detectUpdatedThreads` makes N Slack API calls per channel with no activity filter [`apps/api/src/modules/ingestion/ingestion.service.ts:186`] — deferred, pre-existing scale concern acceptable at current ~100s thread volume

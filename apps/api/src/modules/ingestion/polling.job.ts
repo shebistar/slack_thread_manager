@@ -67,6 +67,7 @@ export class PollingJob {
         lastPolledTs: channel.lastPolledTs?.toISOString() ?? null,
       });
 
+      // Phase 1: ingest new threads since last watermark
       try {
         const result = await this.ingestionService.ingestChannel(
           channel.id,
@@ -87,33 +88,31 @@ export class PollingJob {
             channelName: channel.name,
             errors: result.errors,
           });
-          continue;
-        }
+        } else {
+          try {
+            await this.db
+              .update(slackChannels)
+              .set({ lastPolledTs: sql`now()` })
+              .where(eq(slackChannels.id, channel.id));
 
-        try {
-          await this.db
-            .update(slackChannels)
-            .set({ lastPolledTs: sql`now()` })
-            .where(eq(slackChannels.id, channel.id));
-        } catch (updateError: unknown) {
-          hasAnyFailure = true;
-          const updateMsg = updateError instanceof Error ? updateError.message : 'Unknown error';
-          this.logger.error('Watermark update failed after successful ingest', {
-            channelId: channel.slackChannelId,
-            channelName: channel.name,
-            error: updateMsg,
-          });
-          continue;
+            const newWatermark = new Date().toISOString();
+            this.logger.log('Channel polled successfully, watermark advanced', {
+              channelId: channel.slackChannelId,
+              channelName: channel.name,
+              threadsFound: result.threadsFound,
+              threadsStored: result.threadsStored,
+              newWatermark,
+            });
+          } catch (updateError: unknown) {
+            hasAnyFailure = true;
+            const updateMsg = updateError instanceof Error ? updateError.message : 'Unknown error';
+            this.logger.error('Watermark update failed after successful ingest', {
+              channelId: channel.slackChannelId,
+              channelName: channel.name,
+              error: updateMsg,
+            });
+          }
         }
-
-        const newWatermark = new Date().toISOString();
-        this.logger.log('Channel polled successfully, watermark advanced', {
-          channelId: channel.slackChannelId,
-          channelName: channel.name,
-          threadsFound: result.threadsFound,
-          threadsStored: result.threadsStored,
-          newWatermark,
-        });
       } catch (error: unknown) {
         hasAnyFailure = true;
         summary.errors++;
@@ -125,7 +124,7 @@ export class PollingJob {
         });
       }
 
-      // Phase 2: update detection — independent of Phase 1 outcome
+      // Phase 2: update detection — always runs, independent of Phase 1 outcome
       try {
         const updateResult = await this.ingestionService.detectUpdatedThreads(
           channel.id,
