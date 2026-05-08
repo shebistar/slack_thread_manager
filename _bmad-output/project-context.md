@@ -72,7 +72,7 @@ _Critical rules and patterns that AI agents MUST follow when implementing code i
 
 - **Add column**: add to schema first, then run `pnpm db:generate` from `packages/db` directory.
 - **Commit migrations**: ALWAYS commit the generated SQL file in `packages/db/src/migrations/` AND the meta JSON snapshot alongside each schema change.
-- **`pipelineState` is currently `text`** (not pgEnum) — Story 3.2 will convert it to a proper pgEnum. Do NOT convert it prematurely.
+- **`pipelineState` is a `pgEnum`** (`pipeline_state`) with values: `ingested`, `classified`, `summarized`, `embedded`, `staged`, `approved`, `delivered`, `failed`, `pending_retry`. Converted from `text` in migration 0006 (Story 3.2).
 
 ### Async Patterns
 
@@ -235,8 +235,8 @@ All environment variables are validated on startup via Zod in `apps/api/src/conf
 
 | Item | Deferred to | Status |
 |------|-------------|--------|
-| `pipelineState` → pgEnum | Story 3.2 | pending |
-| `pipeline_runs` table for persistent batch tracking | Story 3.2 | pending |
+| ~~`pipelineState` → pgEnum~~ | ~~Story 3.2~~ | done (migration 0006) |
+| ~~`pipeline_runs` table for persistent batch tracking~~ | ~~Story 3.2~~ | done (migration 0006) |
 | E2E / integration tests | After stable UI | pending |
 | Swagger / OpenAPI decorators | Epic 3+ | pending |
 | ~~Gemini Pro fallback~~ | ~~Story 3.1~~ | done (v0.5.0) |

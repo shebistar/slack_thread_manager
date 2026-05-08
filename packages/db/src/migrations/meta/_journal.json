@@ -43,6 +43,13 @@
       "when": 1778252955473,
       "tag": "0005_conscious_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778280397353,
+      "tag": "0006_spicy_glorian",
+      "breakpoints": true
     }
   ]
 }

@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-05-08T11:15:00-06:00
+last_updated: 2026-05-08T22:42:00-06:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -65,7 +65,7 @@ development_status:
   # Epic 3: Knowledge Transformation Pipeline
   epic-3: in-progress
   3-1-llm-abstraction-layer-and-provider-interface: done
-  3-2-pipeline-state-machine-and-failure-tracking: backlog
+  3-2-pipeline-state-machine-and-failure-tracking: review
   3-3-thread-classification: backlog
   3-4-thread-summarization: backlog
   3-5-thread-embedding-generation: backlog
