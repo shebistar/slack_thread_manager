@@ -866,16 +866,22 @@ slack-thread-manager/
 **Data Flow (batch pipeline):**
 
 ```
-Slack API → [ingestion] → slack_threads table
-                              ↓ (event: thread.ingested)
-                         [pipeline/processors] → classified_topics + embeddings
-                              ↓
-                         [pipeline/anonymization] → staging_queue
-                              ↓ (admin approval)
-                         [briefings/generators] → briefings table
-                              ↓
-                         [briefings API] → Frontend SPA
+Slack API (if available) ──┐
+                           ├──→ [ingestion] → slack_threads table
+Text-Paste Import (primary)┘         ↓ (event: thread.ingested)
+                              [pipeline/processors] → classified_topics + embeddings
+                                     ↓
+                              [pipeline/anonymization] → staging_queue
+                                     ↓ (admin approval)
+                              [briefings/generators] → briefings table
+                                     ↓
+                              [briefings API] → Frontend SPA
 ```
+
+**Dual Ingestion Model:**
+- **Text-Paste Import (primary):** `POST /api/admin/channels/:id/import` — admin pastes Slack chat export; parsed into threads and stored via same idempotent upsert path. Works without any Slack API connectivity. Also available via CLI: `pnpm --filter @slack-thread-manager/db import-text`.
+- **Slack API Polling (when available):** Scheduled batch polling via `@nestjs/schedule` cron job with per-channel watermark. Requires bot token and permissions path that may not be available.
+- **Architectural invariant:** All downstream pipeline features (classification, summarization, embedding, search, briefings) MUST work identically regardless of which ingestion path produced the data. The `slack_threads` table is the single source of truth — no consumer should know or care how data arrived.
 
 **Frontend ↔ Backend boundary:** All communication via REST. Frontend never accesses DB directly. The `api-client.ts` handles auth headers, response unwrapping, and error normalization.
 
