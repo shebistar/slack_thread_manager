@@ -2,13 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { PipelineService } from './pipeline.service.js';
 import { ClassifierProcessor } from './processors/classifier.processor.js';
+import { SummarizerProcessor } from './processors/summarizer.processor.js';
 import { PipelineStateService } from './pipeline-state.service.js';
 import { PipelineRunService } from './pipeline-run.service.js';
 import { LlmService } from './llm/llm.service.js';
 import { LlmPendingRetryError } from './llm/llm-provider.interface.js';
 import { DATABASE_TOKEN } from '../../database/database.module.js';
 
-const makeThread = (id: string) => ({
+const makeThread = (id: string, state: string = 'ingested') => ({
   id,
   slackTeamId: 'T123',
   channelId: 'ch-1',
@@ -17,7 +18,7 @@ const makeThread = (id: string) => ({
   messageCount: 2,
   rawMessages: [{ text: 'test' }],
   participantIds: ['U1'],
-  pipelineState: 'ingested' as const,
+  pipelineState: state as 'ingested' | 'classified',
   processingDate: null,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -26,6 +27,7 @@ const makeThread = (id: string) => ({
 describe('PipelineService', () => {
   let service: PipelineService;
   let mockClassifier: Record<string, ReturnType<typeof vi.fn>>;
+  let mockSummarizer: Record<string, ReturnType<typeof vi.fn>>;
   let mockStateService: Record<string, ReturnType<typeof vi.fn>>;
   let mockRunService: Record<string, ReturnType<typeof vi.fn>>;
   let mockLlmService: Record<string, ReturnType<typeof vi.fn>>;
@@ -37,6 +39,16 @@ describe('PipelineService', () => {
         id: 'topic-1',
         threadId: 'thread-1',
         primaryTopic: 'Test Topic',
+      }),
+    };
+
+    mockSummarizer = {
+      summarizeThread: vi.fn().mockResolvedValue({
+        id: 'topic-1',
+        threadId: 'thread-1',
+        primaryTopic: 'Test Topic',
+        technicalSummary: { headline: 'tech', body: 'body', key_decisions: [], action_items: [] },
+        plainSummary: { headline: 'plain', body: 'body', key_decisions: [], action_items: [] },
       }),
     };
 
@@ -58,10 +70,29 @@ describe('PipelineService', () => {
 
     mockDb = {
       select: vi.fn().mockReturnValue({
-        from: vi.fn().mockResolvedValue([
-          { name: 'Infrastructure', id: 'ws-1' },
-          { name: 'Networking', id: 'ws-2' },
-        ]),
+        from: vi.fn().mockImplementation(() => {
+          const fromResult = {
+            where: vi.fn().mockResolvedValue([{
+              id: 'topic-1',
+              threadId: 't1',
+              primaryTopic: 'Test Topic',
+              secondaryTopics: [],
+              workstreamId: 'ws-1',
+              confidence: 0.85,
+              modelVersion: 'phi3:mini',
+              promptVersion: 'classify-v1',
+              technicalSummary: null,
+              plainSummary: null,
+              createdAt: new Date(),
+            }]),
+          };
+          return Object.assign(
+            Promise.resolve([
+              { name: 'Infrastructure', id: 'ws-1' },
+            ]),
+            fromResult,
+          );
+        }),
       }),
     };
 
@@ -69,6 +100,7 @@ describe('PipelineService', () => {
       providers: [
         PipelineService,
         { provide: ClassifierProcessor, useValue: mockClassifier },
+        { provide: SummarizerProcessor, useValue: mockSummarizer },
         { provide: PipelineStateService, useValue: mockStateService },
         { provide: PipelineRunService, useValue: mockRunService },
         { provide: LlmService, useValue: mockLlmService },
@@ -164,5 +196,75 @@ describe('PipelineService', () => {
     expect(result.processed).toBe(1);
     expect(result.pendingRetry).toBe(1);
     expect(result.failed).toBe(0);
+  });
+
+  describe('runSummarization', () => {
+    beforeEach(() => {
+      mockStateService.getThreadsByState.mockResolvedValue([
+        makeThread('t1', 'classified'),
+        makeThread('t2', 'classified'),
+      ]);
+    });
+
+    it('processes classified threads with per-item error isolation (AC: #7)', async () => {
+      const result = await service.runSummarization('2026-05-08');
+
+      expect(result.processed).toBe(2);
+      expect(result.failed).toBe(0);
+      expect(mockSummarizer.summarizeThread).toHaveBeenCalledTimes(2);
+      expect(mockRunService.startRun).toHaveBeenCalledOnce();
+      expect(mockRunService.completeRun).toHaveBeenCalledWith('run-1', {
+        threadsProcessed: 2,
+        threadsFailed: 0,
+        fallbackCount: 0,
+      });
+    });
+
+    it('returns zeros and skips batch run when no classified threads', async () => {
+      mockStateService.getThreadsByState.mockResolvedValue([]);
+
+      const result = await service.runSummarization('2026-05-08');
+
+      expect(result).toEqual({ processed: 0, failed: 0, pendingRetry: 0 });
+      expect(mockRunService.startRun).not.toHaveBeenCalled();
+      expect(mockSummarizer.summarizeThread).not.toHaveBeenCalled();
+    });
+
+    it('isolates failures — one thread fails, others succeed', async () => {
+      mockSummarizer.summarizeThread
+        .mockResolvedValueOnce({ id: 'topic-1' })
+        .mockRejectedValueOnce(new Error('LLM exploded'));
+
+      const result = await service.runSummarization('2026-05-08');
+
+      expect(result.processed).toBe(1);
+      expect(result.failed).toBe(1);
+      expect(result.pendingRetry).toBe(0);
+    });
+
+    it('calls resetBatchCounters before and logBatchSummary after', async () => {
+      await service.runSummarization('2026-05-08');
+
+      expect(mockLlmService.resetBatchCounters).toHaveBeenCalledOnce();
+      expect(mockLlmService.logBatchSummary).toHaveBeenCalledOnce();
+    });
+
+    it('increments pendingRetry on LlmPendingRetryError', async () => {
+      mockSummarizer.summarizeThread
+        .mockResolvedValueOnce({ id: 'topic-1' })
+        .mockRejectedValueOnce(new LlmPendingRetryError('all failed', 'all'));
+
+      const result = await service.runSummarization('2026-05-08');
+
+      expect(result.processed).toBe(1);
+      expect(result.pendingRetry).toBe(1);
+      expect(result.failed).toBe(0);
+
+      expect(mockStateService.markPendingRetry).toHaveBeenCalledWith(
+        't2',
+        'classified',
+        expect.any(LlmPendingRetryError),
+      );
+    });
   });
 });
