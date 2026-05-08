@@ -1,5 +1,5 @@
 # generated: 2026-05-06
-# last_updated: 2026-05-06
+# last_updated: 2026-05-08T16:50:00-06:00
 # project: slack_thread_manager
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-05-07T23:15:00-06:00
+last_updated: 2026-05-08T09:21:00-06:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -57,9 +57,9 @@ development_status:
   epic-2: in-progress
   2-1-slack-api-client-with-rate-limiting: done
   2-2-thread-ingestion-and-storage: done
-  2-3-batch-polling-job-with-watermark: backlog
-  2-4-thread-update-detection: backlog
-  2-5-historical-backfill: backlog
+  2-3-batch-polling-job-with-watermark: done
+  2-4-thread-update-detection: review
+  2-5-historical-backfill: review
   epic-2-retrospective: optional
 
   # Epic 3: Knowledge Transformation Pipeline
