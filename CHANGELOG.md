@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-05-08
+
+### Added
+
+- **LLM Abstraction Layer (Story 3.1):** Provider-agnostic `LlmService` behind `LlmProviderInterface`; `CpuModelProvider` for local OpenAI-compatible inference (Ollama / phi3:mini); `GeminiProvider` for Google Gemini 2.5 Flash fallback via `@google/generative-ai` SDK; 2 + 2 retry-then-fallback strategy before throwing `LlmPendingRetryError`; `LlmModule` + `PipelineModule` registered in the NestJS module hierarchy; batch-level fallback rate tracking with configurable `LLM_FALLBACK_RATE_THRESHOLD` warning.
+- **Separate Embedding Model Config:** `CPU_EMBED_MODEL_NAME` env var (default: `nomic-embed-text`) decoupled from the completion model (`CPU_MODEL_NAME`), allowing different Ollama models for completion vs. embedding workloads.
+- **LLM Health Endpoint:** `GET /api/admin/llm/health` — returns per-provider `healthy` status and an aggregated `ok | degraded` state; requires `ADMIN` role.
+
+### Changed
+
+- **Model Defaults Updated to Deployment Targets:** CPU completion default `mistral` → `phi3:mini`; Gemini default `gemini-pro` → `gemini-2.5-flash`; LLM timeout default `30 s` → `60 s` to accommodate phi3:mini cold-start latency.
+- **Architecture — Dual Ingestion Parity:** Text-paste import is now the primary ingestion mode; all downstream pipeline features must work identically regardless of ingestion source. E2E validation with real data is mandatory per story.
+
+### Infrastructure
+
+- `@google/generative-ai` SDK added as `apps/api` dependency.
+- `LlmModule` exports `CpuModelProvider` and `GeminiProvider` directly for injection in `AdminModule`.
+- E2E validation requirement and text-paste-as-primary-mode policy encoded in `project-context.md`, `epics.md`, and BMAD `bmad-dev-story.toml` / `bmad-create-story.toml` customizations.
+
+## [0.4.0] - 2026-05-08
+
+### Added
+
+- **Batch Polling Job (Story 2.3):** `PollingJob` with `@Cron` decorator and per-channel `last_polled_ts` watermark; `ingestChannel()` / `ingestThread()` on `IngestionService` with idempotent upserts; `@nestjs/schedule` registered in `AppModule`; `INGESTION_CRON_SCHEDULE` env var (default: every 4 hours).
+- **Thread Update Detection (Story 2.4):** Two-phase polling that detects and re-ingests modified threads; `SlackMessage.latestReply` mapped from Slack raw payload; `IngestionService.detectUpdatedThreads()` fetches `latest_reply` via `conversations.replies(limit:1)` and re-ingests if the stored `latestReplyTs` changed; `ingestThread()` returns `'ingested' | 'skipped'` with a skip-if-unchanged guard; Phase 2 errors isolated so they cannot block watermark advancement.
+- **Historical Backfill API (Story 2.5):** Admin-triggered one-time historical ingestion; `POST /api/admin/ingestion/backfill` (HTTP 202, returns `jobId`); `GET /api/admin/ingestion/backfill/:jobId` for async status polling (`pending` / `running` / `complete` / `failed`); `BackfillService` with in-memory job registry; `BackfillController` with `@Roles('ADMIN')` and `ZodValidationPipe`; `backfillRequestSchema` in `packages/shared` for validated `channelId` + optional `oldestTs`.
+- **Text-Paste Import CLI:** Rewrote Slack text parser to handle the real UI copy-paste format (display name on its own line, indented timestamp on the next); `packages/db/src/import-text.ts` script + `scripts/import-text.sh` wrapper for bulk CLI imports via OpenShift `oc port-forward`; text-paste elevated to the primary ingestion path going forward.
+
+### Infrastructure
+
+- Database migration `0004` adds `last_polled_ts` column to `slack_channels`.
+- Database migration `0005` adds `pipeline_state` text column to `slack_threads` (placeholder for the pgEnum introduced in Story 3.2).
+- `@nestjs/schedule` added as dependency; cron job registered in `IngestionModule`.
+
 ## [0.3.0] - 2026-05-07
 
 ### Added
