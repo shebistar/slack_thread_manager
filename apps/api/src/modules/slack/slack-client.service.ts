@@ -21,6 +21,7 @@ export interface SlackMessage {
   user: string;
   text: string;
   threadTs?: string;
+  latestReply?: string;
   raw: Record<string, unknown>;
 }
 
@@ -247,6 +248,7 @@ export class SlackClientService implements OnModuleInit {
       user: (raw.user as string) ?? 'unknown',
       text: (raw.text as string) ?? '',
       threadTs: raw.thread_ts as string | undefined,
+      latestReply: raw.latest_reply as string | undefined,
       raw,
     };
   }

@@ -15,6 +15,7 @@ export const slackThreads = pgTable(
     messageCount: integer('message_count').notNull().default(0),
     rawMessages: jsonb('raw_messages').notNull().default([]),
     participantIds: text('participant_ids').array().notNull().default([]),
+    pipelineState: text('pipeline_state').default('ingested'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
