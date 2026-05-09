@@ -1,0 +1,299 @@
+{
+  "info": {
+    "name": "Slack Thread Manager",
+    "description": "Admin and pipeline endpoints for Slack Thread Manager.\n\nSetup:\n1. Set `baseUrl` variable to your deployed API (e.g. https://stm-api.apps.cluster.example.com/api)\n2. Set `token` variable to a valid admin JWT\n3. Set `channelId` to an existing channel UUID after running 'List Channels'",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api" },
+    { "key": "token", "value": "YOUR_JWT_TOKEN_HERE" },
+    { "key": "channelId", "value": "" },
+    { "key": "memberId", "value": "" },
+    { "key": "jobId", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Public Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "Admin Health Check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/health", "host": ["{{baseUrl}}"], "path": ["admin", "health"] }
+          }
+        },
+        {
+          "name": "LLM Health Check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/llm/health", "host": ["{{baseUrl}}"], "path": ["admin", "llm", "health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Channels",
+      "item": [
+        {
+          "name": "List Channels",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var data = pm.response.json().data;",
+                  "if (data && data.length > 0) {",
+                  "  pm.collectionVariables.set('channelId', data[0].id);",
+                  "  console.log('Set channelId to: ' + data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/channels", "host": ["{{baseUrl}}"], "path": ["admin", "channels"] }
+          }
+        },
+        {
+          "name": "Create Channel",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/admin/channels", "host": ["{{baseUrl}}"], "path": ["admin", "channels"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slackChannelId\": \"C01EXAMPLE01\",\n  \"name\": \"test-channel\",\n  \"workstreamId\": null,\n  \"isActive\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Channel",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/admin/channels/{{channelId}}", "host": ["{{baseUrl}}"], "path": ["admin", "channels", "{{channelId}}"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"updated-name\",\n  \"isActive\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Toggle Channel Active",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/admin/channels/{{channelId}}/toggle", "host": ["{{baseUrl}}"], "path": ["admin", "channels", "{{channelId}}", "toggle"] }
+          }
+        },
+        {
+          "name": "Delete Channel",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/admin/channels/{{channelId}}", "host": ["{{baseUrl}}"], "path": ["admin", "channels", "{{channelId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Import",
+      "item": [
+        {
+          "name": "Import Messages (Text-Paste)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/admin/channels/{{channelId}}/import", "host": ["{{baseUrl}}"], "path": ["admin", "channels", "{{channelId}}", "import"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slackTeamId\": \"T01234567\",\n  \"messages\": [\n    {\n      \"type\": \"message\",\n      \"user\": \"U_USER1\",\n      \"text\": \"Thread start message about storage migration\",\n      \"ts\": \"1714500000.000001\"\n    },\n    {\n      \"type\": \"message\",\n      \"user\": \"U_USER2\",\n      \"text\": \"Reply: I think we should use Ceph for this\",\n      \"ts\": \"1714500060.000001\",\n      \"thread_ts\": \"1714500000.000001\"\n    },\n    {\n      \"type\": \"message\",\n      \"user\": \"U_USER1\",\n      \"text\": \"Action item: benchmark Ceph throughput by Friday\",\n      \"ts\": \"1714500120.000001\",\n      \"thread_ts\": \"1714500000.000001\"\n    }\n  ]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pipeline",
+      "item": [
+        {
+          "name": "Run Full Pipeline",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/admin/pipeline/run",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "pipeline", "run"]
+            }
+          }
+        },
+        {
+          "name": "Run Pipeline (specific date)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/admin/pipeline/run?date=2026-05-09",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "pipeline", "run"],
+              "query": [{ "key": "date", "value": "2026-05-09" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roster",
+      "item": [
+        {
+          "name": "List Roster",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var data = pm.response.json().data;",
+                  "if (data && data.length > 0) {",
+                  "  pm.collectionVariables.set('memberId', data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/roster", "host": ["{{baseUrl}}"], "path": ["admin", "roster"] }
+          }
+        },
+        {
+          "name": "List Workstreams",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/roster/workstreams", "host": ["{{baseUrl}}"], "path": ["admin", "roster", "workstreams"] }
+          }
+        },
+        {
+          "name": "Create Roster Member",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/admin/roster", "host": ["{{baseUrl}}"], "path": ["admin", "roster"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"displayName\": \"Test User\",\n  \"slackHandle\": \"testuser\",\n  \"slackNicknames\": [\"tuser\"],\n  \"role\": \"CONSULTANT\",\n  \"workstreamIds\": []\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Roster Member",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/admin/roster/{{memberId}}", "host": ["{{baseUrl}}"], "path": ["admin", "roster", "{{memberId}}"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Updated Name\",\n  \"role\": \"PM\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Roster Member",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/admin/roster/{{memberId}}", "host": ["{{baseUrl}}"], "path": ["admin", "roster", "{{memberId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ingestion",
+      "item": [
+        {
+          "name": "Start Backfill",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var data = pm.response.json().data;",
+                  "if (data && data.jobId) {",
+                  "  pm.collectionVariables.set('jobId', data.jobId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/admin/ingestion/backfill", "host": ["{{baseUrl}}"], "path": ["admin", "ingestion", "backfill"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldestTs\": \"1700000000.000000\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Backfill Status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/ingestion/backfill/{{jobId}}", "host": ["{{baseUrl}}"], "path": ["admin", "ingestion", "backfill", "{{jobId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Slack Integration",
+      "item": [
+        {
+          "name": "Slack Status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/slack/status", "host": ["{{baseUrl}}"], "path": ["slack", "status"] }
+          }
+        },
+        {
+          "name": "Get Channel Info",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/slack/channels/C01EXAMPLE/", "host": ["{{baseUrl}}"], "path": ["slack", "channels", "C01EXAMPLE"] }
+          }
+        },
+        {
+          "name": "Get Channel History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/slack/channels/C01EXAMPLE/history?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["slack", "channels", "C01EXAMPLE", "history"],
+              "query": [{ "key": "limit", "value": "20" }]
+            }
+          }
+        },
+        {
+          "name": "Get Thread Replies",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/slack/channels/C01EXAMPLE/threads/1714500000.000001?limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["slack", "channels", "C01EXAMPLE", "threads", "1714500000.000001"],
+              "query": [{ "key": "limit", "value": "50" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
