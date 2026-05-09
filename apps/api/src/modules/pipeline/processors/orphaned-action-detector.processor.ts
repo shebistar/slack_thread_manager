@@ -60,7 +60,7 @@ export class OrphanedActionDetectorProcessor {
       .from(classifiedTopics)
       .where(inArray(classifiedTopics.threadId, threadIds));
 
-    const resolved = await this.resolveActiveThreads(threads);
+    const resolved = await this.resolveActiveThreads();
 
     let detected = 0;
     const now = new Date();
@@ -101,7 +101,27 @@ export class OrphanedActionDetectorProcessor {
               })
               .returning();
 
-            if (row) detected++;
+            if (row) {
+              detected++;
+              continue;
+            }
+
+            const [reopened] = await this.db
+              .update(orphanedActions)
+              .set({
+                status: 'orphaned',
+                detectedAt: sql`now()`,
+                resolvedAt: null,
+                assignedTo,
+              })
+              .where(and(
+                eq(orphanedActions.threadId, thread.id),
+                eq(orphanedActions.actionText, actionText),
+                inArray(orphanedActions.status, ['resolved', 'dismissed']),
+              ))
+              .returning();
+
+            if (reopened) detected++;
           } catch (err) {
             this.logger.warn('Failed to insert orphaned action', {
               threadId: thread.id,
@@ -128,9 +148,7 @@ export class OrphanedActionDetectorProcessor {
     return { detected, resolved, scanned: threads.length };
   }
 
-  private async resolveActiveThreads(
-    threads: Array<{ id: string; latestReplyTs: string | null }>,
-  ): Promise<number> {
+  private async resolveActiveThreads(): Promise<number> {
     const existingOrphaned = await this.db
       .select({
         id: orphanedActions.id,
@@ -142,9 +160,16 @@ export class OrphanedActionDetectorProcessor {
 
     if (existingOrphaned.length === 0) return 0;
 
-    const threadMap = new Map(
-      threads.map((t) => [t.id, t.latestReplyTs]),
-    );
+    const orphanedThreadIds = [...new Set(existingOrphaned.map((a) => a.threadId))];
+    const resolveThreads = await this.db
+      .select({
+        id: slackThreads.id,
+        latestReplyTs: slackThreads.latestReplyTs,
+      })
+      .from(slackThreads)
+      .where(inArray(slackThreads.id, orphanedThreadIds));
+
+    const threadMap = new Map(resolveThreads.map((t) => [t.id, t.latestReplyTs]));
     let resolved = 0;
 
     for (const action of existingOrphaned) {
@@ -182,7 +207,7 @@ export class OrphanedActionDetectorProcessor {
     const current = new Date(startDay);
     current.setDate(current.getDate() + 1);
 
-    while (current <= endDay) {
+    while (current < endDay) {
       const day = current.getDay();
       if (day !== 0 && day !== 6) count++;
       current.setDate(current.getDate() + 1);

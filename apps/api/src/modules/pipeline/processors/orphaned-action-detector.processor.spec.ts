@@ -136,6 +136,7 @@ describe('OrphanedActionDetectorProcessor', () => {
             if (callCount === 1) return Promise.resolve(threads);
             if (callCount === 2) return Promise.resolve(topics);
             if (callCount === 3) return Promise.resolve(existingOrphaned);
+            if (callCount === 4) return Promise.resolve([{ id: 'thread-1', latestReplyTs: recentTs }]);
             return Promise.resolve([]);
           }),
         };
@@ -148,6 +149,47 @@ describe('OrphanedActionDetectorProcessor', () => {
       const result = await processor.runDetection();
 
       expect(result.resolved).toBe(1);
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    it('reopens previously resolved action when inactivity threshold is reached again', async () => {
+      const fiveDaysAgo = new Date();
+      fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+      const slackTs = (fiveDaysAgo.getTime() / 1000).toString();
+
+      const threads = [makeThread({ id: 'thread-1', latestReplyTs: slackTs })];
+      const topics = [makeTopic({
+        threadId: 'thread-1',
+        technicalSummary: { action_items: ['Follow up with alice'] },
+      })];
+
+      let callCount = 0;
+      mockDb.select.mockImplementation(() => {
+        callCount++;
+        return {
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockImplementation(() => {
+            if (callCount === 1) return Promise.resolve(threads);
+            if (callCount === 2) return Promise.resolve(topics);
+            if (callCount === 3) return Promise.resolve([]);
+            return Promise.resolve([]);
+          }),
+        };
+      });
+
+      const insertReturning = vi.fn().mockResolvedValue([]);
+      const insertOnConflict = vi.fn().mockReturnValue({ returning: insertReturning });
+      const insertValues = vi.fn().mockReturnValue({ onConflictDoNothing: insertOnConflict });
+      mockDb.insert.mockReturnValue({ values: insertValues });
+
+      const updateReturning = vi.fn().mockResolvedValue([{ id: 'reopened-1' }]);
+      const updateWhere = vi.fn().mockReturnValue({ returning: updateReturning });
+      const updateSet = vi.fn().mockReturnValue({ where: updateWhere });
+      mockDb.update.mockReturnValue({ set: updateSet });
+
+      const result = await processor.runDetection();
+
+      expect(result.detected).toBe(1);
       expect(mockDb.update).toHaveBeenCalled();
     });
 
@@ -243,18 +285,18 @@ describe('OrphanedActionDetectorProcessor', () => {
   });
 
   describe('countWorkdays', () => {
-    it('counts only Mon-Fri days between two dates', () => {
-      // Monday to Friday = 4 workdays (Tue, Wed, Thu, Fri)
+    it('counts elapsed Mon-Fri workdays excluding the end date', () => {
+      // Monday to Friday = 3 elapsed workdays (Tue, Wed, Thu)
       const monday = new Date('2026-05-04T10:00:00Z');
       const friday = new Date('2026-05-08T10:00:00Z');
-      expect(processor.countWorkdays(monday, friday)).toBe(4);
+      expect(processor.countWorkdays(monday, friday)).toBe(3);
     });
 
     it('excludes weekends from count', () => {
-      // Friday to Monday = 1 workday (Monday only)
+      // Friday to Monday = 0 elapsed workdays
       const friday = new Date('2026-05-08T17:00:00Z');
       const monday = new Date('2026-05-11T09:00:00Z');
-      expect(processor.countWorkdays(friday, monday)).toBe(1);
+      expect(processor.countWorkdays(friday, monday)).toBe(0);
     });
 
     it('returns 0 when end is before or equal to start', () => {
@@ -263,18 +305,16 @@ describe('OrphanedActionDetectorProcessor', () => {
       expect(processor.countWorkdays(date, new Date('2026-05-07T10:00:00Z'))).toBe(0);
     });
 
-    it('does not flag thread inactive since Friday when checked on Monday (0 workdays)', () => {
+    it('treats Friday evening to Monday morning as 0 elapsed workdays', () => {
       const fridayEvening = new Date('2026-05-08T21:00:00Z');
       const mondayMorning = new Date('2026-05-11T08:00:00Z');
-      expect(processor.countWorkdays(fridayEvening, mondayMorning)).toBe(1);
-      // 1 workday (Monday) — threshold of 2 not met
+      expect(processor.countWorkdays(fridayEvening, mondayMorning)).toBe(0);
     });
 
     it('flags thread inactive since Friday when checked on Wednesday (2 workdays passed)', () => {
       const fridayEvening = new Date('2026-05-08T21:00:00Z');
       const wednesday = new Date('2026-05-13T10:00:00Z');
-      expect(processor.countWorkdays(fridayEvening, wednesday)).toBe(3);
-      // Mon, Tue, Wed = 3 workdays — above threshold of 2
+      expect(processor.countWorkdays(fridayEvening, wednesday)).toBe(2);
     });
   });
 

@@ -1,6 +1,6 @@
 # Story 3.7: Orphaned Action Detection
 
-Status: review
+Status: done
 
 ## Story
 
@@ -74,6 +74,14 @@ so that PMs can surface forgotten work in their briefings.
   - [x] 8.4 Verify idempotency: run again and confirm no duplicate rows
   - [x] 8.5 Simulate resolution: update thread's `latest_reply_ts` to now, re-run detector, verify status → 'resolved'
   - [x] 8.6 Document results in Completion Notes
+
+### Review Findings
+
+- [x] [Review][Decision] Re-orphan lifecycle after `resolved` status is ambiguous — **Resolved:** reopen existing rows on new inactivity by reactivating matching `resolved`/`dismissed` records as `orphaned`.
+- [x] [Review][Decision] Workday semantics conflict with story wording for Friday → Monday — **Resolved:** enforce Friday→Monday as 0 elapsed workdays and align tests accordingly.
+- [x] [Review][Patch] Resolution path skips orphaned rows when their thread is outside current summarized+ scan set [apps/api/src/modules/pipeline/processors/orphaned-action-detector.processor.ts]
+- [x] [Review][Patch] Ensure no unused imports remain in orphaned action detector processor [apps/api/src/modules/pipeline/processors/orphaned-action-detector.processor.ts]
+- [x] [Review][Patch] Rename misleading test title for Friday→Monday workday case to match asserted behavior [apps/api/src/modules/pipeline/processors/orphaned-action-detector.processor.spec.ts]
 
 ## Dev Notes
 
