@@ -14,21 +14,6 @@ const mockConfigService = {
   get: vi.fn().mockReturnValue(0.7),
 };
 
-// Fluent builder helpers for Drizzle mocks
-function makeSelect(returnValue: unknown) {
-  const chain = {
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    then: vi.fn(),
-  };
-  (chain as Record<string, unknown>)[Symbol.iterator] = undefined;
-  // Make it thenable
-  const promise = Promise.resolve(returnValue);
-  chain.where.mockReturnValue(promise);
-  chain.from.mockReturnValue(chain);
-  return chain;
-}
-
 function makeInsert() {
   const chain = {
     values: vi.fn().mockReturnThis(),

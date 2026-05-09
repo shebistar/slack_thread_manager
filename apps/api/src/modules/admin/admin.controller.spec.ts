@@ -16,7 +16,6 @@ describe('AdminController', () => {
     runSummarization: vi.fn().mockResolvedValue({ processed: 0, failed: 0, pendingRetry: 0 }),
     runEmbedding: vi.fn().mockResolvedValue({ processed: 0, failed: 0, pendingRetry: 0 }),
     runCorrelation: vi.fn().mockResolvedValue({ created: 0, updated: 0, pairsEvaluated: 0 }),
-    runOrphanedActionDetection: vi.fn().mockResolvedValue({ detected: 0, resolved: 0, scanned: 0 }),
   };
 
   beforeEach(async () => {
@@ -51,17 +50,13 @@ describe('AdminController', () => {
     expect(result.data.status).toBe('ok');
   });
 
-  it('runs full pipeline and returns correlation and orphaned action results', async () => {
+  it('runs full pipeline and returns correlation result', async () => {
     mockPipelineService.runCorrelation.mockResolvedValue({ created: 4, updated: 0, pairsEvaluated: 2 });
-    mockPipelineService.runOrphanedActionDetection.mockResolvedValue({ detected: 2, resolved: 1, scanned: 5 });
 
     const result = await controller.runPipeline();
 
     expect(result.data).toHaveProperty('correlation');
     expect(result.data.correlation).toEqual({ created: 4, updated: 0, pairsEvaluated: 2 });
-    expect(result.data).toHaveProperty('orphanedActions');
-    expect(result.data.orphanedActions).toEqual({ detected: 2, resolved: 1, scanned: 5 });
     expect(mockPipelineService.runCorrelation).toHaveBeenCalledOnce();
-    expect(mockPipelineService.runOrphanedActionDetection).toHaveBeenCalledOnce();
   });
 });

@@ -1,5 +1,14 @@
 # Deferred Work
 
+## Deferred from: code review of story-3.6 (2026-05-09)
+
+- Race condition in `upsertCorrelation` SELECT-then-INSERT — concurrent correlator runs could miscount created vs updated; optimize with PostgreSQL `xmax` single-query detection when concurrency matters [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:229-247`]
+- O(n²) participant overlap + unbounded `threadIds` in SQL ANY() — acceptable at MVP scale; add chunking/sampling when production data grows [`apps/api/src/modules/pipeline/processors/correlator.processor.ts`]
+- No minimum threshold for participant overlap — any non-zero Jaccard emits a correlation; may produce noise at scale [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:168-193`]
+- Topic match signal quality — equality on `primaryTopic` with confidence=1.0 treats coarse labels as perfect ground truth; normalization/case-folding/generic-topic filtering deferred [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:130-166`]
+- FK `ON DELETE NO ACTION` on topic_correlations — thread deletion leaves orphan correlations; cleanup strategy deferred [`packages/db/src/migrations/0011_colorful_clint_barton.sql`]
+- Admin pipeline endpoint chains 4 heavy operations synchronously — no timeout, partial failure handling, or rate limiting; pre-existing admin pattern [`apps/api/src/modules/admin/admin.controller.ts:39-54`]
+
 ## Deferred from: code review of 3-4-thread-summarization (2026-05-08)
 
 - "isolates failures" test in `runSummarization` doesn't assert `markFailed` was called for the failing thread — incomplete assertion, not a bug [`apps/api/src/modules/pipeline/pipeline.service.spec.ts`]

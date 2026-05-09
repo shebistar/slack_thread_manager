@@ -43,14 +43,12 @@ export class AdminController {
     const summarization = await this.pipelineService.runSummarization(date);
     const embedding = await this.pipelineService.runEmbedding(date);
     const correlation = await this.pipelineService.runCorrelation();
-    const orphanedActions = await this.pipelineService.runOrphanedActionDetection();
     return {
       data: {
         classification,
         summarization,
         embedding,
         correlation,
-        orphanedActions,
       },
     };
   }

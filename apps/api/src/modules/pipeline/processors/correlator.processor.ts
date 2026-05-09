@@ -65,30 +65,39 @@ export class CorrelatorProcessor {
 
     let created = 0;
     let updated = 0;
+    const startMs = Date.now();
 
     for (const pair of allPairs) {
-      const forwardResult = await this.upsertCorrelation(
-        pair.sourceThreadId,
-        pair.correlatedThreadId,
-        pair.type,
-        pair.confidence,
-      );
-      const reverseResult = await this.upsertCorrelation(
-        pair.correlatedThreadId,
-        pair.sourceThreadId,
-        pair.type,
-        pair.confidence,
-      );
-      if (forwardResult === 'created') created++;
-      else updated++;
-      if (reverseResult === 'created') created++;
-      else updated++;
+      if (pair.sourceThreadId === pair.correlatedThreadId) continue;
+      try {
+        const forwardResult = await this.upsertCorrelation(
+          pair.sourceThreadId,
+          pair.correlatedThreadId,
+          pair.type,
+          pair.confidence,
+        );
+        const reverseResult = await this.upsertCorrelation(
+          pair.correlatedThreadId,
+          pair.sourceThreadId,
+          pair.type,
+          pair.confidence,
+        );
+        if (forwardResult === 'created') created++;
+        else updated++;
+        if (reverseResult === 'created') created++;
+        else updated++;
+      } catch (error) {
+        this.logger.error(`Failed to upsert correlation pair ${pair.sourceThreadId} <-> ${pair.correlatedThreadId}`, error instanceof Error ? error.stack : String(error));
+      }
     }
+
+    const durationMs = Date.now() - startMs;
 
     this.logger.log('Correlation batch completed', {
       pairsEvaluated: allPairs.length,
       created,
       updated,
+      durationMs,
     });
 
     return { created, updated, pairsEvaluated: allPairs.length };

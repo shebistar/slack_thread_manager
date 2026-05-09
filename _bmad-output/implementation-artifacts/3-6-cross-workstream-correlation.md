@@ -535,7 +535,17 @@ The correlator does **not** call `LlmService` — it uses purely pgvector SQL (f
 
 ### Review Findings
 
-- [x] [Review][Patch] Unused `Body` import in `admin.controller.ts` — `Body` was added to the import line but never used in the `runPipeline()` method which only uses `@Query`. Removed `Body` from the import.
-- [x] [Review][Defer] `upsertCorrelation` does 2 DB round-trips per direction (SELECT then UPSERT) — 4 queries per pair total. At MVP scale (~10 pairs/batch) acceptable; optimize with PostgreSQL `xmax` single-query insert-vs-update detection when throughput matters [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:229-247`]
-- [x] [Review][Defer] No per-item error isolation in `runBatchCorrelation` upsert loop — a DB error on one pair kills the full batch without recording partial results; consistent with `runEmbedding` approach at MVP; add try/catch isolation when reliability requirements increase [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:69-86`]
-- [x] [Review][Defer] `priority[idx]!` non-null assertion in `mergePairs` — safe because `pairLists` has exactly 3 elements matching `priority.length`; pre-existing non-null pattern consistent with other processors [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:205`]
+_Formal adversarial code review (2026-05-09) — 3 parallel layers: Blind Hunter, Edge Case Hunter, Acceptance Auditor._
+
+- [x] [Review][Decision] Date filter removal in `runSummarization` and `runEmbedding` — dismissed as intentional: processing ALL threads by pipeline state is the correct behavior; date-scoping was premature filtering. [`apps/api/src/modules/pipeline/pipeline.service.ts:122,224`]
+- [x] [Review][Patch] Missing duration in correlation log — AC #8 requires logging duration; added `durationMs` to log payload. Fixed.
+- [x] [Review][Patch] `AdminController` constructor params missing `@Inject()` decorators — added `@Inject()` on all 4 constructor params. Fixed.
+- [x] [Review][Patch] Per-item error isolation in correlator upsert loop — added try/catch per pair with error logging. Fixed.
+- [x] [Review][Patch] Unused `makeSelect` helper function in test file — removed dead code. Fixed.
+- [x] [Review][Patch] No self-correlation guard — added `continue` guard for `sourceThreadId === correlatedThreadId`. Fixed.
+- [x] [Review][Defer] Race condition in `upsertCorrelation` SELECT-then-INSERT — concurrent correlator runs could miscount created vs updated; optimize with PostgreSQL `xmax` single-query detection when concurrency matters [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:229-247`]
+- [x] [Review][Defer] O(n²) participant overlap + unbounded `threadIds` in SQL ANY() — acceptable at MVP scale (~tens of threads); add chunking/sampling when production data grows [`apps/api/src/modules/pipeline/processors/correlator.processor.ts`]
+- [x] [Review][Defer] No minimum threshold for participant overlap — any non-zero Jaccard emits a correlation; may produce noise at scale; tunable threshold deferred [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:168-193`]
+- [x] [Review][Defer] Topic match signal quality — equality on `primaryTopic` with confidence=1.0 treats coarse labels as perfect ground truth; normalization/case-folding/generic-topic filtering deferred [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:130-166`]
+- [x] [Review][Defer] FK `ON DELETE NO ACTION` on topic_correlations — thread deletion leaves orphan correlations; cleanup strategy deferred (thread deletion not in scope) [`packages/db/src/migrations/0011_colorful_clint_barton.sql`]
+- [x] [Review][Defer] Admin pipeline endpoint chains 4 heavy operations synchronously — no timeout, partial failure handling, or rate limiting; pre-existing admin pattern, revisit when production traffic arrives [`apps/api/src/modules/admin/admin.controller.ts:39-54`]
