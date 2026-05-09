@@ -5,6 +5,7 @@ import { ClassifierProcessor } from './processors/classifier.processor.js';
 import { SummarizerProcessor } from './processors/summarizer.processor.js';
 import { EmbedderProcessor } from './processors/embedder.processor.js';
 import { CorrelatorProcessor } from './processors/correlator.processor.js';
+import { OrphanedActionDetectorProcessor } from './processors/orphaned-action-detector.processor.js';
 import { PipelineStateService } from './pipeline-state.service.js';
 import { PipelineRunService } from './pipeline-run.service.js';
 import { LlmService } from './llm/llm.service.js';
@@ -32,6 +33,7 @@ describe('PipelineService', () => {
   let mockSummarizer: Record<string, ReturnType<typeof vi.fn>>;
   let mockEmbedder: Record<string, ReturnType<typeof vi.fn>>;
   let mockCorrelator: Record<string, ReturnType<typeof vi.fn>>;
+  let mockOrphanedActionDetector: Record<string, ReturnType<typeof vi.fn>>;
   let mockStateService: Record<string, ReturnType<typeof vi.fn>>;
   let mockRunService: Record<string, ReturnType<typeof vi.fn>>;
   let mockLlmService: Record<string, ReturnType<typeof vi.fn>>;
@@ -68,6 +70,10 @@ describe('PipelineService', () => {
 
     mockCorrelator = {
       runBatchCorrelation: vi.fn().mockResolvedValue({ created: 4, updated: 0, pairsEvaluated: 2 }),
+    };
+
+    mockOrphanedActionDetector = {
+      runDetection: vi.fn().mockResolvedValue({ detected: 3, resolved: 1, scanned: 5 }),
     };
 
     mockStateService = {
@@ -121,6 +127,7 @@ describe('PipelineService', () => {
         { provide: SummarizerProcessor, useValue: mockSummarizer },
         { provide: EmbedderProcessor, useValue: mockEmbedder },
         { provide: CorrelatorProcessor, useValue: mockCorrelator },
+        { provide: OrphanedActionDetectorProcessor, useValue: mockOrphanedActionDetector },
         { provide: PipelineStateService, useValue: mockStateService },
         { provide: PipelineRunService, useValue: mockRunService },
         { provide: LlmService, useValue: mockLlmService },
@@ -389,6 +396,23 @@ describe('PipelineService', () => {
       const result = await service.runCorrelation();
 
       expect(result).toEqual({ created: 0, updated: 0, pairsEvaluated: 0 });
+    });
+  });
+
+  describe('runOrphanedActionDetection', () => {
+    it('delegates to OrphanedActionDetectorProcessor.runDetection() and returns its result', async () => {
+      const result = await service.runOrphanedActionDetection();
+
+      expect(mockOrphanedActionDetector.runDetection).toHaveBeenCalledOnce();
+      expect(result).toEqual({ detected: 3, resolved: 1, scanned: 5 });
+    });
+
+    it('returns zeros when no orphaned actions found', async () => {
+      mockOrphanedActionDetector.runDetection.mockResolvedValue({ detected: 0, resolved: 0, scanned: 0 });
+
+      const result = await service.runOrphanedActionDetection();
+
+      expect(result).toEqual({ detected: 0, resolved: 0, scanned: 0 });
     });
   });
 });

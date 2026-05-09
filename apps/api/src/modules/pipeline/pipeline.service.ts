@@ -18,6 +18,7 @@ import {
 } from './processors/summarizer.processor.js';
 import { EmbedderProcessor } from './processors/embedder.processor.js';
 import { CorrelatorProcessor, type CorrelationRunResult } from './processors/correlator.processor.js';
+import { OrphanedActionDetectorProcessor, type OrphanedActionDetectionResult } from './processors/orphaned-action-detector.processor.js';
 
 export interface PipelineRunResult {
   processed: number;
@@ -28,6 +29,7 @@ export interface PipelineRunResult {
 export type ClassificationRunResult = PipelineRunResult;
 export type EmbeddingRunResult = PipelineRunResult;
 export type { CorrelationRunResult };
+export type { OrphanedActionDetectionResult };
 
 @Injectable()
 export class PipelineService {
@@ -42,6 +44,8 @@ export class PipelineService {
     private readonly embedderProcessor: EmbedderProcessor,
     @Inject(CorrelatorProcessor)
     private readonly correlatorProcessor: CorrelatorProcessor,
+    @Inject(OrphanedActionDetectorProcessor)
+    private readonly orphanedActionDetector: OrphanedActionDetectorProcessor,
     @Inject(PipelineStateService)
     private readonly pipelineStateService: PipelineStateService,
     @Inject(PipelineRunService)
@@ -280,6 +284,10 @@ export class PipelineService {
 
   async runCorrelation(): Promise<CorrelationRunResult> {
     return this.correlatorProcessor.runBatchCorrelation();
+  }
+
+  async runOrphanedActionDetection(): Promise<OrphanedActionDetectionResult> {
+    return this.orphanedActionDetector.runDetection();
   }
 
   private buildParticipantRoster(

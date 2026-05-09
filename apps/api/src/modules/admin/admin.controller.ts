@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query } from '@nestjs/common';
+import { Controller, Get, Inject, Post, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { LlmService } from '../pipeline/llm/llm.service.js';
 import { CpuModelProvider } from '../pipeline/llm/providers/cpu-model.provider.js';
@@ -8,10 +8,10 @@ import { PipelineService } from '../pipeline/pipeline.service.js';
 @Controller('admin')
 export class AdminController {
   constructor(
-    private readonly llmService: LlmService,
-    private readonly cpuProvider: CpuModelProvider,
-    private readonly geminiProvider: GeminiProvider,
-    private readonly pipelineService: PipelineService,
+    @Inject(LlmService) private readonly llmService: LlmService,
+    @Inject(CpuModelProvider) private readonly cpuProvider: CpuModelProvider,
+    @Inject(GeminiProvider) private readonly geminiProvider: GeminiProvider,
+    @Inject(PipelineService) private readonly pipelineService: PipelineService,
   ) {}
 
   @Get('health')
@@ -43,12 +43,14 @@ export class AdminController {
     const summarization = await this.pipelineService.runSummarization(date);
     const embedding = await this.pipelineService.runEmbedding(date);
     const correlation = await this.pipelineService.runCorrelation();
+    const orphanedActions = await this.pipelineService.runOrphanedActionDetection();
     return {
       data: {
         classification,
         summarization,
         embedding,
         correlation,
+        orphanedActions,
       },
     };
   }

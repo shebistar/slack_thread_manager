@@ -1,5 +1,5 @@
 # generated: 2026-05-06
-# last_updated: 2026-05-09T00:25:00-06:00
+# last_updated: 2026-05-09T16:40:00-04:00
 # project: slack_thread_manager
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-05-09T00:25:00-06:00
+last_updated: 2026-05-09T16:40:00-04:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -70,7 +70,7 @@ development_status:
   3-4-thread-summarization: done
   3-5-thread-embedding-generation: done
   3-6-cross-workstream-correlation: done
-  3-7-orphaned-action-detection: backlog
+  3-7-orphaned-action-detection: review
   epic-3-retrospective: optional
 
   # Epic 4: Anonymization & Content Governance
