@@ -68,7 +68,7 @@ development_status:
   3-2-pipeline-state-machine-and-failure-tracking: done
   3-3-thread-classification: done
   3-4-thread-summarization: done
-  3-5-thread-embedding-generation: in-progress
+  3-5-thread-embedding-generation: review
   3-6-cross-workstream-correlation: backlog
   3-7-orphaned-action-detection: backlog
   epic-3-retrospective: optional

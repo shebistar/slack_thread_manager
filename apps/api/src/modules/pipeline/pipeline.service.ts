@@ -16,6 +16,7 @@ import {
   SummarizerProcessor,
   type ParticipantRosterEntry,
 } from './processors/summarizer.processor.js';
+import { EmbedderProcessor } from './processors/embedder.processor.js';
 
 export interface PipelineRunResult {
   processed: number;
@@ -24,6 +25,7 @@ export interface PipelineRunResult {
 }
 
 export type ClassificationRunResult = PipelineRunResult;
+export type EmbeddingRunResult = PipelineRunResult;
 
 @Injectable()
 export class PipelineService {
@@ -34,6 +36,8 @@ export class PipelineService {
     private readonly classifierProcessor: ClassifierProcessor,
     @Inject(SummarizerProcessor)
     private readonly summarizerProcessor: SummarizerProcessor,
+    @Inject(EmbedderProcessor)
+    private readonly embedderProcessor: EmbedderProcessor,
     @Inject(PipelineStateService)
     private readonly pipelineStateService: PipelineStateService,
     @Inject(PipelineRunService)
@@ -203,6 +207,62 @@ export class PipelineService {
     });
 
     this.logger.log('Summarization batch completed', {
+      processed,
+      failed,
+      pendingRetry,
+      total: threads.length,
+    });
+
+    return { processed, failed, pendingRetry };
+  }
+
+  async runEmbedding(processingDate?: string): Promise<EmbeddingRunResult> {
+    const date = processingDate ?? new Date().toISOString().slice(0, 10);
+
+    const threads = await this.pipelineStateService.getThreadsByState('summarized', date);
+    if (threads.length === 0) {
+      this.logger.log('No summarized threads to embed');
+      return { processed: 0, failed: 0, pendingRetry: 0 };
+    }
+
+    const run = await this.pipelineRunService.startRun();
+    this.llmService.resetBatchCounters();
+
+    let processed = 0;
+    let failed = 0;
+    let pendingRetry = 0;
+
+    for (const thread of threads) {
+      try {
+        await this.embedderProcessor.embedThread(thread, date);
+        processed++;
+      } catch (err) {
+        if (err instanceof LlmPendingRetryError) {
+          await this.pipelineStateService.markPendingRetry(
+            thread.id,
+            'summarized',
+            err,
+          );
+          pendingRetry++;
+        } else {
+          await this.pipelineStateService.markFailed(
+            thread.id,
+            'summarized',
+            err instanceof Error ? err : new Error(String(err)),
+          );
+          failed++;
+        }
+      }
+    }
+
+    this.llmService.logBatchSummary();
+    await this.pipelineRunService.completeRun(run.id, {
+      threadsProcessed: processed,
+      threadsFailed: failed,
+      fallbackCount: 0,
+    });
+
+    this.logger.log('Embedding batch completed', {
       processed,
       failed,
       pendingRetry,

@@ -71,6 +71,13 @@
       "when": 1778282200909,
       "tag": "0009_cheerful_lake",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778283679870,
+      "tag": "0010_skinny_raider",
+      "breakpoints": true
     }
   ]
 }
