@@ -249,6 +249,20 @@ function FeaturesSection() {
 
         <div>
           <h3 className="text-base font-medium text-[--color-gray-95] mb-2">
+            Knowledge Transformation Pipeline
+          </h3>
+          <p className="text-sm text-[--color-gray-70]">
+            Ingested threads are automatically processed through a multi-stage
+            pipeline: classified by topic and workstream, summarized with both
+            technical and plain-language summaries, and embedded as semantic
+            vectors. The pipeline is fault-tolerant — each stage tracks its own
+            state, supports per-item error isolation, and can be retried
+            independently without re-processing already-completed work.
+          </p>
+        </div>
+
+        <div>
+          <h3 className="text-base font-medium text-[--color-gray-95] mb-2">
             Silence Detection
           </h3>
           <p className="text-sm text-[--color-gray-70]">
@@ -327,9 +341,30 @@ function ChangelogSection() {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <h3 className="text-base font-medium text-[--color-gray-95]">
-              v0.3.0
+              v0.4.0
             </h3>
             <Badge variant="secondary">Current</Badge>
+            <span className="text-xs text-[--color-gray-50]">2026-05-08</span>
+          </div>
+          <p className="text-sm text-[--color-gray-70] mb-2">
+            Knowledge transformation pipeline — LLM-powered classification, summarization, and semantic embeddings.
+          </p>
+          <ul className="list-disc pl-5 text-sm text-[--color-gray-70] space-y-1">
+            <li>Multi-provider LLM abstraction layer with CPU-primary / Gemini-fallback routing and batch telemetry</li>
+            <li>Pipeline state machine: <code>ingested → classified → summarized → embedded → failed / pending_retry</code> with per-item error isolation</li>
+            <li>Thread classification: assigns primary topic, secondary topics, workstream, and confidence score via LLM</li>
+            <li>Dual-mode summarization: technical summary (for engineers) and plain-language summary (for non-technical stakeholders)</li>
+            <li>Vector embeddings stored in <code>thread_embeddings</code> with pgvector HNSW index for cosine similarity search</li>
+            <li>Idempotent upsert — re-running any pipeline stage is safe and will overwrite the previous result</li>
+            <li>Batch run tracking via <code>pipeline_runs</code> table with per-run stats (processed, failed, fallback count)</li>
+          </ul>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-base font-medium text-[--color-gray-95]">
+              v0.3.0
+            </h3>
             <span className="text-xs text-[--color-gray-50]">2026-05-08</span>
           </div>
           <p className="text-sm text-[--color-gray-70] mb-2">
