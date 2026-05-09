@@ -17,10 +17,10 @@ export class EmbedderProcessor {
   private readonly logger = new Logger(EmbedderProcessor.name);
 
   constructor(
-    private readonly llmService: LlmService,
-    private readonly pipelineStateService: PipelineStateService,
+    @Inject(LlmService) private readonly llmService: LlmService,
+    @Inject(PipelineStateService) private readonly pipelineStateService: PipelineStateService,
     @Inject(DATABASE_TOKEN) private readonly db: Database,
-    private readonly configService: ConfigService,
+    @Inject(ConfigService) private readonly configService: ConfigService,
   ) {}
 
   async embedThread(thread: SlackThread, processingDate?: string): Promise<ThreadEmbedding> {
@@ -35,6 +35,10 @@ export class EmbedderProcessor {
     }
 
     const inputText = this.buildEmbeddingInput(topic);
+
+    if (!inputText) {
+      throw new Error(`Empty embedding input for thread ${thread.id} — topic has no text content`);
+    }
 
     const result = await this.llmService.embed(inputText);
 

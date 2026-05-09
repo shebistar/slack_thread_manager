@@ -1,5 +1,10 @@
 # Deferred Work
 
+## Deferred from: code review of 3-4-thread-summarization (2026-05-08)
+
+- "isolates failures" test in `runSummarization` doesn't assert `markFailed` was called for the failing thread — incomplete assertion, not a bug [`apps/api/src/modules/pipeline/pipeline.service.spec.ts`]
+- `allUsers` query omits `id` column that the spec lists — currently unused in `buildParticipantRoster`; add when participant ID tracking is needed downstream [`apps/api/src/modules/pipeline/pipeline.service.ts:122`]
+
 ## Deferred from: code review of 3-2-pipeline-state-machine-and-failure-tracking (2026-05-08)
 
 - Circular import between `pipeline-state.ts` and `threads.ts` — works due to ESM lazy FK pattern (`() => slackThreads.id`) but adds fragility; refactor if schema files grow or if build tools report cycle warnings [`packages/db/src/schema/pipeline-state.ts`, `packages/db/src/schema/threads.ts`]
@@ -65,6 +70,12 @@
 ## Deferred from: code review of 3-3-thread-classification (2026-05-08)
 
 - `startRun()` in `PipelineService.runClassification()` has no error guard — a DB failure during run startup leaves the batch untracked with no `completeRun()` call [`apps/api/src/modules/pipeline/pipeline.service.ts:55`]
+
+## Deferred from: code review of 3-5-thread-embedding-generation (2026-05-08)
+
+- `row!` non-null assertion after `.returning()` — pre-existing pattern consistent with classifier/summarizer processors; no regression [`apps/api/src/modules/pipeline/processors/embedder.processor.ts:73`]
+- Missing EOF newline in migration SQL — cosmetic POSIX compliance issue, no functional impact [`packages/db/src/migrations/0010_skinny_raider.sql:11`]
+- JSONB shape cast without runtime validation in `buildEmbeddingInput` — pre-existing pattern consistent with how technicalSummary/plainSummary are accessed throughout the pipeline [`apps/api/src/modules/pipeline/processors/embedder.processor.ts:79-80`]
 
 ## Deferred from: code review of 1-1-monorepo-scaffold-and-development-environment (2026-05-06)
 

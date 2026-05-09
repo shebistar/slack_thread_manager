@@ -1,6 +1,6 @@
 # Story 3.5: Thread Embedding Generation
 
-Status: review
+Status: done
 
 ## Story
 
@@ -494,3 +494,11 @@ Claude Opus 4.6 (Cursor Agent)
 | `apps/api/src/modules/pipeline/pipeline.service.ts` | MODIFIED — added runEmbedding(), EmbedderProcessor injection |
 | `apps/api/src/modules/pipeline/pipeline.service.spec.ts` | MODIFIED — added 3 embedding unit tests |
 | `apps/api/src/modules/pipeline/pipeline.module.ts` | MODIFIED — registered EmbedderProcessor |
+
+### Review Findings
+
+- [x] [Review][Patch] Missing `@Inject()` decorators on `llmService`, `pipelineStateService`, `configService` in `EmbedderProcessor` constructor [`embedder.processor.ts:20-24`] — Both `ClassifierProcessor` and `SummarizerProcessor` use explicit `@Inject(ServiceClass)` on every constructor param. Without these decorators, NestJS + SWC cannot resolve the DI tokens at runtime (no `emitDecoratorMetadata`), causing boot-time injection failures.
+- [x] [Review][Patch] No guard against empty `inputText` before calling `llmService.embed()` [`embedder.processor.ts:37-39`] — If `topic.primaryTopic` is an empty string and both summaries are null, `buildEmbeddingInput` returns `''`. `embed('')` is then called, wasting a CPU model call and storing a meaningless vector. Add `if (!inputText) throw new Error(...)` after line 37.
+- [x] [Review][Defer] `row!` non-null assertion after `.returning()` [`embedder.processor.ts:73`] — deferred, pre-existing pattern consistent with `ClassifierProcessor` and `SummarizerProcessor`
+- [x] [Review][Defer] Missing EOF newline in migration SQL [`packages/db/src/migrations/0010_skinny_raider.sql:11`] — deferred, pre-existing cosmetic issue with no functional impact
+- [x] [Review][Defer] JSONB shape cast without runtime validation in `buildEmbeddingInput` [`embedder.processor.ts:79-80`] — deferred, pre-existing pattern consistent with how technicalSummary/plainSummary are used throughout the pipeline
