@@ -62,6 +62,10 @@
 - No cron expression validation — invalid `INGESTION_CRON_SCHEDULE` string fails at runtime; add Zod `.refine()` to validate cron syntax at startup [`apps/api/src/config/app.config.ts`]
 - Migration rollback strategy not documented — add explicit down-migration for `last_polled_ts` column for rolling deployments [`packages/db/src/migrations/0004_futuristic_whirlwind.sql`]
 
+## Deferred from: code review of 3-3-thread-classification (2026-05-08)
+
+- `startRun()` in `PipelineService.runClassification()` has no error guard — a DB failure during run startup leaves the batch untracked with no `completeRun()` call [`apps/api/src/modules/pipeline/pipeline.service.ts:55`]
+
 ## Deferred from: code review of 1-1-monorepo-scaffold-and-development-environment (2026-05-06)
 
 - `unplugin-swc` CJS deprecation warning on every `pnpm test` run — cosmetic upstream Vite/unplugin-swc issue; address when unplugin-swc cuts an ESM-first release [`apps/api/vitest.config.ts`]

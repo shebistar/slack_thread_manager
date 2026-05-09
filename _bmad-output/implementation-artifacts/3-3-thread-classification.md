@@ -521,6 +521,15 @@ Cursor Agent (Opus 4.6)
 - `apps/api/src/modules/pipeline/processors/summarizer.processor.ts` — DELETED: leaked Story 3.4 content
 - `apps/api/src/modules/pipeline/processors/summarizer.processor.spec.ts` — DELETED: leaked Story 3.4 content
 
+### Review Findings
+
+- [ ] [Review][Patch] Story 3.4 columns `technicalSummary`/`plainSummary` committed to `topics.ts` — violates explicit anti-pattern; migration is also out of sync (columns missing from SQL) [`packages/db/src/schema/topics.ts`]
+- [ ] [Review][Patch] Story 3.4 schemas `summarySchema`/`summarizationResultSchema` in `pipeline.schema.ts` — remove, they don't belong in this story [`packages/shared/src/schemas/pipeline.schema.ts`]
+- [ ] [Review][Patch] `lastModelVersion` mutable singleton field — race condition if two `runClassification()` calls overlap; return model version from `callLlmWithRetry()` instead [`apps/api/src/modules/pipeline/processors/classifier.processor.ts:799,778`]
+- [ ] [Review][Patch] `topic!` non-null assertion after `db.insert().returning()` — add a guard and throw a descriptive error if the array is empty [`apps/api/src/modules/pipeline/processors/classifier.processor.ts:796`]
+- [x] [Review][Defer] `startRun()` has no try/catch; a DB failure during run startup leaves the batch untracked [`apps/api/src/modules/pipeline/pipeline.service.ts:55`] — deferred, pre-existing
+
 ### Change Log
 
 - 2026-05-08: Story 3.3 implementation complete — thread classification pipeline with LLM integration, Zod validation, workstream resolution, confidence thresholding, and E2E validation against real Gemini API
+- 2026-05-08: Code review complete — 4 patch findings identified (2 HIGH: leaked Story 3.4 content, 2 MED: race condition + null assertion), 1 deferred, 4 dismissed

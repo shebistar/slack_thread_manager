@@ -44,7 +44,7 @@ export class ClassifierProcessor {
       workstreamNames,
     );
 
-    const parsed = await this.callLlmWithRetry(prompt, thread.id);
+    const { data: parsed, modelVersion } = await this.callLlmWithRetry(prompt, thread.id);
 
     const resolvedWorkstreamId = this.resolveWorkstreamId(
       parsed.workstream_id,
@@ -79,10 +79,14 @@ export class ClassifierProcessor {
         secondaryTopics: parsed.secondary_topics,
         workstreamId: resolvedWorkstreamId,
         confidence: parsed.confidence_score,
-        modelVersion: this.lastModelVersion,
+        modelVersion,
         promptVersion: CLASSIFY_PROMPT_VERSION,
       })
       .returning();
+
+    if (!topic) {
+      throw new Error(`DB insert returned no row for thread ${thread.id}`);
+    }
 
     await this.pipelineStateService.transitionState(
       thread.id,
@@ -97,23 +101,19 @@ export class ClassifierProcessor {
       workstreamId: resolvedWorkstreamId,
     });
 
-    return topic!;
+    return topic;
   }
-
-  private lastModelVersion = '';
 
   private async callLlmWithRetry(
     prompt: string,
     threadId: string,
-  ): Promise<{ primary_topic: string; secondary_topics: string[]; workstream_id: string | null; confidence_score: number }> {
+  ): Promise<{ data: { primary_topic: string; secondary_topics: string[]; workstream_id: string | null; confidence_score: number }; modelVersion: string }> {
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const result = await this.llmService.complete(prompt, {
           promptVersion: CLASSIFY_PROMPT_VERSION,
           temperature: 0.2,
         });
-
-        this.lastModelVersion = result.modelVersion;
 
         let parsed: unknown;
         try {
@@ -142,7 +142,7 @@ export class ClassifierProcessor {
           );
         }
 
-        return validated.data;
+        return { data: validated.data, modelVersion: result.modelVersion };
       } catch (err) {
         if (attempt >= 2) throw err;
         this.logger.warn(`Classification attempt ${attempt} failed, retrying`, {
