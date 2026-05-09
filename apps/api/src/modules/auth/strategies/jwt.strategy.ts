@@ -24,15 +24,28 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  private static readonly APP_ROLES: ReadonlySet<string> = new Set([
+    'ARCHITECT',
+    'PM',
+    'CONSULTANT',
+    'SALES',
+    'TRAINING',
+    'ADMIN',
+  ]);
+
   validate(payload: Record<string, unknown>): AuthenticatedUser {
-    const realmRoles = (payload.realm_access as { roles?: string[] })?.roles ?? [];
-    const role = (payload.role as string | undefined) ?? realmRoles[0] ?? 'CONSULTANT';
+    const realmRoles =
+      (payload.realm_access as { roles?: string[] })?.roles ?? [];
+    const appRole =
+      (payload.role as string | undefined) ??
+      realmRoles.find((r) => JwtStrategy.APP_ROLES.has(r)) ??
+      'CONSULTANT';
 
     return {
       sub: payload.sub as string,
       email: payload.email as string,
       name: (payload.name ?? payload.preferred_username) as string,
-      role: role as AuthenticatedUser['role'],
+      role: appRole as AuthenticatedUser['role'],
     };
   }
 }

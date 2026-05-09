@@ -1,4 +1,5 @@
-import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { date, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { pipelineStateEnum } from './pipeline-state.js';
 import { relations } from 'drizzle-orm';
 import { slackChannels } from './channels.js';
 
@@ -15,7 +16,8 @@ export const slackThreads = pgTable(
     messageCount: integer('message_count').notNull().default(0),
     rawMessages: jsonb('raw_messages').notNull().default([]),
     participantIds: text('participant_ids').array().notNull().default([]),
-    pipelineState: text('pipeline_state').default('ingested'),
+    pipelineState: pipelineStateEnum('pipeline_state').default('ingested'),
+    processingDate: date('processing_date'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

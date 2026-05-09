@@ -1,15 +1,22 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { AdminController } from './admin.controller.js';
 import { ROLES_KEY } from '../auth/decorators/roles.decorator.js';
 import { LlmService } from '../pipeline/llm/llm.service.js';
 import { CpuModelProvider } from '../pipeline/llm/providers/cpu-model.provider.js';
 import { GeminiProvider } from '../pipeline/llm/providers/gemini.provider.js';
+import { PipelineService } from '../pipeline/pipeline.service.js';
 
 describe('AdminController', () => {
   let controller: AdminController;
   const mockCpuProvider = { healthCheck: async () => true };
   const mockGeminiProvider = { healthCheck: async () => true };
+  const mockPipelineService = {
+    runClassification: vi.fn().mockResolvedValue({ processed: 0, failed: 0, pendingRetry: 0 }),
+    runSummarization: vi.fn().mockResolvedValue({ processed: 0, failed: 0, pendingRetry: 0 }),
+    runEmbedding: vi.fn().mockResolvedValue({ processed: 0, failed: 0, pendingRetry: 0 }),
+    runCorrelation: vi.fn().mockResolvedValue({ created: 0, updated: 0, pairsEvaluated: 0 }),
+  };
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
@@ -18,6 +25,7 @@ describe('AdminController', () => {
         { provide: LlmService, useValue: {} },
         { provide: CpuModelProvider, useValue: mockCpuProvider },
         { provide: GeminiProvider, useValue: mockGeminiProvider },
+        { provide: PipelineService, useValue: mockPipelineService },
       ],
     }).compile();
 
@@ -40,5 +48,15 @@ describe('AdminController', () => {
     expect(result.data.cpu.healthy).toBe(true);
     expect(result.data.gemini.healthy).toBe(true);
     expect(result.data.status).toBe('ok');
+  });
+
+  it('runs full pipeline and returns correlation result', async () => {
+    mockPipelineService.runCorrelation.mockResolvedValue({ created: 4, updated: 0, pairsEvaluated: 2 });
+
+    const result = await controller.runPipeline();
+
+    expect(result.data).toHaveProperty('correlation');
+    expect(result.data.correlation).toEqual({ created: 4, updated: 0, pairsEvaluated: 2 });
+    expect(mockPipelineService.runCorrelation).toHaveBeenCalledOnce();
   });
 });

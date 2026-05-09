@@ -43,6 +43,55 @@
       "when": 1778252955473,
       "tag": "0005_conscious_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778280397353,
+      "tag": "0006_spicy_glorian",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778281005146,
+      "tag": "0007_simple_paibok",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1778281831311,
+      "tag": "0008_rainy_jigsaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778282200909,
+      "tag": "0009_cheerful_lake",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778283679870,
+      "tag": "0010_skinny_raider",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778357396422,
+      "tag": "0011_colorful_clint_barton",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1778358784943,
+      "tag": "0012_silent_betty_ross",
+      "breakpoints": true
     }
   ]
 }

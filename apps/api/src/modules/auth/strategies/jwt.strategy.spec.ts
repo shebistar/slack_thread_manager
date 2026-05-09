@@ -54,6 +54,37 @@ describe('JwtStrategy', () => {
       expect(result.role).toBe('ARCHITECT');
     });
 
+    it('skips Keycloak system roles and picks the first app role', () => {
+      const result = strategy.validate({
+        sub: 'user-456',
+        email: 'shebi@example.com',
+        name: 'Shebi',
+        realm_access: {
+          roles: [
+            'default-roles-slack-thread-manager',
+            'offline_access',
+            'ADMIN',
+            'uma_authorization',
+          ],
+        },
+      });
+
+      expect(result.role).toBe('ADMIN');
+    });
+
+    it('defaults to CONSULTANT when realm roles contain no app roles', () => {
+      const result = strategy.validate({
+        sub: 'user-789',
+        email: 'sys@example.com',
+        name: 'System User',
+        realm_access: {
+          roles: ['default-roles-slack-thread-manager', 'offline_access'],
+        },
+      });
+
+      expect(result.role).toBe('CONSULTANT');
+    });
+
     it('defaults to CONSULTANT when no role information is available', () => {
       const result = strategy.validate({
         sub: 'user-789',

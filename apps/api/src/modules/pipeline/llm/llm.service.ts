@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CpuModelProvider } from './providers/cpu-model.provider.js';
 import { GeminiProvider } from './providers/gemini.provider.js';
@@ -22,9 +22,9 @@ export class LlmService {
   private batchFallback = 0;
 
   constructor(
-    private readonly primary: CpuModelProvider,
-    private readonly fallback: GeminiProvider,
-    private readonly configService: ConfigService,
+    @Inject(CpuModelProvider) private readonly primary: CpuModelProvider,
+    @Inject(GeminiProvider) private readonly fallback: GeminiProvider,
+    @Inject(ConfigService) private readonly configService: ConfigService,
   ) {}
 
   async complete(prompt: string, options?: LlmCompletionOptions): Promise<LlmCompleteResult> {

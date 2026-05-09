@@ -1,0 +1,78 @@
+[
+  {
+    "technical_summary": {
+      "headline": "Storage migration from NFS to Ceph requires VM compatibility layer",
+      "body": "The infrastructure team discussed migrating persistent storage from NFS v4.1 to Ceph RBD for block storage. Key concern is backward compatibility with legacy VMs that depend on NFS mount semantics. Ravi proposed a compatibility shim using rbd-nbd that would present Ceph volumes as NFS shares to legacy consumers.\n\nThe team agreed to a phased approach: new workloads target Ceph RBD directly while existing VMs continue on NFS until migration tooling is validated. Performance benchmarks from the proof-of-concept showed 3.2x throughput improvement on sequential writes.\n\nArchitectural decision: the storage abstraction layer will use CSI driver interfaces to remain platform-agnostic across OpenShift versions.",
+      "key_decisions": [
+        "Adopt Ceph RBD for new block storage workloads",
+        "Keep NFS for legacy VMs until migration tooling is validated",
+        "Use CSI driver interfaces for storage abstraction"
+      ],
+      "action_items": [
+        "Ravi to benchmark Ceph throughput under concurrent access by Friday",
+        "Priya to document CSI driver configuration for the runbook"
+      ]
+    },
+    "plain_summary": {
+      "headline": "Team is changing how files are stored to improve performance",
+      "body": "The infrastructure team is moving file storage to a newer, faster system called Ceph. The current system (NFS) is slower, but some older machines still depend on it, so both systems will run side by side during the transition.\n\nThe team agreed that new projects will use the faster system immediately, while older machines will be migrated later once the process is tested and proven safe.\n\nEarly testing shows the new system is about 3 times faster for large file operations.",
+      "key_decisions": [
+        "New storage system approved for new projects",
+        "Old system kept running for older machines during transition",
+        "Approach designed to work across different platform versions"
+      ],
+      "action_items": [
+        "Performance testing under real conditions due by end of week",
+        "Setup guide to be documented for the team"
+      ]
+    }
+  },
+  {
+    "technical_summary": {
+      "headline": "API gateway rate limiting strategy needs Redis-backed sliding window",
+      "body": "Discussion around implementing rate limiting for the external API gateway. The current token bucket approach using in-memory state is not viable for horizontally scaled pods — state is lost on restart and not shared across replicas.\n\nTeam evaluated three options: Redis sliding window, PostgreSQL advisory locks, and Envoy-level rate limiting. Consensus was Redis sliding window counter for its sub-millisecond latency and native TTL support.",
+      "key_decisions": [
+        "Use Redis sliding window counter for rate limiting",
+        "Deploy shared Redis instance for gateway state"
+      ],
+      "action_items": [
+        "Amir to spike Redis rate limiter implementation by Wednesday",
+        "Review Envoy rate limit filter as fallback if Redis adds too much operational overhead"
+      ]
+    },
+    "plain_summary": {
+      "headline": "Team chose a solution to prevent the API from being overwhelmed by requests",
+      "body": "The team discussed how to limit the number of requests the system processes so it doesn't get overloaded. The current approach doesn't work well when multiple servers are running because each server tracks requests separately.\n\nAfter comparing three options, the team chose a shared counting system (Redis) that all servers can access, which responds very quickly and automatically cleans up old data.",
+      "key_decisions": [
+        "Selected shared counting system for request limiting",
+        "Will add a dedicated shared server for tracking request counts"
+      ],
+      "action_items": [
+        "Prototype implementation due by Wednesday",
+        "Evaluate backup option if the chosen approach is too complex to maintain"
+      ]
+    }
+  },
+  {
+    "technical_summary": {
+      "headline": "Deployment pipeline flaky tests traced to Keycloak token expiry in CI",
+      "body": "Investigation into intermittent CI failures on the deploy pipeline. Root cause: Keycloak access tokens used in integration tests have a 5-minute TTL, and slow CI runners occasionally exceed this window during the test suite.\n\nFix: inject a dedicated test realm with extended token TTL (30 minutes) and add a token refresh interceptor to the test HTTP client. The team also agreed to add a pre-test health check that validates Keycloak connectivity before running the suite.",
+      "key_decisions": [
+        "Create dedicated Keycloak test realm with 30-minute token TTL",
+        "Add token refresh interceptor to test HTTP client",
+        "Add Keycloak health check as test suite prerequisite"
+      ],
+      "action_items": []
+    },
+    "plain_summary": {
+      "headline": "Fixed intermittent test failures caused by login sessions expiring too quickly",
+      "body": "The automated tests that run before deployments were sometimes failing randomly. The team found that the login sessions used during testing were set to expire after 5 minutes, and some test runs on slow machines took longer than that.\n\nThe fix involves creating a separate testing environment with longer-lasting login sessions (30 minutes) and automatically refreshing sessions during the test run. The system will also verify the login service is working before starting tests.",
+      "key_decisions": [
+        "Separate testing environment with longer session times",
+        "Automatic session refresh during test runs",
+        "Pre-test check to confirm login service is available"
+      ],
+      "action_items": []
+    }
+  }
+]

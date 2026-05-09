@@ -1,5 +1,26 @@
 # Deferred Work
 
+## Deferred from: code review of story-3.6 (2026-05-09)
+
+- Race condition in `upsertCorrelation` SELECT-then-INSERT — concurrent correlator runs could miscount created vs updated; optimize with PostgreSQL `xmax` single-query detection when concurrency matters [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:229-247`]
+- O(n²) participant overlap + unbounded `threadIds` in SQL ANY() — acceptable at MVP scale; add chunking/sampling when production data grows [`apps/api/src/modules/pipeline/processors/correlator.processor.ts`]
+- No minimum threshold for participant overlap — any non-zero Jaccard emits a correlation; may produce noise at scale [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:168-193`]
+- Topic match signal quality — equality on `primaryTopic` with confidence=1.0 treats coarse labels as perfect ground truth; normalization/case-folding/generic-topic filtering deferred [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:130-166`]
+- FK `ON DELETE NO ACTION` on topic_correlations — thread deletion leaves orphan correlations; cleanup strategy deferred [`packages/db/src/migrations/0011_colorful_clint_barton.sql`]
+- Admin pipeline endpoint chains 4 heavy operations synchronously — no timeout, partial failure handling, or rate limiting; pre-existing admin pattern [`apps/api/src/modules/admin/admin.controller.ts:39-54`]
+
+## Deferred from: code review of 3-4-thread-summarization (2026-05-08)
+
+- "isolates failures" test in `runSummarization` doesn't assert `markFailed` was called for the failing thread — incomplete assertion, not a bug [`apps/api/src/modules/pipeline/pipeline.service.spec.ts`]
+- `allUsers` query omits `id` column that the spec lists — currently unused in `buildParticipantRoster`; add when participant ID tracking is needed downstream [`apps/api/src/modules/pipeline/pipeline.service.ts:122`]
+
+## Deferred from: code review of 3-2-pipeline-state-machine-and-failure-tracking (2026-05-08)
+
+- Circular import between `pipeline-state.ts` and `threads.ts` — works due to ESM lazy FK pattern (`() => slackThreads.id`) but adds fragility; refactor if schema files grow or if build tools report cycle warnings [`packages/db/src/schema/pipeline-state.ts`, `packages/db/src/schema/threads.ts`]
+- `pipeline_runs` table has no index on `started_at` — `getLatestRuns` uses `orderBy(desc(startedAt))` which is a sequential scan; fine at MVP volume with ~100s of runs; add index when run history grows past 10K [`packages/db/src/schema/pipeline-state.ts`]
+- `pipeline_failures.thread_id` FK has no `ON DELETE CASCADE` — FK constraint prevents thread deletion while failures exist; current behavior is safe (failures preserved for debugging); add cascade when thread lifecycle management (cleanup/archival) is implemented [`packages/db/src/schema/pipeline-state.ts`]
+- Unicode `→` character in `InvalidStateTransitionError` message — may cause encoding issues in some log aggregation systems that don't handle UTF-8 properly; replace with `->` if log ingestion issues arise [`apps/api/src/modules/pipeline/pipeline.errors.ts`]
+
 ## Deferred from: code review of 3-1-llm-abstraction-layer-and-provider-interface (2026-05-08)
 
 - `LlmService.embed()` delegates to primary only with no Gemini fallback — by spec design; dev notes explicitly defer embedding fallback; revisit when embedding pipeline is production-critical [`apps/api/src/modules/pipeline/llm/llm.service.ts`]
@@ -54,6 +75,16 @@
 - Watermark uses DB `now()` not last-message-ts — messages posted during the ingestion window can be skipped; consider setting watermark to last ingested message timestamp instead [`apps/api/src/modules/ingestion/polling.job.ts`]
 - No cron expression validation — invalid `INGESTION_CRON_SCHEDULE` string fails at runtime; add Zod `.refine()` to validate cron syntax at startup [`apps/api/src/config/app.config.ts`]
 - Migration rollback strategy not documented — add explicit down-migration for `last_polled_ts` column for rolling deployments [`packages/db/src/migrations/0004_futuristic_whirlwind.sql`]
+
+## Deferred from: code review of 3-3-thread-classification (2026-05-08)
+
+- `startRun()` in `PipelineService.runClassification()` has no error guard — a DB failure during run startup leaves the batch untracked with no `completeRun()` call [`apps/api/src/modules/pipeline/pipeline.service.ts:55`]
+
+## Deferred from: code review of 3-5-thread-embedding-generation (2026-05-08)
+
+- `row!` non-null assertion after `.returning()` — pre-existing pattern consistent with classifier/summarizer processors; no regression [`apps/api/src/modules/pipeline/processors/embedder.processor.ts:73`]
+- Missing EOF newline in migration SQL — cosmetic POSIX compliance issue, no functional impact [`packages/db/src/migrations/0010_skinny_raider.sql:11`]
+- JSONB shape cast without runtime validation in `buildEmbeddingInput` — pre-existing pattern consistent with how technicalSummary/plainSummary are accessed throughout the pipeline [`apps/api/src/modules/pipeline/processors/embedder.processor.ts:79-80`]
 
 ## Deferred from: code review of 1-1-monorepo-scaffold-and-development-environment (2026-05-06)
 
