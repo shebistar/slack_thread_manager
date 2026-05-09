@@ -10,6 +10,7 @@ export const llmConfigSchema = z.object({
   LLM_FALLBACK_RATE_THRESHOLD: z.coerce.number().min(0).max(1).optional().default(0.5),
   CLASSIFICATION_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).optional().default(0.6),
   EMBEDDING_DIMENSIONS: z.coerce.number().optional().default(768),
+  CORRELATION_SIMILARITY_THRESHOLD: z.coerce.number().min(0).max(1).optional().default(0.7),
 });
 
 export type LlmConfig = z.infer<typeof llmConfigSchema>;

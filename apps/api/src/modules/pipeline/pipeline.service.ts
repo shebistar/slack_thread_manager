@@ -17,6 +17,7 @@ import {
   type ParticipantRosterEntry,
 } from './processors/summarizer.processor.js';
 import { EmbedderProcessor } from './processors/embedder.processor.js';
+import { CorrelatorProcessor, type CorrelationRunResult } from './processors/correlator.processor.js';
 
 export interface PipelineRunResult {
   processed: number;
@@ -26,6 +27,7 @@ export interface PipelineRunResult {
 
 export type ClassificationRunResult = PipelineRunResult;
 export type EmbeddingRunResult = PipelineRunResult;
+export type { CorrelationRunResult };
 
 @Injectable()
 export class PipelineService {
@@ -38,6 +40,8 @@ export class PipelineService {
     private readonly summarizerProcessor: SummarizerProcessor,
     @Inject(EmbedderProcessor)
     private readonly embedderProcessor: EmbedderProcessor,
+    @Inject(CorrelatorProcessor)
+    private readonly correlatorProcessor: CorrelatorProcessor,
     @Inject(PipelineStateService)
     private readonly pipelineStateService: PipelineStateService,
     @Inject(PipelineRunService)
@@ -118,7 +122,8 @@ export class PipelineService {
   async runSummarization(processingDate?: string): Promise<PipelineRunResult> {
     const date = processingDate ?? new Date().toISOString().slice(0, 10);
 
-    const threads = await this.pipelineStateService.getThreadsByState('classified', date);
+    // No date filter: process ALL classified threads regardless of processing_date
+    const threads = await this.pipelineStateService.getThreadsByState('classified');
     if (threads.length === 0) {
       this.logger.log('No classified threads to summarize');
       return { processed: 0, failed: 0, pendingRetry: 0 };
@@ -219,7 +224,8 @@ export class PipelineService {
   async runEmbedding(processingDate?: string): Promise<EmbeddingRunResult> {
     const date = processingDate ?? new Date().toISOString().slice(0, 10);
 
-    const threads = await this.pipelineStateService.getThreadsByState('summarized', date);
+    // No date filter: process ALL summarized threads regardless of processing_date
+    const threads = await this.pipelineStateService.getThreadsByState('summarized');
     if (threads.length === 0) {
       this.logger.log('No summarized threads to embed');
       return { processed: 0, failed: 0, pendingRetry: 0 };
@@ -270,6 +276,10 @@ export class PipelineService {
     });
 
     return { processed, failed, pendingRetry };
+  }
+
+  async runCorrelation(): Promise<CorrelationRunResult> {
+    return this.correlatorProcessor.runBatchCorrelation();
   }
 
   private buildParticipantRoster(

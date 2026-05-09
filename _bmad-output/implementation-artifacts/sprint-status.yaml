@@ -69,7 +69,7 @@ development_status:
   3-3-thread-classification: done
   3-4-thread-summarization: done
   3-5-thread-embedding-generation: done
-  3-6-cross-workstream-correlation: backlog
+  3-6-cross-workstream-correlation: done
   3-7-orphaned-action-detection: backlog
   epic-3-retrospective: optional
 

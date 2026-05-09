@@ -78,6 +78,13 @@
       "when": 1778283679870,
       "tag": "0010_skinny_raider",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778357396422,
+      "tag": "0011_colorful_clint_barton",
+      "breakpoints": true
     }
   ]
 }

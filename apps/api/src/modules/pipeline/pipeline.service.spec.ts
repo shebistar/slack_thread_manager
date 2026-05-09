@@ -4,6 +4,7 @@ import { PipelineService } from './pipeline.service.js';
 import { ClassifierProcessor } from './processors/classifier.processor.js';
 import { SummarizerProcessor } from './processors/summarizer.processor.js';
 import { EmbedderProcessor } from './processors/embedder.processor.js';
+import { CorrelatorProcessor } from './processors/correlator.processor.js';
 import { PipelineStateService } from './pipeline-state.service.js';
 import { PipelineRunService } from './pipeline-run.service.js';
 import { LlmService } from './llm/llm.service.js';
@@ -30,6 +31,7 @@ describe('PipelineService', () => {
   let mockClassifier: Record<string, ReturnType<typeof vi.fn>>;
   let mockSummarizer: Record<string, ReturnType<typeof vi.fn>>;
   let mockEmbedder: Record<string, ReturnType<typeof vi.fn>>;
+  let mockCorrelator: Record<string, ReturnType<typeof vi.fn>>;
   let mockStateService: Record<string, ReturnType<typeof vi.fn>>;
   let mockRunService: Record<string, ReturnType<typeof vi.fn>>;
   let mockLlmService: Record<string, ReturnType<typeof vi.fn>>;
@@ -62,6 +64,10 @@ describe('PipelineService', () => {
         modelVersion: 'nomic-embed-text',
         createdAt: new Date(),
       }),
+    };
+
+    mockCorrelator = {
+      runBatchCorrelation: vi.fn().mockResolvedValue({ created: 4, updated: 0, pairsEvaluated: 2 }),
     };
 
     mockStateService = {
@@ -114,6 +120,7 @@ describe('PipelineService', () => {
         { provide: ClassifierProcessor, useValue: mockClassifier },
         { provide: SummarizerProcessor, useValue: mockSummarizer },
         { provide: EmbedderProcessor, useValue: mockEmbedder },
+        { provide: CorrelatorProcessor, useValue: mockCorrelator },
         { provide: PipelineStateService, useValue: mockStateService },
         { provide: PipelineRunService, useValue: mockRunService },
         { provide: LlmService, useValue: mockLlmService },
@@ -365,6 +372,23 @@ describe('PipelineService', () => {
 
       expect(mockLlmService.resetBatchCounters).toHaveBeenCalledOnce();
       expect(mockLlmService.logBatchSummary).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('runCorrelation', () => {
+    it('delegates to CorrelatorProcessor.runBatchCorrelation() and returns its result', async () => {
+      const result = await service.runCorrelation();
+
+      expect(mockCorrelator.runBatchCorrelation).toHaveBeenCalledOnce();
+      expect(result).toEqual({ created: 4, updated: 0, pairsEvaluated: 2 });
+    });
+
+    it('returns zeros when correlator finds nothing', async () => {
+      mockCorrelator.runBatchCorrelation.mockResolvedValue({ created: 0, updated: 0, pairsEvaluated: 0 });
+
+      const result = await service.runCorrelation();
+
+      expect(result).toEqual({ created: 0, updated: 0, pairsEvaluated: 0 });
     });
   });
 });
