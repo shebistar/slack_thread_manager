@@ -26,8 +26,8 @@ export class SummarizerProcessor {
   private readonly logger = new Logger(SummarizerProcessor.name);
 
   constructor(
-    private readonly llmService: LlmService,
-    private readonly pipelineStateService: PipelineStateService,
+    @Inject(LlmService) private readonly llmService: LlmService,
+    @Inject(PipelineStateService) private readonly pipelineStateService: PipelineStateService,
     @Inject(DATABASE_TOKEN) private readonly db: Database,
   ) {}
 
@@ -56,7 +56,7 @@ export class SummarizerProcessor {
         technicalSummary: validated.technical_summary,
         plainSummary: validated.plain_summary,
       })
-      .where(eq(classifiedTopics.threadId, thread.id))
+      .where(eq(classifiedTopics.id, classifiedTopic.id))
       .returning();
 
     if (!updated) {
@@ -134,13 +134,7 @@ export class SummarizerProcessor {
 
   private stripCodeFences(content: string): string {
     const trimmed = content.trim();
-    if (trimmed.startsWith('```')) {
-      const firstNewline = trimmed.indexOf('\n');
-      const lastFence = trimmed.lastIndexOf('```');
-      if (lastFence > firstNewline) {
-        return trimmed.slice(firstNewline + 1, lastFence).trim();
-      }
-    }
-    return trimmed;
+    const fenceMatch = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/);
+    return fenceMatch ? fenceMatch[1].trim() : trimmed;
   }
 }

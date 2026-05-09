@@ -1,6 +1,6 @@
 # Story 3.4: Thread Summarization
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -567,3 +567,12 @@ Claude Opus 4.6 (Cursor Agent)
 | `apps/api/src/modules/pipeline/pipeline.service.ts` | MODIFIED — added `runSummarization()`, `SummarizerProcessor` injection, roster matching |
 | `apps/api/src/modules/pipeline/pipeline.service.spec.ts` | MODIFIED — added 5 summarization unit tests |
 | `apps/api/src/modules/pipeline/pipeline.module.ts` | MODIFIED — registered `SummarizerProcessor` |
+
+### Review Findings
+
+- [x] [Review][Patch] Missing `@Inject()` on `llmService` and `pipelineStateService` in `SummarizerProcessor` constructor — will cause `UndefinedDependencyException` at runtime (same issue fixed in Story 3.3) [`apps/api/src/modules/pipeline/processors/summarizer.processor.ts:30-31`]
+- [x] [Review][Patch] `stripCodeFences` uses `lastIndexOf('```')` — finds embedded backticks in JSON body; replace with anchored regex from Story 3.3's `stripMarkdownFences` [`apps/api/src/modules/pipeline/processors/summarizer.processor.ts:124`]
+- [x] [Review][Patch] AC 8.11 missing — no test verifying `allUsers` is fetched once per batch (not per-thread) in `runSummarization` [`apps/api/src/modules/pipeline/pipeline.service.spec.ts`]
+- [x] [Review][Patch] `SummarizerProcessor.summarizeThread` UPDATE WHERE uses `threadId` FK — use `classifiedTopic.id` PK for precision [`apps/api/src/modules/pipeline/processors/summarizer.processor.ts:62`]
+- [x] [Review][Defer] "isolates failures" test doesn't assert `markFailed` was called for the failing thread [`apps/api/src/modules/pipeline/pipeline.service.spec.ts`] — deferred, pre-existing
+- [x] [Review][Defer] `allUsers` query omits `id` column that spec lists (unused in current code) [`apps/api/src/modules/pipeline/pipeline.service.ts:122`] — deferred, pre-existing

@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { PipelineService } from './pipeline.service.js';
 import { ClassifierProcessor } from './processors/classifier.processor.js';
 import { SummarizerProcessor } from './processors/summarizer.processor.js';
+import { EmbedderProcessor } from './processors/embedder.processor.js';
 import { PipelineStateService } from './pipeline-state.service.js';
 import { PipelineRunService } from './pipeline-run.service.js';
 import { LlmService } from './llm/llm.service.js';
@@ -28,6 +29,7 @@ describe('PipelineService', () => {
   let service: PipelineService;
   let mockClassifier: Record<string, ReturnType<typeof vi.fn>>;
   let mockSummarizer: Record<string, ReturnType<typeof vi.fn>>;
+  let mockEmbedder: Record<string, ReturnType<typeof vi.fn>>;
   let mockStateService: Record<string, ReturnType<typeof vi.fn>>;
   let mockRunService: Record<string, ReturnType<typeof vi.fn>>;
   let mockLlmService: Record<string, ReturnType<typeof vi.fn>>;
@@ -49,6 +51,16 @@ describe('PipelineService', () => {
         primaryTopic: 'Test Topic',
         technicalSummary: { headline: 'tech', body: 'body', key_decisions: [], action_items: [] },
         plainSummary: { headline: 'plain', body: 'body', key_decisions: [], action_items: [] },
+      }),
+    };
+
+    mockEmbedder = {
+      embedThread: vi.fn().mockResolvedValue({
+        id: 'embed-1',
+        threadId: 'thread-1',
+        embedding: Array.from({ length: 768 }, () => 0.1),
+        modelVersion: 'nomic-embed-text',
+        createdAt: new Date(),
       }),
     };
 
@@ -101,6 +113,7 @@ describe('PipelineService', () => {
         PipelineService,
         { provide: ClassifierProcessor, useValue: mockClassifier },
         { provide: SummarizerProcessor, useValue: mockSummarizer },
+        { provide: EmbedderProcessor, useValue: mockEmbedder },
         { provide: PipelineStateService, useValue: mockStateService },
         { provide: PipelineRunService, useValue: mockRunService },
         { provide: LlmService, useValue: mockLlmService },
@@ -265,6 +278,93 @@ describe('PipelineService', () => {
         'classified',
         expect.any(LlmPendingRetryError),
       );
+    });
+
+    it('fetches allUsers once per batch, not per-thread (AC: #8.11)', async () => {
+      // 2 threads in scope (from beforeEach)
+      await service.runSummarization('2026-05-08');
+
+      // Expected: 1 (allUsers) + 1 (workstreams) + 2 (classifiedTopics per thread) = 4
+      // If allUsers were fetched per-thread, it would be 2+2+2 = 6
+      expect(mockDb.select).toHaveBeenCalledTimes(4);
+      expect(mockSummarizer.summarizeThread).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('runEmbedding', () => {
+    beforeEach(() => {
+      mockStateService.getThreadsByState.mockResolvedValue([
+        makeThread('t1', 'summarized'),
+        makeThread('t2', 'summarized'),
+      ]);
+    });
+
+    it('processes summarized threads with per-item error isolation', async () => {
+      const result = await service.runEmbedding('2026-05-08');
+
+      expect(result.processed).toBe(2);
+      expect(result.failed).toBe(0);
+      expect(result.pendingRetry).toBe(0);
+      expect(mockEmbedder.embedThread).toHaveBeenCalledTimes(2);
+      expect(mockRunService.startRun).toHaveBeenCalledOnce();
+      expect(mockRunService.completeRun).toHaveBeenCalledWith('run-1', {
+        threadsProcessed: 2,
+        threadsFailed: 0,
+        fallbackCount: 0,
+      });
+    });
+
+    it('returns zeros and skips batch run when no summarized threads', async () => {
+      mockStateService.getThreadsByState.mockResolvedValue([]);
+
+      const result = await service.runEmbedding('2026-05-08');
+
+      expect(result).toEqual({ processed: 0, failed: 0, pendingRetry: 0 });
+      expect(mockRunService.startRun).not.toHaveBeenCalled();
+      expect(mockEmbedder.embedThread).not.toHaveBeenCalled();
+    });
+
+    it('isolates failures — one thread fails, others succeed', async () => {
+      mockEmbedder.embedThread
+        .mockResolvedValueOnce({ id: 'embed-1' })
+        .mockRejectedValueOnce(new Error('Embedding failed'));
+
+      const result = await service.runEmbedding('2026-05-08');
+
+      expect(result.processed).toBe(1);
+      expect(result.failed).toBe(1);
+      expect(result.pendingRetry).toBe(0);
+
+      expect(mockStateService.markFailed).toHaveBeenCalledWith(
+        't2',
+        'summarized',
+        expect.any(Error),
+      );
+    });
+
+    it('increments pendingRetry on LlmPendingRetryError', async () => {
+      mockEmbedder.embedThread
+        .mockResolvedValueOnce({ id: 'embed-1' })
+        .mockRejectedValueOnce(new LlmPendingRetryError('embed failed', 'all'));
+
+      const result = await service.runEmbedding('2026-05-08');
+
+      expect(result.processed).toBe(1);
+      expect(result.pendingRetry).toBe(1);
+      expect(result.failed).toBe(0);
+
+      expect(mockStateService.markPendingRetry).toHaveBeenCalledWith(
+        't2',
+        'summarized',
+        expect.any(LlmPendingRetryError),
+      );
+    });
+
+    it('calls resetBatchCounters before and logBatchSummary after', async () => {
+      await service.runEmbedding('2026-05-08');
+
+      expect(mockLlmService.resetBatchCounters).toHaveBeenCalledOnce();
+      expect(mockLlmService.logBatchSummary).toHaveBeenCalledOnce();
     });
   });
 });
