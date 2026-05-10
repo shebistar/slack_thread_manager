@@ -18,6 +18,7 @@ describe('AdminController', () => {
     runCorrelation: vi.fn().mockResolvedValue({ created: 0, updated: 0, pairsEvaluated: 0 }),
     runBlocklistFilter: vi.fn().mockResolvedValue({ threadsScanned: 0, threadsWithMatches: 0, totalMatches: 0, results: [] }),
     runLlmEntityDetection: vi.fn().mockResolvedValue({ threadsProcessed: 0, entitiesDetected: 0, results: [] }),
+    runStaging: vi.fn().mockResolvedValue({ threadsStaged: 0, threadsFailed: 0, batchId: null }),
   };
 
   beforeEach(async () => {
@@ -104,6 +105,7 @@ describe('AdminController', () => {
       entitiesDetected: 2,
       results: [{ threadId: 'thread-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }, { source: 'LLM', term: 'Entity' }] }],
     });
+    mockPipelineService.runStaging.mockResolvedValue({ threadsStaged: 2, threadsFailed: 0, batchId: 'batch-1' });
 
     const result = await controller.runPipeline();
 
@@ -111,7 +113,63 @@ describe('AdminController', () => {
     expect(result.data.entityDetection.threadsProcessed).toBe(1);
     expect(result.data.entityDetection.entitiesDetected).toBe(2);
     expect(mockPipelineService.runLlmEntityDetection).toHaveBeenCalledWith(
-      [{ threadId: 'thread-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }] }],
+      [
+        { threadId: 'thread-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }] },
+        { threadId: 'thread-2', flags: [] },
+      ],
     );
+  });
+
+  it('pipeline/run response includes staging field', async () => {
+    vi.clearAllMocks();
+    mockPipelineService.runBlocklistFilter.mockResolvedValue({
+      threadsScanned: 1, threadsWithMatches: 0, totalMatches: 0, results: [],
+    });
+    mockPipelineService.runLlmEntityDetection.mockResolvedValue({
+      threadsProcessed: 0, entitiesDetected: 0, results: [],
+    });
+    mockPipelineService.runStaging.mockResolvedValue({
+      threadsStaged: 3, threadsFailed: 0, batchId: 'batch-uuid',
+    });
+
+    const result = await controller.runPipeline();
+
+    expect(result.data).toHaveProperty('staging');
+    expect(result.data.staging).toEqual({ threadsStaged: 3, threadsFailed: 0, batchId: 'batch-uuid' });
+    expect(mockPipelineService.runStaging).toHaveBeenCalledOnce();
+  });
+
+  it('staging merge logic: unflagged + LLM-enhanced flagged threads combined correctly', async () => {
+    vi.clearAllMocks();
+    mockPipelineService.runBlocklistFilter.mockResolvedValue({
+      threadsScanned: 3,
+      threadsWithMatches: 1,
+      totalMatches: 1,
+      results: [
+        { threadId: 'flagged-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }] },
+        { threadId: 'clean-1', flags: [] },
+        { threadId: 'clean-2', flags: [] },
+      ],
+    });
+    mockPipelineService.runLlmEntityDetection.mockResolvedValue({
+      threadsProcessed: 1,
+      entitiesDetected: 1,
+      results: [{ threadId: 'flagged-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }, { source: 'LLM', term: 'Bob' }] }],
+    });
+    mockPipelineService.runStaging.mockResolvedValue({
+      threadsStaged: 3, threadsFailed: 0, batchId: 'batch-uuid',
+    });
+
+    await controller.runPipeline();
+
+    const stagingCall = mockPipelineService.runStaging.mock.calls[0][0];
+    expect(stagingCall).toHaveLength(3);
+
+    const threadIds = stagingCall.map((r: { threadId: string }) => r.threadId).sort();
+    expect(threadIds).toEqual(['clean-1', 'clean-2', 'flagged-1']);
+
+    const flaggedResult = stagingCall.find((r: { threadId: string }) => r.threadId === 'flagged-1');
+    expect(flaggedResult.flags).toHaveLength(2);
+    expect(flaggedResult.flags[1].source).toBe('LLM');
   });
 });

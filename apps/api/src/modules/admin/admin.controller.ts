@@ -44,8 +44,17 @@ export class AdminController {
     const embedding = await this.pipelineService.runEmbedding(date);
     const correlation = await this.pipelineService.runCorrelation();
     const blocklistFilter = await this.pipelineService.runBlocklistFilter();
-    const threadsWithHits = blocklistFilter.results.filter((r) => r.flags.length > 0);
-    const entityDetection = await this.pipelineService.runLlmEntityDetection(threadsWithHits);
+    const entityDetection = await this.pipelineService.runLlmEntityDetection(
+      blocklistFilter.results,
+    );
+
+    const flaggedIds = new Set(entityDetection.results.map((r) => r.threadId));
+    const unflaggedResults = blocklistFilter.results.filter(
+      (r) => !flaggedIds.has(r.threadId),
+    );
+    const allResults = [...entityDetection.results, ...unflaggedResults];
+    const staging = await this.pipelineService.runStaging(allResults);
+
     return {
       data: {
         classification,
@@ -54,6 +63,7 @@ export class AdminController {
         correlation,
         blocklistFilter,
         entityDetection,
+        staging,
       },
     };
   }

@@ -21,6 +21,8 @@ import { EmbedderProcessor } from './processors/embedder.processor.js';
 import { CorrelatorProcessor, type CorrelationRunResult } from './processors/correlator.processor.js';
 import { BlocklistFilterProcessor, type BlocklistFilterResult } from './anonymization/blocklist-filter.processor.js';
 import { LlmEntityDetectorProcessor, type LlmEntityDetectionResult } from './anonymization/llm-entity-detector.processor.js';
+import { StagingQueueService } from './anonymization/staging-queue.service.js';
+import type { StagingResult } from '@slack-thread-manager/shared';
 
 export interface PipelineRunResult {
   processed: number;
@@ -33,6 +35,7 @@ export type EmbeddingRunResult = PipelineRunResult;
 export type { CorrelationRunResult };
 export type { BlocklistFilterResult };
 export type { LlmEntityDetectionResult };
+export type { StagingResult };
 
 @Injectable()
 export class PipelineService {
@@ -51,6 +54,8 @@ export class PipelineService {
     private readonly blocklistFilterProcessor: BlocklistFilterProcessor,
     @Inject(LlmEntityDetectorProcessor)
     private readonly llmEntityDetectorProcessor: LlmEntityDetectorProcessor,
+    @Inject(StagingQueueService)
+    private readonly stagingQueueService: StagingQueueService,
     @Inject(PipelineStateService)
     private readonly pipelineStateService: PipelineStateService,
     @Inject(PipelineRunService)
@@ -299,6 +304,10 @@ export class PipelineService {
     blocklistResults: AnonymizationResult[],
   ): Promise<LlmEntityDetectionResult> {
     return this.llmEntityDetectorProcessor.runDetection(blocklistResults);
+  }
+
+  async runStaging(results: AnonymizationResult[]): Promise<StagingResult> {
+    return this.stagingQueueService.stageResults(results);
   }
 
   private buildParticipantRoster(
