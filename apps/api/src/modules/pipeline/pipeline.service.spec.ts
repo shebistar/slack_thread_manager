@@ -6,6 +6,7 @@ import { SummarizerProcessor } from './processors/summarizer.processor.js';
 import { EmbedderProcessor } from './processors/embedder.processor.js';
 import { CorrelatorProcessor } from './processors/correlator.processor.js';
 import { BlocklistFilterProcessor } from './anonymization/blocklist-filter.processor.js';
+import { LlmEntityDetectorProcessor } from './anonymization/llm-entity-detector.processor.js';
 import { PipelineStateService } from './pipeline-state.service.js';
 import { PipelineRunService } from './pipeline-run.service.js';
 import { LlmService } from './llm/llm.service.js';
@@ -34,6 +35,7 @@ describe('PipelineService', () => {
   let mockEmbedder: Record<string, ReturnType<typeof vi.fn>>;
   let mockCorrelator: Record<string, ReturnType<typeof vi.fn>>;
   let mockBlocklistFilter: Record<string, ReturnType<typeof vi.fn>>;
+  let mockLlmEntityDetector: Record<string, ReturnType<typeof vi.fn>>;
   let mockStateService: Record<string, ReturnType<typeof vi.fn>>;
   let mockRunService: Record<string, ReturnType<typeof vi.fn>>;
   let mockLlmService: Record<string, ReturnType<typeof vi.fn>>;
@@ -74,6 +76,10 @@ describe('PipelineService', () => {
 
     mockBlocklistFilter = {
       runFilter: vi.fn().mockResolvedValue({ threadsScanned: 2, threadsWithMatches: 1, totalMatches: 3, results: [] }),
+    };
+
+    mockLlmEntityDetector = {
+      runDetection: vi.fn().mockResolvedValue({ threadsProcessed: 2, entitiesDetected: 1, results: [] }),
     };
 
     mockStateService = {
@@ -128,6 +134,7 @@ describe('PipelineService', () => {
         { provide: EmbedderProcessor, useValue: mockEmbedder },
         { provide: CorrelatorProcessor, useValue: mockCorrelator },
         { provide: BlocklistFilterProcessor, useValue: mockBlocklistFilter },
+        { provide: LlmEntityDetectorProcessor, useValue: mockLlmEntityDetector },
         { provide: PipelineStateService, useValue: mockStateService },
         { provide: PipelineRunService, useValue: mockRunService },
         { provide: LlmService, useValue: mockLlmService },
@@ -419,6 +426,30 @@ describe('PipelineService', () => {
 
       expect(result.threadsWithMatches).toBe(0);
       expect(result.totalMatches).toBe(0);
+    });
+  });
+
+  describe('runLlmEntityDetection', () => {
+    it('8.13: delegates to LlmEntityDetectorProcessor.runDetection() and returns result', async () => {
+      const mockInput = [{ threadId: 'thread-1', originalContent: {}, anonymizedContent: {}, flags: [] }] as never[];
+
+      const result = await service.runLlmEntityDetection(mockInput);
+
+      expect(mockLlmEntityDetector.runDetection).toHaveBeenCalledOnce();
+      expect(mockLlmEntityDetector.runDetection).toHaveBeenCalledWith(mockInput);
+      expect(result).toEqual({ threadsProcessed: 2, entitiesDetected: 1, results: [] });
+    });
+
+    it('returns empty result when called with empty array', async () => {
+      mockLlmEntityDetector.runDetection.mockResolvedValue({
+        threadsProcessed: 0,
+        entitiesDetected: 0,
+        results: [],
+      });
+
+      const result = await service.runLlmEntityDetection([]);
+
+      expect(result).toEqual({ threadsProcessed: 0, entitiesDetected: 0, results: [] });
     });
   });
 

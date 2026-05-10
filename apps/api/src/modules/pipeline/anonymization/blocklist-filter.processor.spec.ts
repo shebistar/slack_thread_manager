@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Test } from '@nestjs/testing';
+import type { BlocklistMatch } from '@slack-thread-manager/shared';
 import { BlocklistFilterProcessor } from './blocklist-filter.processor.js';
 import { DATABASE_TOKEN } from '../../../database/database.module.js';
 
@@ -192,12 +193,13 @@ describe('BlocklistFilterProcessor', () => {
 
     expect(result.threadsWithMatches).toBe(1);
 
-    const positions = result.results[0].flags[0].positions;
-    const fields = positions.map((p) => p.field);
+    const flag = result.results[0].flags[0] as BlocklistMatch;
+    const positions = flag.positions;
+    const fields = positions.map((p: { field: string }) => p.field);
     expect(fields).toContain('technicalSummary.headline');
     expect(fields).toContain('technicalSummary.body');
-    expect(fields.some((f) => f.startsWith('technicalSummary.key_decisions'))).toBe(true);
-    expect(fields.some((f) => f.startsWith('technicalSummary.action_items'))).toBe(true);
+    expect(fields.some((f: string) => f.startsWith('technicalSummary.key_decisions'))).toBe(true);
+    expect(fields.some((f: string) => f.startsWith('technicalSummary.action_items'))).toBe(true);
   });
 
   it('8.7: zero embedded threads returns empty result', async () => {
@@ -263,8 +265,9 @@ describe('BlocklistFilterProcessor', () => {
 
     const result = await processor.runFilter();
 
-    const positions = result.results[0].flags[0].positions;
-    const headlinePos = positions.find((p) => p.field === 'technicalSummary.headline');
+    const flag = result.results[0].flags[0] as BlocklistMatch;
+    const positions = flag.positions;
+    const headlinePos = positions.find((p: { field: string }) => p.field === 'technicalSummary.headline');
     expect(headlinePos).toBeDefined();
     expect(headlinePos!.startIndex).toBe(headline.indexOf('Acme Corp'));
     expect(headlinePos!.endIndex).toBe(headline.indexOf('Acme Corp') + 'Acme Corp'.length);

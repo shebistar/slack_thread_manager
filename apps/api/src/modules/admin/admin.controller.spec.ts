@@ -17,6 +17,7 @@ describe('AdminController', () => {
     runEmbedding: vi.fn().mockResolvedValue({ processed: 0, failed: 0, pendingRetry: 0 }),
     runCorrelation: vi.fn().mockResolvedValue({ created: 0, updated: 0, pairsEvaluated: 0 }),
     runBlocklistFilter: vi.fn().mockResolvedValue({ threadsScanned: 0, threadsWithMatches: 0, totalMatches: 0, results: [] }),
+    runLlmEntityDetection: vi.fn().mockResolvedValue({ threadsProcessed: 0, entitiesDetected: 0, results: [] }),
   };
 
   beforeEach(async () => {
@@ -69,6 +70,11 @@ describe('AdminController', () => {
       totalMatches: 2,
       results: [],
     });
+    mockPipelineService.runLlmEntityDetection.mockResolvedValue({
+      threadsProcessed: 0,
+      entitiesDetected: 0,
+      results: [],
+    });
 
     const result = await controller.runPipeline();
 
@@ -80,5 +86,32 @@ describe('AdminController', () => {
       results: [],
     });
     expect(mockPipelineService.runBlocklistFilter).toHaveBeenCalledOnce();
+  });
+
+  it('8.14: pipeline/run response includes entityDetection field', async () => {
+    vi.clearAllMocks();
+    mockPipelineService.runBlocklistFilter.mockResolvedValue({
+      threadsScanned: 2,
+      threadsWithMatches: 1,
+      totalMatches: 1,
+      results: [{ threadId: 'thread-1' }],
+    });
+    mockPipelineService.runLlmEntityDetection.mockResolvedValue({
+      threadsProcessed: 1,
+      entitiesDetected: 2,
+      results: [{ threadId: 'thread-1', flags: [{ source: 'LLM', term: 'Entity' }] }],
+    });
+
+    const result = await controller.runPipeline();
+
+    expect(result.data).toHaveProperty('entityDetection');
+    expect(result.data.entityDetection).toEqual({
+      threadsProcessed: 1,
+      entitiesDetected: 2,
+      results: [{ threadId: 'thread-1', flags: [{ source: 'LLM', term: 'Entity' }] }],
+    });
+    expect(mockPipelineService.runLlmEntityDetection).toHaveBeenCalledWith(
+      [{ threadId: 'thread-1' }],
+    );
   });
 });

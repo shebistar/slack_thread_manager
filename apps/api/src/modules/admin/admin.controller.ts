@@ -44,6 +44,7 @@ export class AdminController {
     const embedding = await this.pipelineService.runEmbedding(date);
     const correlation = await this.pipelineService.runCorrelation();
     const blocklistFilter = await this.pipelineService.runBlocklistFilter();
+    const entityDetection = await this.pipelineService.runLlmEntityDetection(blocklistFilter.results);
     return {
       data: {
         classification,
@@ -51,6 +52,7 @@ export class AdminController {
         embedding,
         correlation,
         blocklistFilter,
+        entityDetection,
       },
     };
   }

@@ -5,6 +5,7 @@ import {
   users,
   workstreams,
 } from '@slack-thread-manager/db';
+import type { AnonymizationResult } from '@slack-thread-manager/shared';
 import { DATABASE_TOKEN } from '../../database/database.module.js';
 import type { Database } from '@slack-thread-manager/db';
 import { LlmPendingRetryError } from './llm/llm-provider.interface.js';
@@ -19,6 +20,7 @@ import {
 import { EmbedderProcessor } from './processors/embedder.processor.js';
 import { CorrelatorProcessor, type CorrelationRunResult } from './processors/correlator.processor.js';
 import { BlocklistFilterProcessor, type BlocklistFilterResult } from './anonymization/blocklist-filter.processor.js';
+import { LlmEntityDetectorProcessor, type LlmEntityDetectionResult } from './anonymization/llm-entity-detector.processor.js';
 
 export interface PipelineRunResult {
   processed: number;
@@ -30,6 +32,7 @@ export type ClassificationRunResult = PipelineRunResult;
 export type EmbeddingRunResult = PipelineRunResult;
 export type { CorrelationRunResult };
 export type { BlocklistFilterResult };
+export type { LlmEntityDetectionResult };
 
 @Injectable()
 export class PipelineService {
@@ -46,6 +49,8 @@ export class PipelineService {
     private readonly correlatorProcessor: CorrelatorProcessor,
     @Inject(BlocklistFilterProcessor)
     private readonly blocklistFilterProcessor: BlocklistFilterProcessor,
+    @Inject(LlmEntityDetectorProcessor)
+    private readonly llmEntityDetectorProcessor: LlmEntityDetectorProcessor,
     @Inject(PipelineStateService)
     private readonly pipelineStateService: PipelineStateService,
     @Inject(PipelineRunService)
@@ -288,6 +293,12 @@ export class PipelineService {
 
   async runBlocklistFilter(): Promise<BlocklistFilterResult> {
     return this.blocklistFilterProcessor.runFilter();
+  }
+
+  async runLlmEntityDetection(
+    blocklistResults: AnonymizationResult[],
+  ): Promise<LlmEntityDetectionResult> {
+    return this.llmEntityDetectorProcessor.runDetection(blocklistResults);
   }
 
   private buildParticipantRoster(
