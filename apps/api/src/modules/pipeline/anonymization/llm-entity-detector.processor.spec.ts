@@ -315,6 +315,56 @@ describe('LlmEntityDetectorProcessor', () => {
     expect(result.entitiesDetected).toBe(2);
   });
 
+  it('strips single-line markdown fences without newlines', async () => {
+    mockLlmService.complete.mockResolvedValue({
+      content: '```json' + llmSuccessResponse + '```',
+      modelVersion: 'phi3:mini',
+      latencyMs: 400,
+      success: true,
+      usedFallback: false,
+    });
+
+    const input = [makeBlocklistResult('thread-1')];
+    const result = await processor.runDetection(input);
+
+    expect(result.entitiesDetected).toBe(2);
+  });
+
+  it('deduplicates LLM entities with same entity_text (case-insensitive)', async () => {
+    mockLlmService.complete.mockResolvedValue({
+      content: JSON.stringify([
+        { entity_text: 'Globex Industries', entity_type: 'company_name', confidence: 0.92, suggested_replacement: '[COMPANY]' },
+        { entity_text: 'globex industries', entity_type: 'company_name', confidence: 0.88, suggested_replacement: '[COMPANY]' },
+        { entity_text: 'Bob Johnson', entity_type: 'person_name', confidence: 0.85, suggested_replacement: '[PERSON]' },
+      ]),
+      modelVersion: 'phi3:mini',
+      latencyMs: 400,
+      success: true,
+      usedFallback: false,
+    });
+
+    const input = [makeBlocklistResult('thread-1')];
+    const result = await processor.runDetection(input);
+
+    const llmFlags = result.results[0].flags.filter((f) => f.source === 'LLM');
+    expect(llmFlags).toHaveLength(2);
+    expect(llmFlags[0].term).toBe('Globex Industries');
+    expect(llmFlags[1].term).toBe('Bob Johnson');
+  });
+
+  it('continues with empty known terms when DB blocklist load fails', async () => {
+    mockDb.select.mockReturnValueOnce({
+      from: vi.fn().mockRejectedValue(new Error('DB connection lost')),
+    });
+
+    const input = [makeBlocklistResult('thread-1')];
+    const result = await processor.runDetection(input);
+
+    expect(result.threadsProcessed).toBe(1);
+    expect(result.entitiesDetected).toBe(2);
+    expect(mockLlmService.complete).toHaveBeenCalledOnce();
+  });
+
   it('calls resetBatchCounters and logBatchSummary', async () => {
     const input = [makeBlocklistResult('thread-1')];
     await processor.runDetection(input);

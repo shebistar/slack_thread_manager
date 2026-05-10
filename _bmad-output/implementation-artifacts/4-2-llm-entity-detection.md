@@ -84,6 +84,17 @@ so that novel or unanticipated customer identifiers are caught before human revi
   - [ ] 9.4 Verify LLM entity detection returns flags for entities not in blocklist
   - [x] 9.5 Document what was validated and any gaps found
 
+### Review Follow-ups (AI)
+
+- [x] [Review][Decision] Batch-level DB failure not isolated — wrapped blocklist `select()` in try/catch; falls back to empty known terms with loud warning so entity detection still runs but without dedup
+- [x] [Review][Patch] Markdown fence stripping regex made permissive — now handles single-line fences (no `\n` delimiters) and trailing whitespace after closing fence
+- [x] [Review][Patch] Intra-response LLM entity dedup — duplicate `entity_text` (case-insensitive) within a single LLM response is now filtered, keeping the first occurrence
+- [x] [Review][Defer] Substring/alias gap vs blocklist terms — LLM can flag "Acme Corporation" when blocklist only has "Acme"; overlap check deferred to future story
+- [x] [Review][Defer] Sequential LLM calls — one `complete()` per thread is slow at scale; bounded concurrency deferred to performance story
+- [x] [Review][Defer] `threadsProcessed` counts inputs not successes — observability improvement deferred
+- [x] [Review][Defer] AC7 E2E parity not verified — requires running PostgreSQL + Keycloak + Ollama; deferred to local dev validation
+- [x] [Review][Defer] Prompt injection surface — untrusted thread text interpolated into system prompt; LLM-hardening is a cross-cutting concern for a dedicated security story
+
 ## Dev Notes
 
 ### Module Placement & Directory Structure

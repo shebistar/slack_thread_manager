@@ -35,7 +35,7 @@ function extractTextContent(content: {
 
 function stripMarkdownFences(content: string): string {
   const trimmed = content.trim();
-  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/);
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
   return fenceMatch ? fenceMatch[1].trim() : trimmed;
 }
 
@@ -58,12 +58,19 @@ export class LlmEntityDetectorProcessor {
 
     const startTime = Date.now();
 
-    const blocklistEntries = await this.db
-      .select()
-      .from(anonymizationBlocklist);
-
-    const knownTerms = blocklistEntries.map((e) => e.term);
-    const knownTermsLower = new Set(knownTerms.map((t) => t.toLowerCase()));
+    let knownTerms: string[] = [];
+    let knownTermsLower = new Set<string>();
+    try {
+      const blocklistEntries = await this.db
+        .select()
+        .from(anonymizationBlocklist);
+      knownTerms = blocklistEntries.map((e) => e.term);
+      knownTermsLower = new Set(knownTerms.map((t) => t.toLowerCase()));
+    } catch (err) {
+      this.logger.warn('Failed to load blocklist for dedup — LLM entities will not be deduplicated against blocklist', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
 
     this.llmService.resetBatchCounters();
 
@@ -89,7 +96,15 @@ export class LlmEntityDetectorProcessor {
           (e) => !knownTermsLower.has(e.entity_text.toLowerCase()),
         );
 
-        const llmFlags: LlmEntityMatch[] = newEntities.map((e) => ({
+        const seen = new Set<string>();
+        const dedupedEntities = newEntities.filter((e) => {
+          const key = e.entity_text.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        const llmFlags: LlmEntityMatch[] = dedupedEntities.map((e) => ({
           term: e.entity_text,
           replacement: e.suggested_replacement,
           category: e.entity_type,

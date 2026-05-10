@@ -1,5 +1,13 @@
 # Deferred Work
 
+## Deferred from: code review of story-4.2 (2026-05-10)
+
+- Substring/alias gap vs blocklist terms — LLM can flag "Acme Corporation" when blocklist only has "Acme"; exact-match dedup is intentional for now but will produce overlapping flags for variant forms; add normalized containment or token overlap when false positive volume is known [`apps/api/src/modules/pipeline/anonymization/llm-entity-detector.processor.ts:88`]
+- Sequential LLM calls per thread — one `LlmService.complete()` call per thread in a `for` loop; acceptable at current volume but pipeline latency grows linearly; add bounded concurrency (`Promise.allSettled` with limit) when thread counts exceed ~50 [`apps/api/src/modules/pipeline/anonymization/llm-entity-detector.processor.ts:73`]
+- `threadsProcessed` counts inputs not successes — metric includes threads where LLM returned null or error was swallowed; expose `threadsEnriched` / `threadsSkipped` when observability is formalized [`apps/api/src/modules/pipeline/anonymization/llm-entity-detector.processor.ts:124`]
+- AC7 E2E parity not verified — Slack API vs text-paste import parity cannot be tested without PostgreSQL + Keycloak + Ollama running; validate on next local dev or OpenShift deployment
+- Prompt injection surface — untrusted thread text and blocklist terms interpolated into the LLM system prompt; Zod output validation mitigates data integrity risk but an adversarial input could suppress detection; address in a dedicated LLM-hardening story [`apps/api/src/modules/pipeline/llm/prompts/detect-entities.prompt.ts:14-18`]
+
 ## Deferred from: code review of story-3.6 (2026-05-09)
 
 - Race condition in `upsertCorrelation` SELECT-then-INSERT — concurrent correlator runs could miscount created vs updated; optimize with PostgreSQL `xmax` single-query detection when concurrency matters [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:229-247`]
