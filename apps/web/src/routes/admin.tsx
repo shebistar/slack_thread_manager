@@ -2,11 +2,15 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.js';
 import { Button } from '@/components/ui/button.js';
+import { Badge } from '@/components/ui/badge.js';
+import { Skeleton } from '@/components/ui/skeleton.js';
 import { isAdmin } from '@/lib/role-layout.js';
 import { RosterTable } from '@/components/roster/roster-table.js';
 import { MemberFormDialog } from '@/components/roster/member-form-dialog.js';
 import { ChannelsTable } from '@/components/channels/channels-table.js';
 import { ChannelFormDialog } from '@/components/channels/channel-form-dialog.js';
+import { StagingReviewItem } from '@/components/staging/staging-review-item.js';
+import { StagingFilters } from '@/components/staging/staging-filters.js';
 import {
   useRosterMembers,
   useWorkstreams,
@@ -22,8 +26,13 @@ import {
   useDeleteChannel,
 } from '@/hooks/use-channels.js';
 import type { ChannelWithWorkstream } from '@/hooks/use-channels.js';
+import {
+  useStagingQueue,
+  useReviewStagingItem,
+  useApproveAllClean,
+} from '@/hooks/use-staging.js';
 import { ImportForm } from '@/components/admin/import-form.js';
-import type { RosterMember } from '@slack-thread-manager/shared';
+import type { RosterMember, StagingQueueFilter } from '@slack-thread-manager/shared';
 
 export const Route = createFileRoute('/admin')({
   beforeLoad: ({ context }) => {
@@ -48,6 +57,7 @@ function AdminPage() {
         <TabsList>
           <TabsTrigger value="roster">Roster</TabsTrigger>
           <TabsTrigger value="channels">Channels</TabsTrigger>
+          <TabsTrigger value="staging">Staging</TabsTrigger>
           <TabsTrigger value="import">Import History</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
         </TabsList>
@@ -56,6 +66,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="channels" className="mt-6">
           <ChannelsTabContent />
+        </TabsContent>
+        <TabsContent value="staging" className="mt-6">
+          <StagingTabContent />
         </TabsContent>
         <TabsContent value="import" className="mt-6">
           <ImportForm />
@@ -173,6 +186,89 @@ function ChannelsTabContent() {
         onSubmitCreate={(dto) => createChannel.mutateAsync(dto)}
         onSubmitUpdate={(dto) => updateChannel.mutateAsync(dto)}
       />
+    </div>
+  );
+}
+
+function StagingTabContent() {
+  const { data: workstreams = [] } = useWorkstreams();
+  const [filters, setFilters] = useState<StagingQueueFilter>({ view: 'all' });
+  const { data: queue, isLoading, error } = useStagingQueue(filters);
+  const reviewItem = useReviewStagingItem();
+  const approveAllClean = useApproveAllClean();
+
+  if (error) {
+    return (
+      <p className="text-sm text-red-600">
+        Failed to load staging queue: {(error as Error).message}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-medium text-[--color-gray-95]">
+            Staging Review
+          </h2>
+          {queue && (
+            <Badge variant="secondary">
+              {queue.counts.pending} pending
+            </Badge>
+          )}
+          {queue && queue.counts.flagged > 0 && (
+            <Badge variant="destructive">
+              {queue.counts.flagged} flagged
+            </Badge>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          disabled={approveAllClean.isPending || !queue || queue.items.filter((i) => i.flags.length === 0).length === 0}
+          onClick={() => approveAllClean.mutate({
+            batchId: filters.batchId,
+            workstreamId: filters.workstreamId,
+          })}
+        >
+          Approve all clean
+        </Button>
+      </div>
+
+      <StagingFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        workstreams={workstreams.map((ws) => ({ id: ws.id, name: ws.name }))}
+        batches={queue?.batchSummary ?? []}
+      />
+
+      {isLoading && (
+        <div className="space-y-3">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      )}
+
+      {queue && queue.items.length === 0 && (
+        <p className="text-sm text-[--color-gray-50] py-8 text-center">
+          No pending items match the current filters.
+        </p>
+      )}
+
+      {queue && queue.items.length > 0 && (
+        <div className="space-y-3">
+          {queue.items.map((item) => (
+            <StagingReviewItem
+              key={item.id}
+              item={item}
+              onApprove={(id) => reviewItem.mutate({ id, action: 'approve' })}
+              onReject={(id) => reviewItem.mutate({ id, action: 'reject' })}
+              isReviewing={reviewItem.isPending}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
