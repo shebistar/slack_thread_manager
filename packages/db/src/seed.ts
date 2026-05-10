@@ -1,5 +1,5 @@
 import { createDb } from './client.js';
-import { users, workstreams, slackChannels, userWorkstreams } from './schema/index.js';
+import { users, workstreams, slackChannels, userWorkstreams, anonymizationBlocklist } from './schema/index.js';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -134,6 +134,23 @@ async function seed() {
   await db.insert(userWorkstreams).values(assignments).onConflictDoNothing();
 
   console.log('  ✓ Workstream assignments ready');
+
+  // 5. Anonymization blocklist entries for development/testing
+  console.log('  → Inserting anonymization blocklist entries...');
+  await db
+    .insert(anonymizationBlocklist)
+    .values([
+      { term: 'Acme Corporation', replacement: 'EOS', category: 'company_name' as const },
+      { term: 'Acme Corp', replacement: 'EOS', category: 'company_name' as const },
+      { term: 'John Smith', replacement: '[PERSON]', category: 'person_name' as const },
+      { term: 'Jane Doe', replacement: '[PERSON]', category: 'person_name' as const },
+      { term: 'https://acme.internal', replacement: '[URL_REDACTED]', category: 'url' as const },
+      { term: '192.168.50.100', replacement: '[IP_REDACTED]', category: 'infrastructure' as const },
+      { term: 'ACC-98765', replacement: '[ACCOUNT]', category: 'account_id' as const },
+    ])
+    .onConflictDoNothing();
+  console.log('  ✓ Anonymization blocklist ready');
+
   console.log('✅ Seed complete!');
 }
 

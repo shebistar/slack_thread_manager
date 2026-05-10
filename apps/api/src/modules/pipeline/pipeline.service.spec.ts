@@ -5,6 +5,7 @@ import { ClassifierProcessor } from './processors/classifier.processor.js';
 import { SummarizerProcessor } from './processors/summarizer.processor.js';
 import { EmbedderProcessor } from './processors/embedder.processor.js';
 import { CorrelatorProcessor } from './processors/correlator.processor.js';
+import { BlocklistFilterProcessor } from './anonymization/blocklist-filter.processor.js';
 import { PipelineStateService } from './pipeline-state.service.js';
 import { PipelineRunService } from './pipeline-run.service.js';
 import { LlmService } from './llm/llm.service.js';
@@ -32,6 +33,7 @@ describe('PipelineService', () => {
   let mockSummarizer: Record<string, ReturnType<typeof vi.fn>>;
   let mockEmbedder: Record<string, ReturnType<typeof vi.fn>>;
   let mockCorrelator: Record<string, ReturnType<typeof vi.fn>>;
+  let mockBlocklistFilter: Record<string, ReturnType<typeof vi.fn>>;
   let mockStateService: Record<string, ReturnType<typeof vi.fn>>;
   let mockRunService: Record<string, ReturnType<typeof vi.fn>>;
   let mockLlmService: Record<string, ReturnType<typeof vi.fn>>;
@@ -68,6 +70,10 @@ describe('PipelineService', () => {
 
     mockCorrelator = {
       runBatchCorrelation: vi.fn().mockResolvedValue({ created: 4, updated: 0, pairsEvaluated: 2 }),
+    };
+
+    mockBlocklistFilter = {
+      runFilter: vi.fn().mockResolvedValue({ threadsScanned: 2, threadsWithMatches: 1, totalMatches: 3, results: [] }),
     };
 
     mockStateService = {
@@ -121,6 +127,7 @@ describe('PipelineService', () => {
         { provide: SummarizerProcessor, useValue: mockSummarizer },
         { provide: EmbedderProcessor, useValue: mockEmbedder },
         { provide: CorrelatorProcessor, useValue: mockCorrelator },
+        { provide: BlocklistFilterProcessor, useValue: mockBlocklistFilter },
         { provide: PipelineStateService, useValue: mockStateService },
         { provide: PipelineRunService, useValue: mockRunService },
         { provide: LlmService, useValue: mockLlmService },
@@ -389,6 +396,29 @@ describe('PipelineService', () => {
       const result = await service.runCorrelation();
 
       expect(result).toEqual({ created: 0, updated: 0, pairsEvaluated: 0 });
+    });
+  });
+
+  describe('runBlocklistFilter', () => {
+    it('delegates to BlocklistFilterProcessor.runFilter() and returns result', async () => {
+      const result = await service.runBlocklistFilter();
+
+      expect(mockBlocklistFilter.runFilter).toHaveBeenCalledOnce();
+      expect(result).toEqual({ threadsScanned: 2, threadsWithMatches: 1, totalMatches: 3, results: [] });
+    });
+
+    it('returns zeros when no matches found', async () => {
+      mockBlocklistFilter.runFilter.mockResolvedValue({
+        threadsScanned: 5,
+        threadsWithMatches: 0,
+        totalMatches: 0,
+        results: [],
+      });
+
+      const result = await service.runBlocklistFilter();
+
+      expect(result.threadsWithMatches).toBe(0);
+      expect(result.totalMatches).toBe(0);
     });
   });
 

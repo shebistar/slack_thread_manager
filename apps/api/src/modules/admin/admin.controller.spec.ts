@@ -16,6 +16,7 @@ describe('AdminController', () => {
     runSummarization: vi.fn().mockResolvedValue({ processed: 0, failed: 0, pendingRetry: 0 }),
     runEmbedding: vi.fn().mockResolvedValue({ processed: 0, failed: 0, pendingRetry: 0 }),
     runCorrelation: vi.fn().mockResolvedValue({ created: 0, updated: 0, pairsEvaluated: 0 }),
+    runBlocklistFilter: vi.fn().mockResolvedValue({ threadsScanned: 0, threadsWithMatches: 0, totalMatches: 0, results: [] }),
   };
 
   beforeEach(async () => {
@@ -58,5 +59,26 @@ describe('AdminController', () => {
     expect(result.data).toHaveProperty('correlation');
     expect(result.data.correlation).toEqual({ created: 4, updated: 0, pairsEvaluated: 2 });
     expect(mockPipelineService.runCorrelation).toHaveBeenCalledOnce();
+  });
+
+  it('runs full pipeline and returns blocklistFilter result', async () => {
+    vi.clearAllMocks();
+    mockPipelineService.runBlocklistFilter.mockResolvedValue({
+      threadsScanned: 3,
+      threadsWithMatches: 1,
+      totalMatches: 2,
+      results: [],
+    });
+
+    const result = await controller.runPipeline();
+
+    expect(result.data).toHaveProperty('blocklistFilter');
+    expect(result.data.blocklistFilter).toEqual({
+      threadsScanned: 3,
+      threadsWithMatches: 1,
+      totalMatches: 2,
+      results: [],
+    });
+    expect(mockPipelineService.runBlocklistFilter).toHaveBeenCalledOnce();
   });
 });

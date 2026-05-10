@@ -43,12 +43,14 @@ export class AdminController {
     const summarization = await this.pipelineService.runSummarization(date);
     const embedding = await this.pipelineService.runEmbedding(date);
     const correlation = await this.pipelineService.runCorrelation();
+    const blocklistFilter = await this.pipelineService.runBlocklistFilter();
     return {
       data: {
         classification,
         summarization,
         embedding,
         correlation,
+        blocklistFilter,
       },
     };
   }

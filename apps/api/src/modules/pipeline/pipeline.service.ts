@@ -18,6 +18,7 @@ import {
 } from './processors/summarizer.processor.js';
 import { EmbedderProcessor } from './processors/embedder.processor.js';
 import { CorrelatorProcessor, type CorrelationRunResult } from './processors/correlator.processor.js';
+import { BlocklistFilterProcessor, type BlocklistFilterResult } from './anonymization/blocklist-filter.processor.js';
 
 export interface PipelineRunResult {
   processed: number;
@@ -28,6 +29,7 @@ export interface PipelineRunResult {
 export type ClassificationRunResult = PipelineRunResult;
 export type EmbeddingRunResult = PipelineRunResult;
 export type { CorrelationRunResult };
+export type { BlocklistFilterResult };
 
 @Injectable()
 export class PipelineService {
@@ -42,6 +44,8 @@ export class PipelineService {
     private readonly embedderProcessor: EmbedderProcessor,
     @Inject(CorrelatorProcessor)
     private readonly correlatorProcessor: CorrelatorProcessor,
+    @Inject(BlocklistFilterProcessor)
+    private readonly blocklistFilterProcessor: BlocklistFilterProcessor,
     @Inject(PipelineStateService)
     private readonly pipelineStateService: PipelineStateService,
     @Inject(PipelineRunService)
@@ -282,6 +286,9 @@ export class PipelineService {
     return this.correlatorProcessor.runBatchCorrelation();
   }
 
+  async runBlocklistFilter(): Promise<BlocklistFilterResult> {
+    return this.blocklistFilterProcessor.runFilter();
+  }
 
   private buildParticipantRoster(
     participantIds: string[],
