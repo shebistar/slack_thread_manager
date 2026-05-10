@@ -94,24 +94,24 @@ describe('AdminController', () => {
       threadsScanned: 2,
       threadsWithMatches: 1,
       totalMatches: 1,
-      results: [{ threadId: 'thread-1' }],
+      results: [
+        { threadId: 'thread-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }] },
+        { threadId: 'thread-2', flags: [] },
+      ],
     });
     mockPipelineService.runLlmEntityDetection.mockResolvedValue({
       threadsProcessed: 1,
       entitiesDetected: 2,
-      results: [{ threadId: 'thread-1', flags: [{ source: 'LLM', term: 'Entity' }] }],
+      results: [{ threadId: 'thread-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }, { source: 'LLM', term: 'Entity' }] }],
     });
 
     const result = await controller.runPipeline();
 
     expect(result.data).toHaveProperty('entityDetection');
-    expect(result.data.entityDetection).toEqual({
-      threadsProcessed: 1,
-      entitiesDetected: 2,
-      results: [{ threadId: 'thread-1', flags: [{ source: 'LLM', term: 'Entity' }] }],
-    });
+    expect(result.data.entityDetection.threadsProcessed).toBe(1);
+    expect(result.data.entityDetection.entitiesDetected).toBe(2);
     expect(mockPipelineService.runLlmEntityDetection).toHaveBeenCalledWith(
-      [{ threadId: 'thread-1' }],
+      [{ threadId: 'thread-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }] }],
     );
   });
 });

@@ -147,7 +147,7 @@ export class LlmEntityDetectorProcessor {
           this.logger.error('LLM returned malformed JSON for entity detection', {
             threadId,
             attempt,
-            content: result.content.slice(0, 200),
+            contentLength: result.content.length,
           });
           if (attempt < 2) continue;
           return null;
