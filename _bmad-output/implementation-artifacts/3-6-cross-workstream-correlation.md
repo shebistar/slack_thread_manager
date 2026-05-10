@@ -510,7 +510,7 @@ The correlator does **not** call `LlmService` — it uses purely pgvector SQL (f
 - Thread `80a10265-63c1-460f-8c81-3b6fced90d55` (synthetic test data) used for cross-channel correlation test. Data cleaned up after validation.
 
 **Gaps Discovered:**
-- API server cannot start locally (Node.js v20 vs required >=22). Same pre-existing constraint as Story 3.5. Correlation step validated via direct DB queries. Full end-to-end pipeline (via `POST /api/admin/pipeline/run`) will be validated in OpenShift during next deployment cycle.
+- API server previously could not start locally (Node.js v20 vs required >=22). **Resolved** with Node.js v24 upgrade + tsx loader. Correlation step validated via direct DB queries. Full end-to-end pipeline (via `POST /api/admin/pipeline/run`) will be validated in OpenShift during next deployment cycle.
 - Only 1 embedded thread exists in local DB (from Story 3.5 E2E). Synthetic second thread was created for correlation test then cleaned up.
 
 **Change Log:**

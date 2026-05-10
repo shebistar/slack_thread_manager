@@ -100,7 +100,7 @@ NFR22: The batch ingestion pipeline must be idempotent — re-running a batch mu
 - Idempotent ingestion: natural dedup key (slack_team_id + channel_id + thread_ts) with upsert strategy and per-channel watermark cursor
 - Transactional boundaries defined per operation type (single thread ingestion, classification+summarization, embedding, staging, approval, briefing generation)
 - Docker Compose for local development (PostgreSQL + pgvector + app)
-- Multi-stage Dockerfile for OpenShift production deployment (Node.js 22 build → Node.js 22 slim runtime)
+- Multi-stage Dockerfile for OpenShift production deployment (Node.js 24 build → Node.js 24 slim runtime)
 - CI/CD pipeline: turbo build → turbo test → container image push to OpenShift registry
 - Health check endpoint (`/api/health`) for OpenShift readiness/liveness probes
 - Structured JSON logging via NestJS Logger for OpenShift log aggregation

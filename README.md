@@ -32,7 +32,7 @@ A self-hosted project intelligence platform that passively observes Slack conver
 
 ### Prerequisites
 
-- Node.js >= 22
+- Node.js >= 24
 - pnpm >= 10
 - Podman & podman-compose
 - Keycloak instance (for authentication)
@@ -151,7 +151,7 @@ All variables are validated on startup via Zod (`apps/api/src/config/app.config.
 
 ## Tech Stack
 
-- **Runtime:** Node.js 22+ / TypeScript 5.x
+- **Runtime:** Node.js 24+ / TypeScript 5.x
 - **Monorepo:** Turborepo + pnpm workspaces
 - **Backend:** NestJS v11 with SWC compilation
 - **Frontend:** React 19, Vite 6, TanStack Router, TanStack Query, Tailwind CSS 4, Shadcn/ui

@@ -198,7 +198,7 @@ slack-thread-manager/
 
 **Architectural Decisions Provided by Starter:**
 
-- **Language & Runtime:** TypeScript 5.x across all packages; Node.js 22 LTS
+- **Language & Runtime:** TypeScript 5.x across all packages; Node.js 24
 - **Styling Solution:** Tailwind CSS 4 + Shadcn/ui + Red Hat Design System tokens
 - **Build Tooling:** Vite (frontend), tsc + SWC (NestJS backend), Turborepo caching
 - **Testing Framework:** Vitest (unit/integration), Playwright (E2E — post-MVP)
@@ -331,7 +331,7 @@ slack-thread-manager/
 ### Infrastructure & Deployment
 
 **Container Strategy:**
-- Multi-stage Dockerfile: build stage (Node.js 22 + pnpm) → production stage (Node.js 22 slim)
+- Multi-stage Dockerfile: build stage (Node.js 24 + pnpm) → production stage (Node.js 24 slim)
 - Single container: NestJS serves both the API and the static SPA build
 - OpenShift Deployment with resource limits (CPU/memory)
 

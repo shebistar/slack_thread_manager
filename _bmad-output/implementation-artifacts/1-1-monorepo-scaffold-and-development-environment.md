@@ -91,7 +91,7 @@ So that all subsequent development has a consistent, working foundation.
 
 **Decision needed (2):**
 - [x] [Review][Decision] Drizzle migration journal: resolved — deleted hand-written SQL, used `drizzle-kit generate --custom --name enable_pgvector` to create a properly journaled migration with `meta/_journal.json` and `meta/0000_snapshot.json`; migration verified applied via `drizzle-kit migrate`
-- [x] [Review][Decision] Node.js engine constraint mismatch: resolved — updated engines to `>=22.0.0`, added `.node-version` pin to 22; system node is 24.14.1 which satisfies constraint
+- [x] [Review][Decision] Node.js engine constraint mismatch: resolved — updated engines to `>=24.0.0`, added `.node-version` pin to 24; system node is 24.14.1 which satisfies constraint
 
 **Patches (7):**
 - [x] [Review][Patch] `packages/config` missing ESLint peer deps — added `@eslint/js` and `typescript-eslint` as explicit dependencies [packages/config/package.json]
@@ -112,7 +112,7 @@ So that all subsequent development has a consistent, working foundation.
 
 **Source:** [architecture.md — Starter Template Evaluation, Implementation Patterns]
 
-- **Language & Runtime:** TypeScript 5.x across all packages; Node.js 22 LTS
+- **Language & Runtime:** TypeScript 5.x across all packages; Node.js 24
 - **Package Manager:** pnpm with workspaces — use `workspace:*` protocol for inter-package dependencies
 - **Build System:** Turborepo caching with parallel builds. Vite for frontend, tsc + SWC for NestJS backend
 - **Testing:** Vitest for unit/integration tests. Colocated test files (`*.spec.ts` for NestJS, `*.test.tsx` for React) — NEVER create separate `__tests__/` directories

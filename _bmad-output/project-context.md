@@ -22,7 +22,7 @@ _Critical rules and patterns that AI agents MUST follow when implementing code i
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | Monorepo | Turborepo + pnpm | pnpm 10.33.4, turbo ^2.8 |
-| Runtime | Node.js | >=22.0.0 |
+| Runtime | Node.js | >=24.0.0 |
 | Backend framework | NestJS | ^11.0.0 |
 | Language | TypeScript | ^5.7.0 |
 | Backend test runner | Vitest + @nestjs/testing | ^3.2.0 |

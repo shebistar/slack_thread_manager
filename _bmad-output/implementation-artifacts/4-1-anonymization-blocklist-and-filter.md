@@ -343,7 +343,7 @@ The schema (`packages/db/src/schema/orphaned-actions.ts`) and migration (`0012`)
 
 - Team agreement A6: Every `@Injectable()` class uses explicit `@Inject()` on ALL constructor params
 - Gemini code fence wrapping: not relevant (no LLM calls in this story)
-- Node.js v20 vs v22 blocker still present locally — E2E validation may need to be done via direct DB queries + unit tests, or on OpenShift
+- ~~Node.js v20 vs v22 blocker still present locally~~ — **Resolved**: upgraded to Node.js v24 with tsx loader; local API starts successfully
 - `deploy/test-pipeline.sh` smoke test script was created — can be used for E2E
 
 ### Git Intelligence
@@ -407,7 +407,7 @@ N/A
 1. **All 9 tasks completed with 14 unit tests (13 spec + 1 bonus).** Tests: 218 API + 49 shared = 267 total, all passing.
 2. **Bonus fix: correlator processor uuid cast.** Added `::uuid[]` cast to the raw SQL `ANY()` call in `correlator.processor.ts` — this would have caused a type mismatch error on real pgvector queries with UUID thread IDs.
 3. **Orphaned action detector files removed from working tree.** The Story 3.7 merge regression (documented in this story's Previous Story Intelligence) means `orphaned-action-detector.processor.ts` and its spec were never present on `develop`. The deletions in this commit clean up stale references that don't belong on this branch.
-4. **E2E validation scope.** Full pipeline E2E (import → classify → summarize → embed → blocklist-filter) cannot run locally due to Node v20 vs v22 constraint. Unit test coverage is comprehensive: 13 tests cover all 9 acceptance criteria including edge cases (regex escaping, word boundaries, possessives, plurals, multi-field scanning, error isolation, position tracking). Cluster validation to follow after OpenShift deploy.
+4. **E2E validation scope.** Full pipeline E2E (import → classify → summarize → embed → blocklist-filter) can now run locally after Node.js v24 upgrade. Unit test coverage is comprehensive: 13 tests cover all 9 acceptance criteria including edge cases (regex escaping, word boundaries, possessives, plurals, multi-field scanning, error isolation, position tracking). Cluster validation to follow after OpenShift deploy.
 5. **No pipeline state transition.** Consistent with correlator and orphaned action detector patterns — the blocklist filter does NOT transition thread states. Threads remain `embedded`; the `embedded → staged` transition is deferred to Story 4.3 (Staging Queue).
 6. **`@Inject()` convention followed.** Team agreement A6 from Epic 3 retro applied — explicit `@Inject(DATABASE_TOKEN)` on constructor param.
 7. **`structuredClone()` for deep copy.** Used to preserve original content before in-place replacement mutations on the anonymized copy.
