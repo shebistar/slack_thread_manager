@@ -26,7 +26,7 @@ function StatCell({ value, label, colorClass }: StatCellProps) {
 
 function StatsBarSkeleton() {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 bg-white rounded-lg border border-[--color-gray-20] shadow-sm divide-x divide-[--color-gray-20]">
+    <div className="grid grid-cols-2 xl:grid-cols-4 bg-white rounded-lg border border-[--color-gray-20] shadow-sm divide-x divide-[--color-gray-20]">
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="flex flex-col items-center justify-center py-4 px-3">
           <Skeleton className="h-9 w-12 mb-1" />
@@ -60,7 +60,7 @@ export function StatsBar({ data, isLoading }: StatsBarProps) {
   ).length;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 bg-white rounded-lg border border-[--color-gray-20] shadow-sm divide-x divide-[--color-gray-20]">
+    <div className="grid grid-cols-2 xl:grid-cols-4 bg-white rounded-lg border border-[--color-gray-20] shadow-sm divide-x divide-[--color-gray-20]">
       <StatCell
         value={briefing.threadCount}
         label="Threads Processed"

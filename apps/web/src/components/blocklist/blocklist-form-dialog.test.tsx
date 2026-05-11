@@ -105,6 +105,35 @@ describe('BlocklistFormDialog — edit mode', () => {
     render(<BlocklistFormDialog {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'Save Changes' })).toBeInTheDocument();
   });
+
+  it('shows "No changes to save" when submitting without edits', async () => {
+    render(<BlocklistFormDialog {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('No changes to save')).toBeInTheDocument();
+    });
+
+    expect(defaultProps.onSubmitUpdate).not.toHaveBeenCalled();
+  });
+
+  it('submits only changed fields', async () => {
+    render(<BlocklistFormDialog {...defaultProps} />);
+
+    fireEvent.change(screen.getByLabelText('Replacement'), {
+      target: { value: '[UPDATED]' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() => {
+      expect(defaultProps.onSubmitUpdate).toHaveBeenCalledWith({
+        id: mockEntry.id,
+        replacement: '[UPDATED]',
+      });
+    });
+  });
 });
 
 describe('BlocklistFormDialog — prefill mode (staging quick-add)', () => {

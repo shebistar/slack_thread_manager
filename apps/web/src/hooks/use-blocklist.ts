@@ -10,6 +10,7 @@ import type {
 } from '@slack-thread-manager/shared';
 
 const BLOCKLIST_KEY = ['admin', 'blocklist'] as const;
+const STAGING_KEY = ['admin', 'staging'] as const;
 
 export function useBlocklist(query: BlocklistListQuery) {
   const params = new URLSearchParams();
@@ -37,6 +38,7 @@ export function useCreateBlocklistEntry() {
         .then((r) => r.data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: BLOCKLIST_KEY });
+      void queryClient.invalidateQueries({ queryKey: STAGING_KEY });
       toast.success('Blocklist entry added');
     },
     onError: (error: Error) => {

@@ -95,6 +95,16 @@ export function BlocklistFormDialog({
 
     try {
       if (isEdit && onSubmitUpdate) {
+        const hasChanges =
+          form.term !== entry!.term ||
+          form.replacement !== entry!.replacement ||
+          form.category !== entry!.category;
+
+        if (!hasChanges) {
+          setSubmitError('No changes to save');
+          return;
+        }
+
         const result = updateBlocklistEntrySchema.safeParse({
           term: form.term !== entry!.term ? form.term : undefined,
           replacement: form.replacement !== entry!.replacement ? form.replacement : undefined,

@@ -1,0 +1,25 @@
+# Team override for bmad-code-review.
+# Committed to repo — applies to every developer on this project.
+
+[workflow]
+
+# After review findings are resolved and status sync is complete,
+# perform Git wrap-up automatically when code changes were made.
+on_complete = """
+Git wrap-up (run after code-review when patches were applied):
+
+1. If no files changed, do nothing.
+2. If files changed:
+   - Stage all updated files related to the review fixes.
+   - Commit with Conventional Commits using the active story key from the spec/sprint context:
+     fix(<story-id>): address code review findings
+     Example: fix(5.2): address code review findings
+   - Push to current branch:
+     git push origin HEAD
+3. Report:
+   - commit hash + message
+   - branch pushed
+   - files committed count
+
+Do not create a PR automatically.
+"""

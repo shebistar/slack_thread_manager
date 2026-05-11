@@ -13,11 +13,12 @@ const mockData: BriefingWithItems = {
     threadCount: 12,
     workstreamCount: 4,
   },
+  nextBatchScheduledAt: new Date().toISOString(),
   items: [
-    { id: 'i-1', briefingId: 'b-1', threadId: 't-1', headline: 'h1', summaryText: 's1', workstreamName: 'Eng', sourceThreadUrl: null, itemType: 'standard', sortOrder: 0 },
-    { id: 'i-2', briefingId: 'b-1', threadId: 't-2', headline: 'h2', summaryText: 's2', workstreamName: 'Sales', sourceThreadUrl: null, itemType: 'cross_workstream', sortOrder: 1 },
-    { id: 'i-3', briefingId: 'b-1', threadId: 't-3', headline: 'h3', summaryText: 's3', workstreamName: 'Eng', sourceThreadUrl: null, itemType: 'orphaned_action', sortOrder: 2 },
-    { id: 'i-4', briefingId: 'b-1', threadId: 't-4', headline: 'h4', summaryText: 's4', workstreamName: null, sourceThreadUrl: null, itemType: 'gone_quiet', sortOrder: 3 },
+    { id: 'i-1', briefingId: 'b-1', threadId: 't-1', headline: 'h1', summaryText: 's1', workstreamName: 'Eng', sourceThreadUrl: null, itemType: 'standard', sortOrder: 0, latestActivityAt: null },
+    { id: 'i-2', briefingId: 'b-1', threadId: 't-2', headline: 'h2', summaryText: 's2', workstreamName: 'Sales', sourceThreadUrl: null, itemType: 'cross_workstream', sortOrder: 1, latestActivityAt: null },
+    { id: 'i-3', briefingId: 'b-1', threadId: 't-3', headline: 'h3', summaryText: 's3', workstreamName: 'Eng', sourceThreadUrl: null, itemType: 'orphaned_action', sortOrder: 2, latestActivityAt: null },
+    { id: 'i-4', briefingId: 'b-1', threadId: 't-4', headline: 'h4', summaryText: 's4', workstreamName: null, sourceThreadUrl: null, itemType: 'gone_quiet', sortOrder: 3, latestActivityAt: null },
   ],
 };
 
@@ -46,7 +47,7 @@ describe('StatsBar', () => {
     const noSpecialData: BriefingWithItems = {
       ...mockData,
       items: [
-        { id: 'i-1', briefingId: 'b-1', threadId: 't-1', headline: 'h1', summaryText: 's1', workstreamName: 'Eng', sourceThreadUrl: null, itemType: 'standard', sortOrder: 0 },
+        { id: 'i-1', briefingId: 'b-1', threadId: 't-1', headline: 'h1', summaryText: 's1', workstreamName: 'Eng', sourceThreadUrl: null, itemType: 'standard', sortOrder: 0, latestActivityAt: null },
       ],
     };
     render(<StatsBar data={noSpecialData} isLoading={false} />);
