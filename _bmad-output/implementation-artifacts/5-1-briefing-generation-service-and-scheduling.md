@@ -319,6 +319,10 @@ Claude Opus 4.6 (via Cursor)
 ### Change Log
 
 - 2026-05-11: Story 5.1 implemented — briefing generation service, scheduling, DB schema, unit tests, E2E validation.
+- 2026-05-11: Added `POST /api/admin/briefings/generate` admin endpoint for on-demand briefing generation — enables E2E testing and manual briefing refresh without waiting for the daily cron schedule. `AdminModule` now imports `BriefingsModule`; `AdminController` delegates to `BriefingsService.generateBriefingsForAllUsers()`.
+- 2026-05-11: Extended `deploy/test-pipeline.sh` from 6-step pipeline smoke test to 10-step E2E test covering the full chain: import → pipeline → staging approval → briefing generation → briefing API verification → UI reachability check. Richer test data (8 messages across 3 threads).
+- 2026-05-11: Added `tablesFilter` to `packages/db/drizzle.config.ts` (16 STM tables) to prevent Drizzle from interfering with Keycloak or other tables sharing the same database.
+- 2026-05-11: Removed dangerous `drizzle-kit push` fallback from `deploy/deploy.sh` — push compares the entire database and can DROP tables not in the Drizzle schema (e.g. Keycloak tables). Deploy now fails fast with debug guidance if `drizzle-kit migrate` fails.
 
 ### File List
 
@@ -339,5 +343,13 @@ Claude Opus 4.6 (via Cursor)
 - `packages/shared/src/schemas/index.ts` — Added `export * from './briefing.schema.js'`
 - `apps/api/src/config/app.config.ts` — Added `BRIEFING_CRON_SCHEDULE` env var
 - `apps/api/src/app.module.ts` — Added `BriefingsModule` import
+- `apps/api/src/modules/admin/admin.module.ts` — Added `BriefingsModule` import for on-demand generation
+- `apps/api/src/modules/admin/admin.controller.ts` — Added `POST briefings/generate` endpoint
+- `apps/api/src/modules/admin/admin.controller.spec.ts` — Added tests for on-demand generation endpoint
+- `packages/db/drizzle.config.ts` — Added `tablesFilter` for database safety
+- `deploy/deploy.sh` — Removed `drizzle-kit push` fallback; fail-fast on migration failure
+- `deploy/test-pipeline.sh` — Extended to 10-step E2E smoke test with briefing chain
+- `README.md` — Updated with Epics 3-5 features, new API endpoints, E2E testing docs, OpenShift deployment section
+- `CHANGELOG.md` — Added v0.6.0, v0.7.0, v0.8.0 entries
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` — Story 5.1 status updated
 - `_bmad-output/implementation-artifacts/5-1-briefing-generation-service-and-scheduling.md` — This story file

@@ -1,6 +1,6 @@
 # Story 5.2: Executive Scan Briefing Shape (Dashboard Layout)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -94,6 +94,19 @@ so that I can assess project status in under 2 minutes without reading individua
   - [x] 8.6 Verify "View in Slack →" deep-links point to correct Slack thread URLs.
   - [x] 8.7 Verify empty state renders when no briefing exists (test with a new user who has no briefings).
   - [x] 8.8 Document all validation results in Completion Notes.
+
+### Review Findings
+
+- [x] [Review][Decision] PM role layout conflicts with AC #1 — resolved by mapping PM to `dashboard` in `getLayoutVariant` (`apps/web/src/lib/role-layout.ts`).
+- [x] [Review][Decision] AC #3 requires latest activity timestamp but schema/implementation omits it — resolved by returning `latestActivityAt` from briefing item query and rendering per-workstream latest activity in Workstream Status table.
+- [x] [Review][Patch] JWT `sub` used as `briefings.userId` key risks perpetual empty briefings when identity models differ [apps/api/src/modules/briefings/briefings.controller.ts:16] — resolved by email-first user resolution with `sub` fallback in `BriefingsService`.
+- [x] [Review][Patch] Dashboard error path is indistinguishable from true no-briefing empty state [apps/web/src/routes/briefings.tsx:59] — resolved by explicit `isError` branch and dedicated error UI.
+- [x] [Review][Patch] Stale warning omits required concrete next scheduled run time [apps/web/src/routes/briefings.tsx:118] — resolved by returning `nextBatchScheduledAt` from API and rendering formatted time.
+- [x] [Review][Patch] Invalid heading hierarchy (`h2` nested inside `CardTitle` `h3`) harms accessibility semantics [apps/web/src/routes/briefings.tsx:165] — resolved by changing `CardTitle` to a `div`.
+- [x] [Review][Patch] StatsBar breakpoint behavior (`lg:grid-cols-4`) conflicts with documented `lg` 2x2 intent [apps/web/src/components/stats-bar/stats-bar.tsx:29] — resolved via `grid-cols-2 xl:grid-cols-4`.
+- [x] [Review][Patch] Controller tests omit unauthenticated request rejection coverage required by Task 7.1 [apps/api/src/modules/briefings/briefings.controller.spec.ts:64] — resolved by asserting `JwtAuthGuard` metadata is present on controller class.
+- [x] [Review][Patch] Freshness copy always says "Generated today" even when stale banner indicates older date [apps/web/src/routes/briefings.tsx:111] — resolved by calendar-aware freshness wording.
+- [x] [Review][Defer] Shared briefing enum schema mismatch (SCREAMING_SNAKE) vs API wire values (snake_case) [packages/shared/src/schemas/briefing.schema.ts:3] — deferred, pre-existing
 
 ## Dev Notes
 
@@ -352,6 +365,7 @@ Claude Opus 4.6 (via Cursor)
 
 **Change Log:**
 - 2026-05-11: Implemented Story 5.2 — Executive Scan Briefing Shape (Dashboard Layout)
+- 2026-05-11: `GET /api/briefings/today` endpoint now testable via E2E smoke test (`deploy/test-pipeline.sh` Step 9). On-demand briefing generation via `POST /api/admin/briefings/generate` removes dependency on cron schedule for validation.
 
 ### File List
 
