@@ -109,29 +109,26 @@ export function BriefingCard({
             </div>
           </button>
 
-          <div
-            className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-out motion-reduce:transition-none ${
-              expanded ? 'max-h-[500px] opacity-100 mt-3' : 'max-h-0 opacity-0'
-            }`}
-          >
-            {summaryText && (
-              <p className="text-sm text-[--color-gray-95] leading-relaxed whitespace-pre-line">
-                {summaryText}
-              </p>
-            )}
-            {sourceThreadUrl && (
-              <a
-                href={sourceThreadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-3 text-xs text-[--color-blue-50] hover:underline focus-visible:ring-2 focus-visible:ring-[--color-blue-50] rounded"
-                aria-label="View thread in Slack (opens in new tab)"
-                onClick={(e) => e.stopPropagation()}
-              >
-                View in Slack →
-              </a>
-            )}
-          </div>
+          {summaryText && (
+            <p
+              className={`mt-3 text-sm text-[--color-gray-95] leading-relaxed whitespace-pre-line transition-[max-height] duration-200 ease-out motion-reduce:transition-none ${
+                expanded ? 'max-h-96' : 'max-h-10 overflow-hidden'
+              }`}
+            >
+              {summaryText}
+            </p>
+          )}
+          {sourceThreadUrl && (
+            <a
+              href={sourceThreadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-3 text-xs text-[--color-blue-50] hover:underline focus-visible:ring-2 focus-visible:ring-[--color-blue-50] rounded"
+              aria-label="View thread in Slack (opens in new tab)"
+            >
+              View in Slack →
+            </a>
+          )}
         </CardContent>
       </Card>
     );

@@ -131,7 +131,7 @@ describe('BriefingCard', () => {
       expect(screen.getByText('Cross-workstream')).toBeInTheDocument();
     });
 
-    it('expands to show summary text when clicked', async () => {
+    it('expands to show full summary text when clicked', async () => {
       const user = userEvent.setup();
       render(
         <BriefingCard
@@ -148,11 +148,13 @@ describe('BriefingCard', () => {
 
       const toggle = screen.getByRole('button');
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      const summary = screen.getByText('Detailed summary content here.');
+      expect(summary.className).toContain('max-h-10');
 
       await user.click(toggle);
 
       expect(toggle).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.getByText('Detailed summary content here.')).toBeInTheDocument();
+      expect(summary.className).toContain('max-h-96');
     });
 
     it('collapses when clicked again', async () => {
@@ -195,8 +197,7 @@ describe('BriefingCard', () => {
       expect(screen.queryByText(/View in Slack/)).not.toBeInTheDocument();
     });
 
-    it('shows "View in Slack" link inside expanded content', async () => {
-      const user = userEvent.setup();
+    it('shows "View in Slack" link without requiring expansion', () => {
       render(
         <BriefingCard
           headline="Linked card"
@@ -208,7 +209,6 @@ describe('BriefingCard', () => {
         />,
       );
 
-      await user.click(screen.getByRole('button'));
       const link = screen.getByRole('link', { name: /view thread in slack/i });
       expect(link).toHaveAttribute('href', 'https://app.slack.com/client/T123/C456/thread/C456-111');
     });

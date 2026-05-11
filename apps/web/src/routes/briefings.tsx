@@ -94,14 +94,7 @@ function FeedLayout() {
     return (
       <div>
         <h1 className="sr-only">Daily Briefing</h1>
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <p className="text-lg text-[--color-gray-50]">
-            Your first briefing hasn't been generated yet.
-          </p>
-          <p className="text-sm text-[--color-gray-50] mt-2">
-            Check Admin → System Health to verify scheduling is active.
-          </p>
-        </div>
+        <FeedEmptyState hasFilter={false} />
       </div>
     );
   }
