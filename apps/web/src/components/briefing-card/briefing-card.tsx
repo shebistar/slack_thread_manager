@@ -61,17 +61,17 @@ export function BriefingCard({
     return (
       <Card
         className={`transition-shadow hover:shadow-md ${
-          isQuiet ? 'border-l-2 border-l-[--color-yellow-30] bg-[--color-yellow-10]' : ''
+          isQuiet ? `border-l-2 border-l-[--color-yellow-30] ${!selected ? 'bg-[--color-yellow-10]' : ''}` : ''
         } ${isOrphaned ? 'border-l-2 border-l-[--color-yellow-30]' : ''} ${
           selected ? 'border-[--color-blue-50] bg-[--color-blue-10]' : ''
-        }`}
+        } ${isSelectable ? 'focus-visible:ring-2 focus-visible:ring-[--color-blue-50] focus-visible:outline-none' : ''}`}
         {...(isSelectable
           ? {
-              role: 'button',
+              role: 'option',
               tabIndex: 0,
               onClick: onSelect,
               onKeyDown: handleKeyDown,
-              'aria-pressed': selected,
+              'aria-selected': !!selected,
               style: { cursor: 'pointer' },
             }
           : {})}

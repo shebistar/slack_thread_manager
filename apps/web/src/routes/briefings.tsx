@@ -206,6 +206,12 @@ function SplitPanelLayout() {
     );
   }, [data?.items]);
 
+  useEffect(() => {
+    if (selectedItemId && sortedItems.length > 0 && !sortedItems.some((i) => i.id === selectedItemId)) {
+      setSelectedItemId(null);
+    }
+  }, [selectedItemId, sortedItems]);
+
   if (!isLoading && isError) {
     return (
       <div>
@@ -250,7 +256,7 @@ function SplitPanelLayout() {
         <SplitPanelSkeleton />
       ) : data ? (
         <div className="mt-6 flex flex-col xl:flex-row gap-6">
-          <div className="flex-1 min-w-0 space-y-4">
+          <div className="flex-1 min-w-0 space-y-4" role="listbox" aria-label="Briefing topics">
             {sortedItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <p className="text-lg text-[--color-gray-50]">No briefing items today.</p>
@@ -326,8 +332,7 @@ function SidePanel({
           </button>
         </div>
 
-        {isOpen && (
-          <div className="p-4 pt-0 xl:pt-0">
+        <div className={`p-4 pt-0 xl:pt-0 ${isOpen ? '' : 'xl:hidden'}`}>
             {hasSelection ? (
               <div className="text-center py-8">
                 <p className="text-sm font-medium text-[--color-gray-95]">AI enrichment coming soon</p>
@@ -344,7 +349,6 @@ function SidePanel({
               </div>
             )}
           </div>
-        )}
       </div>
     </div>
   );

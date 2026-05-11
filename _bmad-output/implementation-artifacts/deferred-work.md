@@ -1,5 +1,18 @@
 # Deferred Work
 
+## Resolved from: code review of story-4.5 (2026-05-11)
+
+- ~~Missing regression test for staging quick-add query invalidation~~ — **RESOLVED**: `useCreateBlocklistEntry` now invalidates both `BLOCKLIST_KEY` and `STAGING_KEY` on success; regression test added (`submits only changed fields` in dialog test)
+- ~~Missing UX guard test for no-op blocklist edit~~ — **RESOLVED**: No-op edit now shows "No changes to save" form-level message before hitting Zod; test added (`shows "No changes to save" when submitting without edits`)
+
+## Deferred from: code review of 5-4-intelligence-report-briefing-shape (2026-05-11)
+
+- Route-level tests for SplitPanelLayout — Task 5 calls for route-level tests (empty state, selection, collapse) but only BriefingCard unit tests were added; pre-existing gap in route test infrastructure [`apps/web/src/routes/briefings.tsx`]
+
+## Deferred from: code review of 5-2-executive-scan-briefing-shape.md (2026-05-11)
+
+- Shared briefing enum schema mismatch (SCREAMING_SNAKE) vs API wire values (snake_case) — existing cross-layer contract drift; API currently returns DB values as designed in this story, but shared schema still advertises a different enum style [`packages/shared/src/schemas/briefing.schema.ts:3`]
+
 ## Deferred from: code review of story-4.2 (2026-05-10)
 
 - Substring/alias gap vs blocklist terms — LLM can flag "Acme Corporation" when blocklist only has "Acme"; exact-match dedup is intentional for now but will produce overlapping flags for variant forms; add normalized containment or token overlap when false positive volume is known [`apps/api/src/modules/pipeline/anonymization/llm-entity-detector.processor.ts:88`]

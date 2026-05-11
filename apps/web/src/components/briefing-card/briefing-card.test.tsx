@@ -244,10 +244,11 @@ describe('BriefingCard', () => {
           onSelect={() => {}}
         />,
       );
-      const card = container.querySelector('[role="button"]');
+      const card = container.querySelector('[role="option"]');
       expect(card).toBeInTheDocument();
       expect(card?.className).toContain('border-[--color-blue-50]');
       expect(card?.className).toContain('bg-[--color-blue-10]');
+      expect(card).toHaveAttribute('aria-selected', 'true');
     });
 
     it('fires onSelect callback on click', async () => {
@@ -264,7 +265,7 @@ describe('BriefingCard', () => {
           onSelect={handleSelect}
         />,
       );
-      const card = container.querySelector('[role="button"]');
+      const card = container.querySelector('[role="option"]');
       expect(card).toBeInTheDocument();
       await user.click(card!);
       expect(handleSelect).toHaveBeenCalledOnce();
@@ -320,10 +321,31 @@ describe('BriefingCard', () => {
           onSelect={handleSelect}
         />,
       );
-      const card = container.querySelector('[role="button"]');
+      const card = container.querySelector('[role="option"]');
       expect(card).toBeInTheDocument();
       (card as HTMLElement).focus();
       await user.keyboard('{Enter}');
+      expect(handleSelect).toHaveBeenCalledOnce();
+    });
+
+    it('responds to Space key for selection', async () => {
+      const user = userEvent.setup();
+      const handleSelect = vi.fn();
+      const { container } = render(
+        <BriefingCard
+          headline="Space key card"
+          workstreamName="Infra"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          onSelect={handleSelect}
+        />,
+      );
+      const card = container.querySelector('[role="option"]');
+      expect(card).toBeInTheDocument();
+      (card as HTMLElement).focus();
+      await user.keyboard(' ');
       expect(handleSelect).toHaveBeenCalledOnce();
     });
 
