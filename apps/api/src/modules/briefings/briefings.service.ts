@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq, and, inArray, sql, isNull, gt } from 'drizzle-orm';
+import { eq, and, inArray, sql, gt } from 'drizzle-orm';
 import {
   briefings,
   briefingItems,
@@ -311,7 +311,10 @@ export class BriefingsService {
     return items;
   }
 
-  async getTodayBriefing(userId: string) {
+  async getTodayBriefing(userSub: string, userEmail: string) {
+    const userId = await this.resolveUserId(userSub, userEmail);
+    if (!userId) return null;
+
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
@@ -330,8 +333,22 @@ export class BriefingsService {
     if (!briefing) return null;
 
     const items = await this.db
-      .select()
+      .select({
+        id: briefingItems.id,
+        briefingId: briefingItems.briefingId,
+        threadId: briefingItems.threadId,
+        headline: briefingItems.headline,
+        summaryText: briefingItems.summaryText,
+        workstreamName: briefingItems.workstreamName,
+        sourceThreadUrl: briefingItems.sourceThreadUrl,
+        itemType: briefingItems.itemType,
+        sortOrder: briefingItems.sortOrder,
+        latestActivityAt: slackThreads.updatedAt,
+        messageCount: slackThreads.messageCount,
+        participantCount: sql<number>`coalesce(array_length(${slackThreads.participantIds}, 1), 0)`,
+      })
       .from(briefingItems)
+      .leftJoin(slackThreads, eq(slackThreads.id, briefingItems.threadId))
       .where(eq(briefingItems.briefingId, briefing.id))
       .orderBy(sql`${briefingItems.sortOrder} ASC`);
 
@@ -367,5 +384,23 @@ export class BriefingsService {
       .limit(1);
 
     return latest?.generatedAt ?? null;
+  }
+
+  private async resolveUserId(userSub: string, userEmail: string): Promise<string | null> {
+    const [byEmail] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, userEmail))
+      .limit(1);
+
+    if (byEmail) return byEmail.id;
+
+    const [bySub] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userSub))
+      .limit(1);
+
+    return bySub?.id ?? null;
   }
 }

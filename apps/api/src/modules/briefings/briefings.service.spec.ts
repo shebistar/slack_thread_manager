@@ -282,6 +282,7 @@ describe('BriefingsService', () => {
 
   describe('getTodayBriefing', () => {
     it('should return briefing with items when one exists for today', async () => {
+      const resolvedUser = { id: 'user-1' };
       const mockBriefing = {
         id: 'briefing-1',
         userId: 'user-1',
@@ -310,6 +311,14 @@ describe('BriefingsService', () => {
           selectCallCount++;
           return {
             where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([resolvedUser]),
+            }),
+          };
+        })
+        .mockImplementationOnce(() => {
+          selectCallCount++;
+          return {
+            where: vi.fn().mockReturnValue({
               orderBy: vi.fn().mockReturnValue({
                 limit: vi.fn().mockResolvedValue([mockBriefing]),
               }),
@@ -319,13 +328,15 @@ describe('BriefingsService', () => {
         .mockImplementationOnce(() => {
           selectCallCount++;
           return {
-            where: vi.fn().mockReturnValue({
-              orderBy: vi.fn().mockResolvedValue(mockItems),
+            leftJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockResolvedValue(mockItems),
+              }),
             }),
           };
         });
 
-      const result = await service.getTodayBriefing('user-1');
+      const result = await service.getTodayBriefing('user-1', 'test@example.com');
 
       expect(result).not.toBeNull();
       expect(result!.briefing).toEqual(mockBriefing);
@@ -333,18 +344,35 @@ describe('BriefingsService', () => {
     });
 
     it('should return null when no briefing exists for today', async () => {
-      mockSelectFrom.mockImplementationOnce(() => {
-        selectCallCount++;
-        return {
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
+      mockSelectFrom
+        .mockImplementationOnce(() => {
+          selectCallCount++;
+          return {
+            where: vi.fn().mockReturnValue({
               limit: vi.fn().mockResolvedValue([]),
             }),
-          }),
-        };
-      });
+          };
+        })
+        .mockImplementationOnce(() => {
+          selectCallCount++;
+          return {
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([{ id: 'user-1' }]),
+            }),
+          };
+        })
+        .mockImplementationOnce(() => {
+          selectCallCount++;
+          return {
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          };
+        });
 
-      const result = await service.getTodayBriefing('user-1');
+      const result = await service.getTodayBriefing('user-1', 'test@example.com');
 
       expect(result).toBeNull();
     });

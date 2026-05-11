@@ -11,6 +11,9 @@ export interface BriefingItem {
   sourceThreadUrl: string | null;
   itemType: string;
   sortOrder: number;
+  latestActivityAt: string | null;
+  messageCount: number | null;
+  participantCount: number | null;
 }
 
 export interface Briefing {
@@ -26,6 +29,7 @@ export interface Briefing {
 export interface BriefingWithItems {
   briefing: Briefing;
   items: BriefingItem[];
+  nextBatchScheduledAt: string | null;
 }
 
 const BRIEFINGS_KEY = ['briefings', 'today'] as const;

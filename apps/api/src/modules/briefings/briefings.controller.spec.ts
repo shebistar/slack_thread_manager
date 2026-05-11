@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { BriefingsController } from './briefings.controller.js';
 import { BriefingsService } from './briefings.service.js';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import type { AuthenticatedUser } from '@slack-thread-manager/shared';
 
 const mockUser: AuthenticatedUser = {
@@ -39,20 +42,31 @@ const mockBriefingResult = {
 describe('BriefingsController', () => {
   let controller: BriefingsController;
   let briefingsService: { getTodayBriefing: ReturnType<typeof vi.fn> };
+  let configService: { get: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     briefingsService = {
       getTodayBriefing: vi.fn(),
+    };
+    configService = {
+      get: vi.fn().mockReturnValue('0 4 * * *'),
     };
 
     const module = await Test.createTestingModule({
       controllers: [BriefingsController],
       providers: [
         { provide: BriefingsService, useValue: briefingsService },
+        { provide: ConfigService, useValue: configService },
       ],
     }).compile();
 
     controller = module.get<BriefingsController>(BriefingsController);
+  });
+
+  it('uses JwtAuthGuard on the controller class', () => {
+    const guards = Reflect.getMetadata(GUARDS_METADATA, BriefingsController) as unknown[];
+    expect(guards).toBeDefined();
+    expect(guards?.[0]).toBe(JwtAuthGuard);
   });
 
   describe('GET /briefings/today', () => {
@@ -61,8 +75,13 @@ describe('BriefingsController', () => {
 
       const result = await controller.getTodayBriefing(mockUser);
 
-      expect(result).toEqual({ data: mockBriefingResult });
-      expect(briefingsService.getTodayBriefing).toHaveBeenCalledWith('user-123');
+      expect(result).toEqual({
+        data: {
+          ...mockBriefingResult,
+          nextBatchScheduledAt: expect.any(String),
+        },
+      });
+      expect(briefingsService.getTodayBriefing).toHaveBeenCalledWith('user-123', 'shebi@example.com');
     });
 
     it('returns { data: null } when no briefing exists', async () => {
@@ -71,7 +90,7 @@ describe('BriefingsController', () => {
       const result = await controller.getTodayBriefing(mockUser);
 
       expect(result).toEqual({ data: null });
-      expect(briefingsService.getTodayBriefing).toHaveBeenCalledWith('user-123');
+      expect(briefingsService.getTodayBriefing).toHaveBeenCalledWith('user-123', 'shebi@example.com');
     });
 
     it('passes the correct user sub to the service', async () => {
@@ -86,7 +105,7 @@ describe('BriefingsController', () => {
 
       await controller.getTodayBriefing(adminUser);
 
-      expect(briefingsService.getTodayBriefing).toHaveBeenCalledWith('admin-456');
+      expect(briefingsService.getTodayBriefing).toHaveBeenCalledWith('admin-456', 'admin@example.com');
     });
   });
 });
