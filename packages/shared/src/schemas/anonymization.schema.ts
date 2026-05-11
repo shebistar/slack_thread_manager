@@ -63,8 +63,40 @@ export const llmEntityDetectionResponseSchema = z.array(
   }),
 );
 
+export const updateBlocklistEntrySchema = z.object({
+  term: z.string().min(1).trim().optional(),
+  replacement: z.string().min(1).optional(),
+  category: blocklistCategorySchema.optional(),
+}).refine((data) => data.term !== undefined || data.replacement !== undefined || data.category !== undefined, {
+  message: 'At least one field must be provided',
+});
+
+export const blocklistListQuerySchema = z.object({
+  search: z.string().optional(),
+  category: blocklistCategorySchema.optional(),
+  sortBy: z.enum(['term', 'category', 'createdAt']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export const blocklistEntryResponseSchema = z.object({
+  id: z.string().uuid(),
+  term: z.string(),
+  replacement: z.string(),
+  category: blocklistCategorySchema,
+  createdAt: z.string().datetime(),
+});
+
+export const blocklistListResponseSchema = z.object({
+  items: z.array(blocklistEntryResponseSchema),
+  total: z.number().int().nonnegative(),
+});
+
 export type BlocklistCategory = z.infer<typeof blocklistCategorySchema>;
 export type CreateBlocklistEntry = z.infer<typeof createBlocklistEntrySchema>;
+export type UpdateBlocklistEntry = z.infer<typeof updateBlocklistEntrySchema>;
+export type BlocklistListQuery = z.infer<typeof blocklistListQuerySchema>;
+export type BlocklistEntryResponse = z.infer<typeof blocklistEntryResponseSchema>;
+export type BlocklistListResponse = z.infer<typeof blocklistListResponseSchema>;
 export type BlocklistMatch = z.infer<typeof blocklistMatchSchema>;
 export type LlmEntityMatch = z.infer<typeof llmEntityMatchSchema>;
 export type AnonymizationFlag = z.infer<typeof anonymizationFlagSchema>;

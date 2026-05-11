@@ -11,6 +11,8 @@ import { ChannelsTable } from '@/components/channels/channels-table.js';
 import { ChannelFormDialog } from '@/components/channels/channel-form-dialog.js';
 import { StagingReviewItem } from '@/components/staging/staging-review-item.js';
 import { StagingFilters } from '@/components/staging/staging-filters.js';
+import { BlocklistTable } from '@/components/blocklist/blocklist-table.js';
+import { BlocklistFormDialog } from '@/components/blocklist/blocklist-form-dialog.js';
 import {
   useRosterMembers,
   useWorkstreams,
@@ -31,8 +33,20 @@ import {
   useReviewStagingItem,
   useApproveAllClean,
 } from '@/hooks/use-staging.js';
+import {
+  useBlocklist,
+  useCreateBlocklistEntry,
+  useUpdateBlocklistEntry,
+  useDeleteBlocklistEntry,
+} from '@/hooks/use-blocklist.js';
 import { ImportForm } from '@/components/admin/import-form.js';
-import type { RosterMember, StagingQueueFilter } from '@slack-thread-manager/shared';
+import type {
+  RosterMember,
+  StagingQueueFilter,
+  BlocklistEntryResponse,
+  BlocklistCategory,
+  BlocklistListQuery,
+} from '@slack-thread-manager/shared';
 
 export const Route = createFileRoute('/admin')({
   beforeLoad: ({ context }) => {
@@ -58,6 +72,7 @@ function AdminPage() {
           <TabsTrigger value="roster">Roster</TabsTrigger>
           <TabsTrigger value="channels">Channels</TabsTrigger>
           <TabsTrigger value="staging">Staging</TabsTrigger>
+          <TabsTrigger value="blocklist">Blocklist</TabsTrigger>
           <TabsTrigger value="import">Import History</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
         </TabsList>
@@ -69,6 +84,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="staging" className="mt-6">
           <StagingTabContent />
+        </TabsContent>
+        <TabsContent value="blocklist" className="mt-6">
+          <BlocklistTabContent />
         </TabsContent>
         <TabsContent value="import" className="mt-6">
           <ImportForm />
@@ -196,6 +214,12 @@ function StagingTabContent() {
   const { data: queue, isLoading, error } = useStagingQueue(filters);
   const reviewItem = useReviewStagingItem();
   const approveAllClean = useApproveAllClean();
+  const createBlocklist = useCreateBlocklistEntry();
+
+  const [blocklistDialogOpen, setBlocklistDialogOpen] = useState(false);
+  const [blocklistPrefill, setBlocklistPrefill] = useState<
+    { term: string; category?: BlocklistCategory; replacement?: string } | undefined
+  >(undefined);
 
   if (error) {
     return (
@@ -264,11 +288,98 @@ function StagingTabContent() {
               item={item}
               onApprove={(id) => reviewItem.mutate({ id, action: 'approve' })}
               onReject={(id) => reviewItem.mutate({ id, action: 'reject' })}
+              onAddToBlocklist={(req) => {
+                setBlocklistPrefill(req);
+                setBlocklistDialogOpen(true);
+              }}
               isReviewing={reviewItem.isPending}
             />
           ))}
         </div>
       )}
+
+      <BlocklistFormDialog
+        open={blocklistDialogOpen}
+        onOpenChange={setBlocklistDialogOpen}
+        prefill={blocklistPrefill}
+        onSubmitCreate={(dto) => createBlocklist.mutateAsync(dto)}
+      />
+    </div>
+  );
+}
+
+function BlocklistTabContent() {
+  const [query, setQuery] = useState<BlocklistListQuery>({
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+  });
+  const { data: blocklist, isLoading, error } = useBlocklist(query);
+  const createEntry = useCreateBlocklistEntry();
+  const updateEntry = useUpdateBlocklistEntry();
+  const deleteEntry = useDeleteBlocklistEntry();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<BlocklistEntryResponse | undefined>(undefined);
+
+  function openAdd() {
+    setEditingEntry(undefined);
+    setDialogOpen(true);
+  }
+
+  function openEdit(entry: BlocklistEntryResponse) {
+    setEditingEntry(entry);
+    setDialogOpen(true);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-medium text-[--color-gray-95]">
+            Anonymization Blocklist
+          </h2>
+          {blocklist && (
+            <Badge variant="secondary">
+              {blocklist.total} {blocklist.total === 1 ? 'entry' : 'entries'}
+            </Badge>
+          )}
+        </div>
+        <Button
+          className="bg-[--color-brand-red] text-white hover:opacity-90"
+          onClick={openAdd}
+        >
+          Add Entry
+        </Button>
+      </div>
+
+      <BlocklistTable
+        entries={blocklist?.items ?? []}
+        isLoading={isLoading}
+        error={error as Error | null}
+        search={query.search ?? ''}
+        onSearchChange={(search) =>
+          setQuery((q) => ({ ...q, search: search || undefined }))
+        }
+        categoryFilter={query.category}
+        onCategoryFilterChange={(category) =>
+          setQuery((q) => ({ ...q, category }))
+        }
+        sortBy={query.sortBy ?? 'createdAt'}
+        sortOrder={query.sortOrder ?? 'desc'}
+        onSortChange={(sortBy, sortOrder) =>
+          setQuery((q) => ({ ...q, sortBy, sortOrder }))
+        }
+        onEdit={openEdit}
+        onDelete={(id) => deleteEntry.mutate(id)}
+      />
+
+      <BlocklistFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        entry={editingEntry}
+        onSubmitCreate={(dto) => createEntry.mutateAsync(dto)}
+        onSubmitUpdate={(dto) => updateEntry.mutateAsync(dto)}
+      />
     </div>
   );
 }

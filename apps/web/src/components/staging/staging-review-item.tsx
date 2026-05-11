@@ -1,11 +1,19 @@
+import { Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
-import type { StagingQueueItem } from '@slack-thread-manager/shared';
+import type { StagingQueueItem, BlocklistCategory } from '@slack-thread-manager/shared';
+
+export interface AddToBlocklistRequest {
+  term: string;
+  category: BlocklistCategory;
+  replacement: string;
+}
 
 interface StagingReviewItemProps {
   item: StagingQueueItem;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  onAddToBlocklist?: (request: AddToBlocklistRequest) => void;
   isReviewing: boolean;
 }
 
@@ -13,6 +21,7 @@ export function StagingReviewItem({
   item,
   onApprove,
   onReject,
+  onAddToBlocklist,
   isReviewing,
 }: StagingReviewItemProps) {
   const isFlagged = item.flags.length > 0;
@@ -60,6 +69,23 @@ export function StagingReviewItem({
               <span className="font-mono bg-green-50 text-green-800 px-1 rounded">
                 {flag.replacement}
               </span>
+              {flag.source === 'LLM' && onAddToBlocklist && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-1.5 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                  onClick={() =>
+                    onAddToBlocklist({
+                      term: flag.term,
+                      category: flag.category,
+                      replacement: flag.replacement,
+                    })
+                  }
+                >
+                  <Plus className="h-3 w-3 mr-0.5" />
+                  Add to Blocklist
+                </Button>
+              )}
             </div>
           ))}
         </div>
