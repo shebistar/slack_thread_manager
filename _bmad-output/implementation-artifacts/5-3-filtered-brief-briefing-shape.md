@@ -1,6 +1,6 @@
 # Story 5.3: Filtered Brief Briefing Shape (News Feed Layout)
 
-Status: review
+Status: done
 
 ## Story
 
