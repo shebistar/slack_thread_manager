@@ -8,6 +8,7 @@ import { AdminModule } from './modules/admin/admin.module.js';
 import { SlackModule } from './modules/slack/slack.module.js';
 import { IngestionModule } from './modules/ingestion/ingestion.module.js';
 import { PipelineModule } from './modules/pipeline/pipeline.module.js';
+import { BriefingsModule } from './modules/briefings/briefings.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './modules/auth/guards/roles.guard.js';
@@ -26,6 +27,7 @@ import { envSchema } from './config/app.config.js';
     SlackModule,
     IngestionModule,
     PipelineModule,
+    BriefingsModule,
   ],
   controllers: [AppController],
   providers: [
