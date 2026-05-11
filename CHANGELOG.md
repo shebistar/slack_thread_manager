@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-05-11
+
+### Added
+
+- **On-Demand Briefing Generation Endpoint:** `POST /api/admin/briefings/generate` — allows admins to trigger briefing generation without waiting for the daily cron schedule; enables E2E testing workflows and manual briefing refreshes.
+- **E2E Smoke Test — Full Briefing Chain:** Extended `deploy/test-pipeline.sh` from a 6-step pipeline smoke test to a comprehensive 10-step E2E test covering: health checks → channel listing → test data import → full pipeline run → roster verification → staging approval (bulk + individual flagged items) → briefing generation → briefing API verification → web UI reachability check with manual verification checklist.
+- **Richer Test Data:** Smoke test now imports 8 realistic messages across 3 threads (authentication refactoring, sprint planning, customer demo feedback) instead of 3 minimal messages, producing meaningful briefing content for visual verification.
+- **Web UI Verification Step:** New `WEB_URL` environment variable for the smoke test; when set, checks web UI reachability and prints a manual verification checklist for browser-based briefing display validation.
+- **Staging Approval Automation in E2E:** Smoke test auto-approves clean staging items via `approve-all-clean`, then individually approves any remaining flagged items to ensure the full pipeline chain completes.
+
+### Changed
+
+- **Smoke Test Title:** Renamed from "Pipeline Smoke Test" to "E2E Pipeline Smoke Test" to reflect the expanded scope.
+- **Pipeline Step Output:** Step 5 now reports staging results (`threadsStaged`, `batchId`) in addition to classification, summarization, embedding, and correlation metrics.
+
+## [0.7.0] - 2026-05-11
+
+### Added
+
+- **Daily Briefings — Epic 5:** Briefing generation service with scheduled cron job (`BRIEFING_CRON_SCHEDULE`, default 4:00 AM UTC); role-to-shape mapping (PM → `filtered_brief`, Architect/Consultant → `intelligence_report`, Sales/Training/Admin → `executive_scan`); idempotent generation with duplicate prevention; `approved` → `delivered` state transitions.
+- **Executive Scan Dashboard Layout (Story 5.2):** Stats bar with thread/workstream/action counts; workstream status table with latest activity timestamps; key decisions panel with compact briefing cards; loading skeletons.
+- **Filtered Brief Feed Layout (Story 5.3):** Workstream filter pills; featured card for highest-priority item; responsive grid; items scoped to user's assigned workstreams only.
+- **Intelligence Report Split Panel (Story 5.4):** Selectable topic list with side panel; collapsible panel with AI enrichment placeholder (Epic 8); priority-sorted by item type.
+- **Briefing Cards:** Compact/standard/featured variants with headline, summary text, workstream badge, item type indicator (`cross_workstream`, `orphaned_action`, `standard`, `gone_quiet`), Slack deep links, message count, participant count, and latest activity timestamp.
+- **Freshness Indicators:** Generation timestamp with relative time, stale-data warning banner (>24h), next-batch countdown derived from cron schedule.
+- **Briefing API:** `GET /api/briefings/today` returns today's briefing for the authenticated user with all items, metadata, and `nextBatchScheduledAt`.
+
+## [0.6.0] - 2026-05-10
+
+### Added
+
+- **Anonymization & Content Governance — Epic 4:** Blocklist-based PII scanning, LLM entity detection, staging queue gate, admin review interface, and blocklist management.
+- **Anonymization Blocklist (Story 4.1):** Admin-managed term blocklist; exact-match scanning of thread content against blocklist terms.
+- **LLM Entity Detection (Story 4.2):** AI-powered sensitive entity detection augmenting the static blocklist; Zod-validated LLM output parsing.
+- **Staging Queue & Pipeline Gate (Story 4.3):** Threads pass through staging review before becoming visible; `staged` → `approved` pipeline state transition on approval; batch tracking with UUIDs.
+- **Admin Staging Review Interface (Story 4.4):** Pending/flagged item listing with counts; individual approve/reject; bulk approve-all-clean; batch progress tracking; workstream filtering.
+- **Blocklist Management (Story 4.5):** Full CRUD for blocklist terms; quick-add from staging review; edit dialog with no-op detection; cache invalidation across staging and blocklist queries.
+
 ## [0.5.0] - 2026-05-08
 
 ### Added

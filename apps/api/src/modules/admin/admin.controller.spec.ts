@@ -6,6 +6,7 @@ import { LlmService } from '../pipeline/llm/llm.service.js';
 import { CpuModelProvider } from '../pipeline/llm/providers/cpu-model.provider.js';
 import { GeminiProvider } from '../pipeline/llm/providers/gemini.provider.js';
 import { PipelineService } from '../pipeline/pipeline.service.js';
+import { BriefingsService } from '../briefings/briefings.service.js';
 
 describe('AdminController', () => {
   let controller: AdminController;
@@ -20,6 +21,9 @@ describe('AdminController', () => {
     runLlmEntityDetection: vi.fn().mockResolvedValue({ threadsProcessed: 0, entitiesDetected: 0, results: [] }),
     runStaging: vi.fn().mockResolvedValue({ threadsStaged: 0, threadsFailed: 0, batchId: null }),
   };
+  const mockBriefingsService = {
+    generateBriefingsForAllUsers: vi.fn().mockResolvedValue({ usersProcessed: 0, briefingsGenerated: 0, itemsGenerated: 0 }),
+  };
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
@@ -29,6 +33,7 @@ describe('AdminController', () => {
         { provide: CpuModelProvider, useValue: mockCpuProvider },
         { provide: GeminiProvider, useValue: mockGeminiProvider },
         { provide: PipelineService, useValue: mockPipelineService },
+        { provide: BriefingsService, useValue: mockBriefingsService },
       ],
     }).compile();
 
@@ -171,5 +176,27 @@ describe('AdminController', () => {
     const flaggedResult = stagingCall.find((r: { threadId: string }) => r.threadId === 'flagged-1');
     expect(flaggedResult.flags).toHaveLength(2);
     expect(flaggedResult.flags[1].source).toBe('LLM');
+  });
+
+  it('generates briefings on demand via admin endpoint', async () => {
+    mockBriefingsService.generateBriefingsForAllUsers.mockResolvedValue({
+      usersProcessed: 3,
+      briefingsGenerated: 3,
+      itemsGenerated: 12,
+    });
+
+    const result = await controller.generateBriefings();
+
+    expect(result.data).toEqual({
+      usersProcessed: 3,
+      briefingsGenerated: 3,
+      itemsGenerated: 12,
+    });
+    expect(mockBriefingsService.generateBriefingsForAllUsers).toHaveBeenCalledOnce();
+  });
+
+  it('has @Roles("ADMIN") metadata on generateBriefings', () => {
+    const roles = Reflect.getMetadata(ROLES_KEY, AdminController.prototype.generateBriefings);
+    expect(roles).toEqual(['ADMIN']);
   });
 });

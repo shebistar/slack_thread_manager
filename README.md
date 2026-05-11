@@ -23,10 +23,34 @@ A self-hosted project intelligence platform that passively observes Slack conver
 - **Slack History Upload** — Manual import of Slack workspace export JSON files via Admin UI; groups messages into threads; reuses the same idempotent storage path
 - **Text-Paste Import** — Copy-paste messages directly from Slack's UI for environments without live API access; CLI script for bulk imports via OpenShift `oc port-forward`; primary ingestion mode alongside Slack API polling
 
-### Epic 3 — Knowledge Transformation Pipeline (in progress)
+### Epic 3 — Knowledge Transformation Pipeline
 
 - **LLM Abstraction Layer** — Provider-agnostic `LlmService` behind `LlmProviderInterface`; `CpuModelProvider` for local OpenAI-compatible inference (Ollama / phi3:mini); `GeminiProvider` for Google Gemini 2.5 Flash fallback via `@google/generative-ai` SDK; 2 + 2 retry-then-fallback strategy with `LlmPendingRetryError`; batch-level fallback rate tracking with configurable `LLM_FALLBACK_RATE_THRESHOLD` warning
 - **LLM Health Endpoint** — `GET /api/admin/llm/health` returns per-provider healthy/unhealthy status and aggregated `ok | degraded` state; requires ADMIN role
+- **Pipeline State Machine** — Thread lifecycle management (`ingested` → `classified` → `summarized` → `embedded` → `staged` → `approved` → `delivered`); failure tracking with retry support
+- **Thread Classification** — LLM-powered topic classification with primary/secondary topics, workstream assignment, and confidence scoring
+- **Thread Summarization** — Dual-summary generation (technical + plain language) per thread for role-appropriate briefing content
+- **Embedding Generation** — Vector embeddings via `nomic-embed-text` for future semantic search (pgvector storage)
+- **Cross-Workstream Correlation** — Detects related threads across workstreams via topic matching, participant overlap, and temporal proximity
+- **Orphaned Action Detection** — Identifies unresolved action items in threads for surfacing in briefings
+
+### Epic 4 — Anonymization & Content Governance
+
+- **Anonymization Blocklist** — Admin-managed term blocklist for PII/sensitive entity detection; exact-match scanning of thread content
+- **LLM Entity Detection** — AI-powered detection of sensitive entities not covered by the static blocklist; augments blocklist flags with LLM-detected entities
+- **Staging Queue & Pipeline Gate** — Threads pass through a staging review queue before becoming visible in briefings; threads with flags require explicit admin review
+- **Admin Staging Review Interface** — Review pending staged threads, approve/reject individually or bulk-approve clean (unflagged) items; batch progress tracking
+- **Blocklist Management** — Full CRUD for blocklist terms with quick-add from the staging review interface; real-time invalidation of staging cache
+
+### Epic 5 — Daily Briefings & Core Dashboard (in progress)
+
+- **Briefing Generation Service** — Scheduled job (default 4:00 AM UTC via `BRIEFING_CRON_SCHEDULE`) generates personalized briefings for all roster users; role-to-shape mapping (PM → `filtered_brief`, Architect/Consultant → `intelligence_report`, Sales/Training/Admin → `executive_scan`); idempotent — skips if already generated for today; transitions threads from `approved` → `delivered`
+- **On-Demand Briefing Generation** — `POST /api/admin/briefings/generate` allows admins to trigger briefing generation manually, enabling E2E testing without waiting for the cron schedule
+- **Executive Scan Layout** — Dashboard view for Sales/Training/Admin roles with stats bar, workstream status table, and key decisions panel
+- **Filtered Brief Layout** — News feed view for PM role with workstream filter pills, featured card, and grid of briefing cards; items scoped to user's assigned workstreams
+- **Intelligence Report Layout** — Split-panel view for Architect/Consultant roles with a topic list and collapsible side panel (AI enrichment placeholder for Epic 8)
+- **Briefing Cards** — Compact/standard/featured variants with headline, summary, workstream badge, item type indicator, Slack deep links, message count, and participant count
+- **Freshness Indicators** — Generation timestamp, stale-data warning banner (>24h), and next-batch countdown
 
 ## Quick Start
 
@@ -109,6 +133,21 @@ podman-compose down    # Stop PostgreSQL container
 | DELETE | `/api/admin/channels/:id` | Remove a channel |
 | POST | `/api/admin/channels/:id/import` | Import Slack export JSON / text-paste into channel |
 
+**Admin — Pipeline, Staging & Briefings**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/admin/pipeline/run` | Run full pipeline (classify → summarize → embed → correlate → anonymize → stage) |
+| POST | `/api/admin/briefings/generate` | Trigger on-demand briefing generation for all roster users |
+| GET | `/api/admin/staging` | List pending staging queue items with counts |
+| POST | `/api/admin/staging/:id/review` | Approve or reject a staged item |
+| POST | `/api/admin/staging/approve-all-clean` | Bulk-approve all unflagged pending items |
+| GET | `/api/admin/staging/batches/:batchId` | Get batch progress summary |
+| GET | `/api/admin/blocklist` | List all blocklist terms |
+| POST | `/api/admin/blocklist` | Add a blocklist term |
+| PATCH | `/api/admin/blocklist/:id` | Update a blocklist term |
+| DELETE | `/api/admin/blocklist/:id` | Remove a blocklist term |
+
 **Admin — Ingestion & LLM**
 
 | Method | Path | Description |
@@ -117,6 +156,12 @@ podman-compose down    # Stop PostgreSQL container
 | GET | `/api/admin/ingestion/backfill/:jobId` | Poll backfill job status |
 | GET | `/api/admin/health` | System health check |
 | GET | `/api/admin/llm/health` | LLM provider health (cpu + gemini) |
+
+**Briefings (authenticated)**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/briefings/today` | Get today's briefing for the authenticated user |
 
 **Slack (proxy)**
 
@@ -127,7 +172,44 @@ podman-compose down    # Stop PostgreSQL container
 | GET | `/api/slack/channels/:channelId/history` | Fetch channel message history |
 | GET | `/api/slack/channels/:channelId/threads/:threadTs` | Fetch thread replies |
 
-All `/admin/*` and `/slack/*` endpoints require the `ADMIN` role.
+All `/admin/*` and `/slack/*` endpoints require the `ADMIN` role. `/briefings/*` requires any authenticated user.
+
+### E2E Testing on OpenShift
+
+An end-to-end smoke test script exercises the full pipeline from health checks through briefing display:
+
+```bash
+# Full E2E test against a deployed instance
+BASE_URL=https://stm-api.apps.cluster.example.com/api \
+WEB_URL=https://stm-web.apps.cluster.example.com \
+TOKEN=$(cat /path/to/admin-jwt.txt) \
+./deploy/test-pipeline.sh
+```
+
+The script runs 10 steps: health checks → channel listing → test data import (realistic multi-thread conversations) → full pipeline run → roster verification → staging approval (auto-approves clean items, individually approves flagged items) → briefing generation → briefing API verification → web UI reachability check with a manual verification checklist.
+
+Environment variables for the smoke test:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BASE_URL` | `http://localhost:3000/api` | API base URL |
+| `WEB_URL` | — | Web UI URL (enables UI reachability check) |
+| `TOKEN` | — | Admin JWT token (required for authenticated steps) |
+| `CHANNEL_ID` | — | Override channel for import (auto-detects first channel if unset) |
+| `VERBOSE` | `false` | Show response bodies on failure |
+
+### OpenShift Deployment
+
+OpenShift manifests are in `deploy/openshift/`:
+
+```bash
+# Build and deploy
+./deploy/deploy.sh
+
+# Manifests: api.yaml (ConfigMap + Deployment + Service),
+#            web.yaml (Deployment + Service + Route with TLS),
+#            postgres.yaml (Secret + Deployment + Service + PVC)
+```
 
 ## Environment Variables
 
@@ -141,6 +223,7 @@ All variables are validated on startup via Zod (`apps/api/src/config/app.config.
 | `SLACK_BOT_TOKEN` | — | Starts with `xoxb-`; Slack disabled if absent |
 | `SLACK_TEAM_ID` | — | Ingestion skipped if absent |
 | `INGESTION_CRON_SCHEDULE` | `0 */4 * * *` | Cron expression for polling interval |
+| `BRIEFING_CRON_SCHEDULE` | `0 4 * * *` | Cron expression for daily briefing generation |
 | `CPU_MODEL_URL` | — | Ollama / OpenAI-compatible endpoint URL |
 | `CPU_MODEL_NAME` | `phi3:mini` | Completion model name |
 | `CPU_EMBED_MODEL_NAME` | `nomic-embed-text` | Embedding model name |

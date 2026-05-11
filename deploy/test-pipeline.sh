@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 #
-# Smoke-test script for Slack Thread Manager pipeline on OpenShift (or any deployed instance).
-# Exercises: health → channels → import → pipeline run → verify results.
+# End-to-end smoke test for Slack Thread Manager on OpenShift (or any deployed instance).
+# Full chain: health → channels → import → pipeline → staging → briefings → UI verification.
 #
 # Usage:
 #   ./deploy/test-pipeline.sh
 #   BASE_URL=https://stm-api.apps.cluster.example.com/api ./deploy/test-pipeline.sh
 #   TOKEN=$(cat /path/to/jwt.txt) ./deploy/test-pipeline.sh
+#   WEB_URL=https://stm-web.apps.cluster.example.com TOKEN=... ./deploy/test-pipeline.sh
 #
 # Requirements: curl, jq
 
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:3000/api}"
+WEB_URL="${WEB_URL:-}"
 TOKEN="${TOKEN:-}"
 CHANNEL_ID="${CHANNEL_ID:-}"
 VERBOSE="${VERBOSE:-false}"
@@ -72,10 +74,11 @@ extract_status() {
 
 echo ""
 echo "═══════════════════════════════════════════════════════════"
-echo "  Slack Thread Manager — Pipeline Smoke Test"
+echo "  Slack Thread Manager — E2E Pipeline Smoke Test"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
-echo "  Target: $BASE_URL"
+echo "  API:    $BASE_URL"
+echo "  Web:    ${WEB_URL:-<not set — set WEB_URL for UI link>}"
 echo "  Auth:   $(if [[ -n "$TOKEN" ]]; then echo 'JWT provided'; else echo 'NO TOKEN (public endpoints only)'; fi)"
 echo ""
 
@@ -179,9 +182,14 @@ else
   import_body='{
     "slackTeamId": "T_SMOKETEST",
     "messages": [
-      {"type": "message", "user": "U_TEST1", "text": "Smoke test thread start - pipeline validation", "ts": "9999900001.000000"},
-      {"type": "message", "user": "U_TEST2", "text": "Reply to smoke test thread with technical context", "ts": "9999900002.000000", "thread_ts": "9999900001.000000"},
-      {"type": "message", "user": "U_TEST1", "text": "Action item: verify pipeline runs end to end", "ts": "9999900003.000000", "thread_ts": "9999900001.000000"}
+      {"type": "message", "user": "U_TEST1", "text": "We need to refactor the authentication module to support OIDC. The current JWT validation is too tightly coupled to our custom provider and will not work with Keycloak.", "ts": "9999900001.000000"},
+      {"type": "message", "user": "U_TEST2", "text": "Agreed. I looked into the Keycloak adapter and we can use passport-openidconnect. The main risk is session handling — we should keep stateless JWT but add token refresh support.", "ts": "9999900002.000000", "thread_ts": "9999900001.000000"},
+      {"type": "message", "user": "U_TEST3", "text": "Action item: create a spike branch to test Keycloak integration with our NestJS guards by end of sprint.", "ts": "9999900003.000000", "thread_ts": "9999900001.000000"},
+      {"type": "message", "user": "U_TEST2", "text": "Sprint velocity is tracking well — we completed 34 points last sprint. For Q3 planning, we should allocate capacity for the observability epic and the OpenShift migration.", "ts": "9999900010.000000"},
+      {"type": "message", "user": "U_TEST1", "text": "The OpenShift migration is critical. We need to move from Docker Compose to proper deployments by end of July. Can we get the infra team involved early?", "ts": "9999900011.000000", "thread_ts": "9999900010.000000"},
+      {"type": "message", "user": "U_TEST4", "text": "I will coordinate with the platform team. They have capacity starting next week.", "ts": "9999900012.000000", "thread_ts": "9999900010.000000"},
+      {"type": "message", "user": "U_TEST3", "text": "Customer demo went well. They are interested in the briefing feature — specifically the role-based views. Sales team should follow up with a tailored demo for their architects.", "ts": "9999900020.000000"},
+      {"type": "message", "user": "U_TEST1", "text": "Great feedback. The intelligence report layout resonated most. Let us make sure the deep links to Slack threads work correctly for the demo environment.", "ts": "9999900021.000000", "thread_ts": "9999900020.000000"}
     ]
   }'
 
@@ -205,7 +213,7 @@ echo ""
 
 # ─── Step 5: Run Pipeline ───────────────────────────────────────────────────────
 
-echo "─── Step 5: Run Pipeline ───"
+echo "─── Step 5: Run Pipeline (classify → summarize → embed → correlate → anonymize → stage) ───"
 
 response=$(api_post "/admin/pipeline/run" "")
 status=$(extract_status "$response")
@@ -218,6 +226,7 @@ if [[ "$status" == "200" || "$status" == "201" ]]; then
   summarization=$(echo "$body" | jq '.data.summarization' 2>/dev/null)
   embedding=$(echo "$body" | jq '.data.embedding' 2>/dev/null)
   correlation=$(echo "$body" | jq '.data.correlation' 2>/dev/null)
+  staging=$(echo "$body" | jq '.data.staging' 2>/dev/null)
 
   if [[ "$classification" != "null" ]]; then
     c_processed=$(echo "$classification" | jq '.processed' 2>/dev/null || echo "0")
@@ -241,6 +250,12 @@ if [[ "$status" == "200" || "$status" == "201" ]]; then
     cor_created=$(echo "$correlation" | jq '.created' 2>/dev/null || echo "0")
     cor_pairs=$(echo "$correlation" | jq '.pairsEvaluated' 2>/dev/null || echo "0")
     log_info "Correlation: created=$cor_created, pairsEvaluated=$cor_pairs"
+  fi
+
+  if [[ "$staging" != "null" ]]; then
+    stg_staged=$(echo "$staging" | jq '.threadsStaged' 2>/dev/null || echo "0")
+    stg_batch=$(echo "$staging" | jq -r '.batchId' 2>/dev/null || echo "null")
+    log_info "Staging: threadsStaged=$stg_staged, batchId=$stg_batch"
   fi
 else
   log_fail "POST /admin/pipeline/run → $status"
@@ -281,6 +296,169 @@ fi
 
 echo ""
 
+# ─── Step 7: Approve Staged Threads ─────────────────────────────────────────────
+
+echo "─── Step 7: Approve Staged Threads (staging gate) ───"
+
+response=$(api_get "/admin/staging")
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" ]]; then
+  log_pass "GET /admin/staging → 200"
+  pending_count=$(echo "$body" | jq '.data.counts.pending' 2>/dev/null || echo "0")
+  flagged_count=$(echo "$body" | jq '.data.counts.flagged' 2>/dev/null || echo "0")
+  log_info "Pending: $pending_count, Flagged: $flagged_count"
+
+  if [[ "$pending_count" -gt 0 ]]; then
+    response=$(api_post "/admin/staging/approve-all-clean" "{}")
+    status=$(extract_status "$response")
+    body=$(extract_body "$response")
+
+    if [[ "$status" == "200" ]]; then
+      approved_count=$(echo "$body" | jq '.data.approvedCount' 2>/dev/null || echo "0")
+      remaining=$(echo "$body" | jq '.data.remainingPending' 2>/dev/null || echo "0")
+      log_pass "POST /admin/staging/approve-all-clean → 200"
+      log_info "Approved: $approved_count, Remaining pending: $remaining"
+
+      if [[ "$remaining" -gt 0 ]]; then
+        log_info "Flagged items remain — approving individually..."
+        pending_response=$(api_get "/admin/staging")
+        pending_body=$(extract_body "$pending_response")
+        pending_ids=$(echo "$pending_body" | jq -r '.data.items[].id' 2>/dev/null)
+
+        for item_id in $pending_ids; do
+          review_resp=$(api_post "/admin/staging/${item_id}/review" '{"action":"approve"}')
+          review_status=$(extract_status "$review_resp")
+          if [[ "$review_status" == "200" ]]; then
+            log_pass "Approved staging item ${item_id:0:8}..."
+          else
+            log_fail "Failed to approve staging item ${item_id:0:8}... → $review_status"
+          fi
+        done
+      fi
+    else
+      log_fail "POST /admin/staging/approve-all-clean → $status"
+    fi
+  else
+    log_info "No pending items in staging queue"
+  fi
+else
+  log_fail "GET /admin/staging → $status"
+fi
+
+echo ""
+
+# ─── Step 8: Generate Briefings ──────────────────────────────────────────────────
+
+echo "─── Step 8: Generate Briefings ───"
+
+response=$(api_post "/admin/briefings/generate" "")
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" || "$status" == "201" ]]; then
+  log_pass "POST /admin/briefings/generate → $status"
+  users_processed=$(echo "$body" | jq '.data.usersProcessed' 2>/dev/null || echo "0")
+  briefings_generated=$(echo "$body" | jq '.data.briefingsGenerated' 2>/dev/null || echo "0")
+  items_generated=$(echo "$body" | jq '.data.itemsGenerated' 2>/dev/null || echo "0")
+  log_info "Users processed: $users_processed"
+  log_info "Briefings generated: $briefings_generated"
+  log_info "Items generated: $items_generated"
+
+  if [[ "$briefings_generated" -gt 0 ]]; then
+    log_pass "Briefing generation produced content"
+  else
+    log_fail "Briefing generation produced 0 briefings (need approved threads + roster users)"
+  fi
+else
+  log_fail "POST /admin/briefings/generate → $status"
+  if [[ "$VERBOSE" == "true" ]]; then
+    log_info "Response: $(extract_body "$response")"
+  fi
+fi
+
+echo ""
+
+# ─── Step 9: Verify Briefing API ────────────────────────────────────────────────
+
+echo "─── Step 9: Verify Briefing API (authenticated user view) ───"
+
+response=$(api_get "/briefings/today")
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" ]]; then
+  log_pass "GET /briefings/today → 200"
+  briefing_data=$(echo "$body" | jq '.data' 2>/dev/null)
+
+  if [[ "$briefing_data" != "null" && "$briefing_data" != "" ]]; then
+    shape=$(echo "$briefing_data" | jq -r '.briefing.briefingShape' 2>/dev/null || echo "unknown")
+    thread_count=$(echo "$briefing_data" | jq '.briefing.threadCount' 2>/dev/null || echo "0")
+    ws_count=$(echo "$briefing_data" | jq '.briefing.workstreamCount' 2>/dev/null || echo "0")
+    item_count=$(echo "$briefing_data" | jq '.items | length' 2>/dev/null || echo "0")
+    next_batch=$(echo "$briefing_data" | jq -r '.nextBatchScheduledAt' 2>/dev/null || echo "null")
+
+    log_pass "Briefing data present for authenticated user"
+    log_info "Shape: $shape"
+    log_info "Threads: $thread_count, Workstreams: $ws_count"
+    log_info "Briefing items: $item_count"
+    log_info "Next batch: $next_batch"
+
+    if [[ "$item_count" -gt 0 ]]; then
+      log_pass "Briefing contains displayable items"
+      first_headline=$(echo "$briefing_data" | jq -r '.items[0].headline' 2>/dev/null || echo "")
+      first_type=$(echo "$briefing_data" | jq -r '.items[0].itemType' 2>/dev/null || echo "")
+      log_info "First item: [$first_type] $first_headline"
+    else
+      log_fail "Briefing has 0 items (expected at least 1)"
+    fi
+  else
+    log_info "No briefing data for current user (user may not be in roster)"
+    log_info "Hint: ensure the JWT user email matches a roster entry"
+  fi
+else
+  log_fail "GET /briefings/today → $status"
+fi
+
+echo ""
+
+# ─── Step 10: UI Verification Summary ───────────────────────────────────────────
+
+echo "─── Step 10: UI Verification ───"
+
+if [[ -n "$WEB_URL" ]]; then
+  response=$(curl -sf -o /dev/null -w "%{http_code}" "$WEB_URL" 2>&1) || true
+
+  if [[ "$response" == "200" ]]; then
+    log_pass "Web UI reachable at $WEB_URL"
+  else
+    log_fail "Web UI returned $response at $WEB_URL"
+  fi
+
+  echo ""
+  echo "  ┌────────────────────────────────────────────────────────┐"
+  echo "  │  Open in browser to verify briefing display:          │"
+  echo "  │                                                        │"
+  echo "  │  ${WEB_URL}/briefings                                  │"
+  echo "  │                                                        │"
+  echo "  │  Verify:                                               │"
+  echo "  │   • Briefing cards render with headlines & summaries   │"
+  echo "  │   • Role-based layout matches user role                │"
+  echo "  │   • Freshness timestamp shows today's date             │"
+  echo "  │   • Workstream filter works (Feed layout)              │"
+  echo "  │   • Slack deep links point to correct threads          │"
+  echo "  │   • Item type badges display (cross_workstream, etc.)  │"
+  echo "  └────────────────────────────────────────────────────────┘"
+else
+  log_skip "Web UI verification (WEB_URL not set)"
+  echo ""
+  echo "  Set WEB_URL to enable UI reachability check."
+  echo "  Example: WEB_URL=https://stm-web.apps.cluster.example.com"
+fi
+
+echo ""
+
 # ─── Summary ────────────────────────────────────────────────────────────────────
 
 echo "═══════════════════════════════════════════════════════════"
@@ -289,9 +467,9 @@ echo "════════════════════════�
 echo ""
 
 if [[ "$fail" -gt 0 ]]; then
-  echo "  ⚠️  Some checks failed. Review output above."
+  echo "  Some checks failed. Review output above."
   exit 1
 else
-  echo "  Pipeline smoke test passed."
+  echo "  E2E pipeline smoke test passed."
   exit 0
 fi

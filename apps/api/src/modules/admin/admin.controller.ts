@@ -4,6 +4,7 @@ import { LlmService } from '../pipeline/llm/llm.service.js';
 import { CpuModelProvider } from '../pipeline/llm/providers/cpu-model.provider.js';
 import { GeminiProvider } from '../pipeline/llm/providers/gemini.provider.js';
 import { PipelineService } from '../pipeline/pipeline.service.js';
+import { BriefingsService } from '../briefings/briefings.service.js';
 
 @Controller('admin')
 export class AdminController {
@@ -12,6 +13,7 @@ export class AdminController {
     @Inject(CpuModelProvider) private readonly cpuProvider: CpuModelProvider,
     @Inject(GeminiProvider) private readonly geminiProvider: GeminiProvider,
     @Inject(PipelineService) private readonly pipelineService: PipelineService,
+    private readonly briefingsService: BriefingsService,
   ) {}
 
   @Get('health')
@@ -66,5 +68,12 @@ export class AdminController {
         staging,
       },
     };
+  }
+
+  @Post('briefings/generate')
+  @Roles('ADMIN')
+  async generateBriefings() {
+    const result = await this.briefingsService.generateBriefingsForAllUsers();
+    return { data: result };
   }
 }

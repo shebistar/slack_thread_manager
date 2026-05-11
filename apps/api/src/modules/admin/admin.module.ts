@@ -9,9 +9,10 @@ import { StagingService } from './staging/staging.service.js';
 import { BlocklistController } from './blocklist/blocklist.controller.js';
 import { BlocklistService } from './blocklist/blocklist.service.js';
 import { PipelineModule } from '../pipeline/pipeline.module.js';
+import { BriefingsModule } from '../briefings/briefings.module.js';
 
 @Module({
-  imports: [PipelineModule],
+  imports: [PipelineModule, BriefingsModule],
   controllers: [AdminController, RosterController, ChannelsController, StagingController, BlocklistController],
   providers: [RosterService, ChannelsService, StagingService, BlocklistService],
 })
