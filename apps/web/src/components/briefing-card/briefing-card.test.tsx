@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BriefingCard } from './briefing-card.js';
 
 describe('BriefingCard', () => {
@@ -214,16 +214,136 @@ describe('BriefingCard', () => {
     });
   });
 
-  it('renders placeholder for featured variant', () => {
+  it('renders featured variant as standard variant', () => {
     render(
       <BriefingCard
-        headline="Test"
-        workstreamName="Eng"
+        headline="Featured topic"
+        workstreamName="Platform"
         sourceThreadUrl={null}
         itemType="standard"
         variant="featured"
+        summaryText="Featured summary content."
       />,
     );
-    expect(screen.getByText(/coming in story 5\.4/i)).toBeInTheDocument();
+    expect(screen.getByText('Featured topic')).toBeInTheDocument();
+    expect(screen.getByText('Platform')).toBeInTheDocument();
+    expect(screen.getByText('Featured summary content.')).toBeInTheDocument();
+  });
+
+  describe('selectable variant (onSelect)', () => {
+    it('renders selected state with blue border and background', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Selected card"
+          workstreamName="Infra"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Full summary visible."
+          selected={true}
+          onSelect={() => {}}
+        />,
+      );
+      const card = container.querySelector('[role="button"]');
+      expect(card).toBeInTheDocument();
+      expect(card?.className).toContain('border-[--color-blue-50]');
+      expect(card?.className).toContain('bg-[--color-blue-10]');
+    });
+
+    it('fires onSelect callback on click', async () => {
+      const user = userEvent.setup();
+      const handleSelect = vi.fn();
+      const { container } = render(
+        <BriefingCard
+          headline="Clickable card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary text."
+          onSelect={handleSelect}
+        />,
+      );
+      const card = container.querySelector('[role="button"]');
+      expect(card).toBeInTheDocument();
+      await user.click(card!);
+      expect(handleSelect).toHaveBeenCalledOnce();
+    });
+
+    it('shows full summary without expand toggle when onSelect provided', () => {
+      render(
+        <BriefingCard
+          headline="Full summary card"
+          workstreamName="DevOps"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="This is the full summary that should be fully visible."
+          onSelect={() => {}}
+        />,
+      );
+      const summary = screen.getByText('This is the full summary that should be fully visible.');
+      expect(summary.className).not.toContain('max-h-10');
+      expect(summary.className).not.toContain('overflow-hidden');
+      expect(screen.queryByRole('button', { name: /expand/i })).not.toBeInTheDocument();
+    });
+
+    it('preserves expand/collapse when onSelect is absent', async () => {
+      const user = userEvent.setup();
+      render(
+        <BriefingCard
+          headline="Expandable card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Expandable content."
+        />,
+      );
+      const toggle = screen.getByRole('button');
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('responds to Enter key for selection', async () => {
+      const user = userEvent.setup();
+      const handleSelect = vi.fn();
+      const { container } = render(
+        <BriefingCard
+          headline="Keyboard card"
+          workstreamName="Infra"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          onSelect={handleSelect}
+        />,
+      );
+      const card = container.querySelector('[role="button"]');
+      expect(card).toBeInTheDocument();
+      (card as HTMLElement).focus();
+      await user.keyboard('{Enter}');
+      expect(handleSelect).toHaveBeenCalledOnce();
+    });
+
+    it('does not show expand/collapse chevron when onSelect is provided', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="No chevron card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          onSelect={() => {}}
+        />,
+      );
+      const svgs = container.querySelectorAll('svg');
+      const chevronSvg = Array.from(svgs).find(
+        (svg) => svg.querySelector('path[d="M19 9l-7 7-7-7"]'),
+      );
+      expect(chevronSvg).toBeUndefined();
+    });
   });
 });

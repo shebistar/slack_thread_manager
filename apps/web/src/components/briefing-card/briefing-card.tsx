@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type KeyboardEvent, useState } from 'react';
 import { Badge } from '@/components/ui/badge.js';
 import { Card, CardContent } from '@/components/ui/card.js';
 
@@ -14,6 +14,8 @@ interface BriefingCardProps {
   messageCount?: number | null;
   participantCount?: number | null;
   latestActivityAt?: string | null;
+  selected?: boolean;
+  onSelect?: () => void;
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -38,81 +40,86 @@ export function BriefingCard({
   messageCount,
   participantCount,
   latestActivityAt,
+  selected,
+  onSelect,
 }: BriefingCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const isSelectable = !!onSelect;
 
-  if (variant === 'standard') {
+  if (variant === 'standard' || variant === 'featured') {
     const isOrphaned = itemType === 'orphaned_action';
     const isCrossWorkstream = itemType === 'cross_workstream';
     const isQuiet = itemType === 'gone_quiet';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isSelectable && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        onSelect();
+      }
+    };
 
     return (
       <Card
         className={`transition-shadow hover:shadow-md ${
           isQuiet ? 'border-l-2 border-l-[--color-yellow-30] bg-[--color-yellow-10]' : ''
-        } ${isOrphaned ? 'border-l-2 border-l-[--color-yellow-30]' : ''}`}
+        } ${isOrphaned ? 'border-l-2 border-l-[--color-yellow-30]' : ''} ${
+          selected ? 'border-[--color-blue-50] bg-[--color-blue-10]' : ''
+        }`}
+        {...(isSelectable
+          ? {
+              role: 'button',
+              tabIndex: 0,
+              onClick: onSelect,
+              onKeyDown: handleKeyDown,
+              'aria-pressed': selected,
+              style: { cursor: 'pointer' },
+            }
+          : {})}
       >
         <CardContent className="p-4">
-          <button
-            type="button"
-            className="w-full text-left focus-visible:ring-2 focus-visible:ring-[--color-blue-50] focus-visible:outline-none rounded"
-            onClick={() => setExpanded((prev) => !prev)}
-            aria-expanded={expanded}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                {workstreamName && (
-                  <Badge className="bg-[--color-blue-50] text-white text-[10px] px-1.5 py-0 mb-1">
-                    {workstreamName}
-                  </Badge>
-                )}
-                <h3 className="font-medium font-[--font-display] text-sm text-[--color-gray-95] leading-snug">
-                  {headline}
-                </h3>
-                <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-[--color-gray-50]">
-                  {participantCount != null && (
-                    <span>{participantCount} participant{participantCount !== 1 ? 's' : ''}</span>
-                  )}
-                  {messageCount != null && (
-                    <span>{messageCount} message{messageCount !== 1 ? 's' : ''}</span>
-                  )}
-                  {latestActivityAt && <span>{formatRelativeTime(latestActivityAt)}</span>}
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                {isCrossWorkstream && (
-                  <Badge className="bg-[--color-brand-red] text-white text-[10px] px-1.5 py-0">
-                    Cross-workstream
-                  </Badge>
-                )}
-                {isOrphaned && (
-                  <Badge className="bg-[--color-yellow-30] text-[--color-gray-95] text-[10px] px-1.5 py-0">
-                    Orphaned action
-                  </Badge>
-                )}
-                {isQuiet && (
-                  <Badge className="bg-[--color-yellow-30] text-[--color-gray-95] text-[10px] px-1.5 py-0">
-                    Gone Quiet
-                  </Badge>
-                )}
-                <svg
-                  className={`w-4 h-4 text-[--color-gray-50] transition-transform duration-200 ease-out motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  aria-hidden="true"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-          </button>
+          {!isSelectable ? (
+            <button
+              type="button"
+              className="w-full text-left focus-visible:ring-2 focus-visible:ring-[--color-blue-50] focus-visible:outline-none rounded"
+              onClick={() => setExpanded((prev) => !prev)}
+              aria-expanded={expanded}
+            >
+              <StandardCardHeader
+                workstreamName={workstreamName}
+                headline={headline}
+                participantCount={participantCount}
+                messageCount={messageCount}
+                latestActivityAt={latestActivityAt}
+                isCrossWorkstream={isCrossWorkstream}
+                isOrphaned={isOrphaned}
+                isQuiet={isQuiet}
+                showChevron
+                expanded={expanded}
+              />
+            </button>
+          ) : (
+            <StandardCardHeader
+              workstreamName={workstreamName}
+              headline={headline}
+              participantCount={participantCount}
+              messageCount={messageCount}
+              latestActivityAt={latestActivityAt}
+              isCrossWorkstream={isCrossWorkstream}
+              isOrphaned={isOrphaned}
+              isQuiet={isQuiet}
+              showChevron={false}
+              expanded={false}
+            />
+          )}
 
           {summaryText && (
             <p
-              className={`mt-3 text-sm text-[--color-gray-95] leading-relaxed whitespace-pre-line transition-[max-height] duration-200 ease-out motion-reduce:transition-none ${
-                expanded ? 'max-h-96' : 'max-h-10 overflow-hidden'
+              className={`mt-3 text-sm text-[--color-gray-95] leading-relaxed whitespace-pre-line ${
+                isSelectable
+                  ? ''
+                  : `transition-[max-height] duration-200 ease-out motion-reduce:transition-none ${
+                      expanded ? 'max-h-96' : 'max-h-10 overflow-hidden'
+                    }`
               }`}
             >
               {summaryText}
@@ -125,6 +132,7 @@ export function BriefingCard({
               rel="noopener noreferrer"
               className="inline-block mt-3 text-xs text-[--color-blue-50] hover:underline focus-visible:ring-2 focus-visible:ring-[--color-blue-50] rounded"
               aria-label="View thread in Slack (opens in new tab)"
+              onClick={(e) => e.stopPropagation()}
             >
               View in Slack →
             </a>
@@ -132,10 +140,6 @@ export function BriefingCard({
         </CardContent>
       </Card>
     );
-  }
-
-  if (variant === 'featured') {
-    return <div className="py-2 text-sm text-[--color-gray-50]">Featured variant — coming in Story 5.4</div>;
   }
 
   // compact variant (default)
@@ -176,6 +180,83 @@ export function BriefingCard({
           View in Slack →
         </a>
       )}
+    </div>
+  );
+}
+
+function StandardCardHeader({
+  workstreamName,
+  headline,
+  participantCount,
+  messageCount,
+  latestActivityAt,
+  isCrossWorkstream,
+  isOrphaned,
+  isQuiet,
+  showChevron,
+  expanded,
+}: {
+  workstreamName: string | null;
+  headline: string;
+  participantCount?: number | null;
+  messageCount?: number | null;
+  latestActivityAt?: string | null;
+  isCrossWorkstream: boolean;
+  isOrphaned: boolean;
+  isQuiet: boolean;
+  showChevron: boolean;
+  expanded: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex-1 min-w-0">
+        {workstreamName && (
+          <Badge className="bg-[--color-blue-50] text-white text-[10px] px-1.5 py-0 mb-1">
+            {workstreamName}
+          </Badge>
+        )}
+        <h3 className="font-medium font-[--font-display] text-sm text-[--color-gray-95] leading-snug">
+          {headline}
+        </h3>
+        <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-[--color-gray-50]">
+          {participantCount != null && (
+            <span>{participantCount} participant{participantCount !== 1 ? 's' : ''}</span>
+          )}
+          {messageCount != null && (
+            <span>{messageCount} message{messageCount !== 1 ? 's' : ''}</span>
+          )}
+          {latestActivityAt && <span>{formatRelativeTime(latestActivityAt)}</span>}
+        </div>
+      </div>
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        {isCrossWorkstream && (
+          <Badge className="bg-[--color-brand-red] text-white text-[10px] px-1.5 py-0">
+            Cross-workstream
+          </Badge>
+        )}
+        {isOrphaned && (
+          <Badge className="bg-[--color-yellow-30] text-[--color-gray-95] text-[10px] px-1.5 py-0">
+            Orphaned action
+          </Badge>
+        )}
+        {isQuiet && (
+          <Badge className="bg-[--color-yellow-30] text-[--color-gray-95] text-[10px] px-1.5 py-0">
+            Gone Quiet
+          </Badge>
+        )}
+        {showChevron && (
+          <svg
+            className={`w-4 h-4 text-[--color-gray-50] transition-transform duration-200 ease-out motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        )}
+      </div>
     </div>
   );
 }

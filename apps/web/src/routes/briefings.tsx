@@ -28,16 +28,7 @@ function BriefingsPage() {
   }
 
   if (layout === 'split-panel') {
-    return (
-      <div>
-        <h1 className="sr-only">Daily Briefing</h1>
-        <div className="flex items-center justify-center py-24">
-          <p className="text-lg text-[--color-gray-50]">
-            Coming soon — Intelligence Report layout
-          </p>
-        </div>
-      </div>
-    );
+    return <SplitPanelLayout />;
   }
 
   return <DashboardLayout />;
@@ -198,6 +189,177 @@ function FeedSkeleton() {
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-28 w-full rounded-lg" />
         ))}
+      </div>
+    </div>
+  );
+}
+
+function SplitPanelLayout() {
+  const { data, isLoading, isError, error } = useTodayBriefing();
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [sidePanelOpen, setSidePanelOpen] = useState(true);
+
+  const sortedItems = useMemo(() => {
+    if (!data?.items) return [];
+    return [...data.items].sort(
+      (a, b) => (ITEM_TYPE_PRIORITY[a.itemType] ?? 99) - (ITEM_TYPE_PRIORITY[b.itemType] ?? 99),
+    );
+  }, [data?.items]);
+
+  if (!isLoading && isError) {
+    return (
+      <div>
+        <h1 className="sr-only">Daily Briefing</h1>
+        <div className="rounded-md border border-[--color-brand-red] bg-white px-4 py-6 text-center">
+          <p className="text-lg text-[--color-gray-95]">Unable to load your briefing right now.</p>
+          <p className="mt-2 text-sm text-[--color-gray-50]">
+            {error instanceof Error ? error.message : 'Please try again shortly.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoading && data === null) {
+    return (
+      <div>
+        <h1 className="sr-only">Daily Briefing</h1>
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <p className="text-lg text-[--color-gray-50]">
+            Your first briefing hasn&apos;t been generated yet.
+          </p>
+          <p className="text-sm text-[--color-gray-50] mt-2">
+            Check Admin → System Health to verify scheduling is active.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h1 className="sr-only">Daily Briefing</h1>
+
+      {isLoading ? (
+        <FreshnessTimestampSkeleton />
+      ) : data ? (
+        <FreshnessTimestamp data={data} />
+      ) : null}
+
+      {isLoading ? (
+        <SplitPanelSkeleton />
+      ) : data ? (
+        <div className="mt-6 flex flex-col xl:flex-row gap-6">
+          <div className="flex-1 min-w-0 space-y-4">
+            {sortedItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <p className="text-lg text-[--color-gray-50]">No briefing items today.</p>
+                <p className="text-sm text-[--color-gray-50] mt-2">
+                  Check back after the next batch run.
+                </p>
+              </div>
+            ) : (
+              sortedItems.map((item) => (
+                <BriefingCard
+                  key={item.id}
+                  headline={item.headline}
+                  workstreamName={item.workstreamName}
+                  sourceThreadUrl={item.sourceThreadUrl}
+                  itemType={item.itemType}
+                  variant="standard"
+                  summaryText={item.summaryText}
+                  messageCount={item.messageCount}
+                  participantCount={item.participantCount}
+                  latestActivityAt={item.latestActivityAt}
+                  selected={selectedItemId === item.id}
+                  onSelect={() => setSelectedItemId(selectedItemId === item.id ? null : item.id)}
+                />
+              ))
+            )}
+          </div>
+
+          <SidePanel
+            isOpen={sidePanelOpen}
+            onToggle={() => setSidePanelOpen((prev) => !prev)}
+            hasSelection={selectedItemId !== null}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SidePanel({
+  isOpen,
+  onToggle,
+  hasSelection,
+}: {
+  isOpen: boolean;
+  onToggle: () => void;
+  hasSelection: boolean;
+}) {
+  return (
+    <div
+      className={`shrink-0 transition-[width] duration-200 ease-out motion-reduce:transition-none xl:relative ${
+        isOpen ? 'xl:w-[360px]' : 'xl:w-[40px]'
+      }`}
+    >
+      <div className={`bg-[--color-blue-10] rounded-lg border border-[--color-gray-20] ${isOpen ? '' : 'xl:h-full'}`}>
+        <div className="hidden xl:flex items-center justify-end p-1">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={isOpen}
+            aria-label="Toggle side panel"
+            className="p-1 rounded hover:bg-[--color-gray-20] focus-visible:ring-2 focus-visible:ring-[--color-blue-50] focus-visible:outline-none"
+          >
+            <svg
+              className={`w-5 h-5 text-[--color-gray-50] transition-transform duration-200 ease-out motion-reduce:transition-none ${isOpen ? '' : 'rotate-180'}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
+
+        {isOpen && (
+          <div className="p-4 pt-0 xl:pt-0">
+            {hasSelection ? (
+              <div className="text-center py-8">
+                <p className="text-sm font-medium text-[--color-gray-95]">AI enrichment coming soon</p>
+                <p className="text-xs text-[--color-gray-50] mt-2">
+                  Related documentation, knowledge base, and similar past discussions will appear here — Epic 8
+                </p>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <span className="text-2xl" aria-hidden="true">←</span>
+                <p className="text-sm text-[--color-gray-50] mt-2">
+                  Select a topic card to see related context
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SplitPanelSkeleton() {
+  return (
+    <div className="mt-6 flex flex-col xl:flex-row gap-6">
+      <div className="flex-1 space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-36 w-full rounded-lg" />
+        ))}
+      </div>
+      <div className="xl:w-[360px] shrink-0">
+        <Skeleton className="h-48 w-full rounded-lg" />
       </div>
     </div>
   );
