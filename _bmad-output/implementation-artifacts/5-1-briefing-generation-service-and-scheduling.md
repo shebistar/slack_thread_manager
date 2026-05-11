@@ -323,6 +323,7 @@ Claude Opus 4.6 (via Cursor)
 - 2026-05-11: Extended `deploy/test-pipeline.sh` from 6-step pipeline smoke test to 10-step E2E test covering the full chain: import → pipeline → staging approval → briefing generation → briefing API verification → UI reachability check. Richer test data (8 messages across 3 threads).
 - 2026-05-11: Added `tablesFilter` to `packages/db/drizzle.config.ts` (16 STM tables) to prevent Drizzle from interfering with Keycloak or other tables sharing the same database.
 - 2026-05-11: Removed dangerous `drizzle-kit push` fallback from `deploy/deploy.sh` — push compares the entire database and can DROP tables not in the Drizzle schema (e.g. Keycloak tables). Deploy now fails fast with debug guidance if `drizzle-kit migrate` fails.
+- 2026-05-11: Made `test-pipeline.sh` fully self-contained for OpenShift — script now handles `oc login` and obtains JWT from Keycloak automatically. No manual TOKEN/BASE_URL/WEB_URL env vars needed. Run with `./deploy/test-pipeline.sh`.
 
 ### File List
 

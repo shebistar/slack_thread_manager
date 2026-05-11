@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-05-11
+
+### Changed
+
+- **Self-Contained OpenShift E2E Test:** `deploy/test-pipeline.sh` no longer requires manual `TOKEN`, `BASE_URL`, or `WEB_URL` environment variables. The script now handles `oc login` to the OpenShift cluster and obtains a JWT from Keycloak automatically. Run with a single command: `./deploy/test-pipeline.sh`.
+- **Keycloak Realm Restoration:** Rebuilt Keycloak realm (`slack-thread-manager`), client (`slack-thread-manager-web` with PKCE + role mapper), user profile (custom `role` attribute), and test user (`shebi` / ADMIN) after tables were dropped by the previous `drizzle-kit push` incident.
+
 ## [0.8.0] - 2026-05-11
 
 ### Added

@@ -4,7 +4,7 @@
 
 - ~~`drizzle-kit push` fallback in deploy.sh can drop Keycloak tables~~ — **RESOLVED**: Removed `drizzle-kit push` fallback entirely from `deploy/deploy.sh`; deploy now fails fast if `drizzle-kit migrate` fails with debug guidance. Added `tablesFilter` to `packages/db/drizzle.config.ts` listing all 16 STM tables as defense-in-depth so Drizzle never introspects or manages non-STM tables (Keycloak, extensions, etc.).
 - ~~No admin endpoint for on-demand briefing generation~~ — **RESOLVED**: Added `POST /api/admin/briefings/generate` to `AdminController`; `AdminModule` imports `BriefingsModule`; enables E2E testing without cron dependency.
-- ~~E2E smoke test does not cover staging or briefing chain~~ — **RESOLVED**: Extended `deploy/test-pipeline.sh` from 6-step to 10-step test covering: staging approval (bulk + individual), briefing generation, briefing API verification, and web UI reachability check.
+- ~~E2E smoke test does not cover staging or briefing chain~~ — **RESOLVED**: Extended `deploy/test-pipeline.sh` from 6-step to 10-step test covering: staging approval (bulk + individual), briefing generation, briefing API verification, and web UI reachability check. Script is now self-contained for OpenShift (auto `oc login` + Keycloak JWT).
 
 ## Resolved from: code review of story-4.5 (2026-05-11)
 

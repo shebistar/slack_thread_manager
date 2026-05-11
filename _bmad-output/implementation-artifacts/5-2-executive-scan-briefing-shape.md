@@ -366,6 +366,7 @@ Claude Opus 4.6 (via Cursor)
 **Change Log:**
 - 2026-05-11: Implemented Story 5.2 — Executive Scan Briefing Shape (Dashboard Layout)
 - 2026-05-11: `GET /api/briefings/today` endpoint now testable via E2E smoke test (`deploy/test-pipeline.sh` Step 9). On-demand briefing generation via `POST /api/admin/briefings/generate` removes dependency on cron schedule for validation.
+- 2026-05-11: E2E smoke test now fully self-contained for OpenShift — auto-authenticates via `oc login` and obtains JWT from Keycloak. No manual environment variables needed.
 
 ### File List
 

@@ -176,27 +176,33 @@ All `/admin/*` and `/slack/*` endpoints require the `ADMIN` role. `/briefings/*`
 
 ### E2E Testing on OpenShift
 
-An end-to-end smoke test script exercises the full pipeline from health checks through briefing display:
+An end-to-end smoke test script exercises the full pipeline against the OpenShift deployment:
 
 ```bash
-# Full E2E test against a deployed instance
-BASE_URL=https://stm-api.apps.cluster.example.com/api \
-WEB_URL=https://stm-web.apps.cluster.example.com \
-TOKEN=$(cat /path/to/admin-jwt.txt) \
 ./deploy/test-pipeline.sh
 ```
 
-The script runs 10 steps: health checks → channel listing → test data import (realistic multi-thread conversations) → full pipeline run → roster verification → staging approval (auto-approves clean items, individually approves flagged items) → briefing generation → briefing API verification → web UI reachability check with a manual verification checklist.
+The script is self-contained — it handles OpenShift login (`oc login`), obtains a JWT from Keycloak, then runs 10 steps: health checks → channel listing → test data import (realistic multi-thread conversations) → full pipeline run → roster verification → staging approval (auto-approves clean items, individually approves flagged items) → briefing generation → briefing API verification → web UI reachability check with a manual verification checklist.
 
-Environment variables for the smoke test:
+Configuration is hardcoded for the OpenShift environment:
+
+| Setting | Value |
+|---------|-------|
+| OpenShift API | `https://api.ocp4.shebi.eu:6443` |
+| API URL | `https://stm-web-slack-thread-manager.apps.ocp4.shebi.eu/api` |
+| Web URL | `https://stm-web-slack-thread-manager.apps.ocp4.shebi.eu` |
+| Keycloak | `https://stm-keycloak-slack-thread-manager.apps.ocp4.shebi.eu` |
+| Realm/Client | `slack-thread-manager` / `slack-thread-manager-web` |
+| Test user | `shebi` / `shebi` (ADMIN role) |
+
+Optional overrides:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BASE_URL` | `http://localhost:3000/api` | API base URL |
-| `WEB_URL` | — | Web UI URL (enables UI reachability check) |
-| `TOKEN` | — | Admin JWT token (required for authenticated steps) |
 | `CHANNEL_ID` | — | Override channel for import (auto-detects first channel if unset) |
 | `VERBOSE` | `false` | Show response bodies on failure |
+
+Requirements: `curl`, `jq`, `oc` (OpenShift CLI).
 
 ### OpenShift Deployment
 

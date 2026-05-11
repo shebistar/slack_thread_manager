@@ -1,21 +1,29 @@
 #!/usr/bin/env bash
 #
-# End-to-end smoke test for Slack Thread Manager on OpenShift (or any deployed instance).
-# Full chain: health → channels → import → pipeline → staging → briefings → UI verification.
+# End-to-end smoke test for Slack Thread Manager on OpenShift.
+# Full chain: oc login → Keycloak auth → health → channels → import → pipeline
+#             → staging → briefings → UI verification.
 #
 # Usage:
 #   ./deploy/test-pipeline.sh
-#   BASE_URL=https://stm-api.apps.cluster.example.com/api ./deploy/test-pipeline.sh
-#   TOKEN=$(cat /path/to/jwt.txt) ./deploy/test-pipeline.sh
-#   WEB_URL=https://stm-web.apps.cluster.example.com TOKEN=... ./deploy/test-pipeline.sh
 #
-# Requirements: curl, jq
+# Requirements: curl, jq, oc (OpenShift CLI)
 
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://localhost:3000/api}"
-WEB_URL="${WEB_URL:-}"
-TOKEN="${TOKEN:-}"
+# ─── OpenShift Configuration ─────────────────────────────────────────────────
+OC_API="https://api.ocp4.shebi.eu:6443"
+OC_USER="kubeadmin"
+OC_PASS="AMxxZ-CJAvL-dwWmp-R4ncL"
+
+BASE_URL="https://stm-web-slack-thread-manager.apps.ocp4.shebi.eu/api"
+WEB_URL="https://stm-web-slack-thread-manager.apps.ocp4.shebi.eu"
+KC_URL="https://stm-keycloak-slack-thread-manager.apps.ocp4.shebi.eu"
+KC_REALM="slack-thread-manager"
+KC_CLIENT="slack-thread-manager-web"
+KC_USER="shebi"
+KC_PASS="shebi"
+
 CHANNEL_ID="${CHANNEL_ID:-}"
 VERBOSE="${VERBOSE:-false}"
 
@@ -34,17 +42,13 @@ log_skip() { echo -e "  ${YELLOW}⊘${NC} $1 (skipped)"; ((skip++)); }
 log_info() { echo -e "  → $1"; }
 
 auth_header() {
-  if [[ -n "$TOKEN" ]]; then
-    echo "Authorization: Bearer $TOKEN"
-  else
-    echo "X-No-Auth: true"
-  fi
+  echo "Authorization: Bearer $TOKEN"
 }
 
 api_get() {
   local path="$1"
   local response
-  response=$(curl -sf -w "\n%{http_code}" \
+  response=$(curl -skf -w "\n%{http_code}" \
     -H "$(auth_header)" \
     -H "Content-Type: application/json" \
     "${BASE_URL}${path}" 2>&1) || true
@@ -55,7 +59,7 @@ api_post() {
   local path="$1"
   local body="${2:-{}}"
   local response
-  response=$(curl -sf -w "\n%{http_code}" \
+  response=$(curl -skf -w "\n%{http_code}" \
     -X POST \
     -H "$(auth_header)" \
     -H "Content-Type: application/json" \
@@ -78,8 +82,48 @@ echo "  Slack Thread Manager — E2E Pipeline Smoke Test"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
 echo "  API:    $BASE_URL"
-echo "  Web:    ${WEB_URL:-<not set — set WEB_URL for UI link>}"
-echo "  Auth:   $(if [[ -n "$TOKEN" ]]; then echo 'JWT provided'; else echo 'NO TOKEN (public endpoints only)'; fi)"
+echo "  Web:    $WEB_URL"
+echo "  KC:     $KC_URL/realms/$KC_REALM"
+echo ""
+
+# ─── Step 0a: OpenShift Login ────────────────────────────────────────────────────
+
+echo "─── Step 0a: OpenShift Login ───"
+
+if oc login -u "$OC_USER" -p "$OC_PASS" "$OC_API" --insecure-skip-tls-verify=true > /dev/null 2>&1; then
+  log_pass "oc login → authenticated as $OC_USER"
+else
+  log_fail "oc login failed — check credentials or cluster reachability"
+  exit 1
+fi
+
+echo ""
+
+# ─── Step 0b: Obtain JWT from Keycloak ───────────────────────────────────────────
+
+echo "─── Step 0b: Keycloak Authentication ───"
+
+KC_RESPONSE=$(curl -sk -X POST "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
+  -d "client_id=${KC_CLIENT}" \
+  -d "username=${KC_USER}" \
+  -d "password=${KC_PASS}" \
+  -d "grant_type=password" 2>&1)
+
+TOKEN=$(echo "$KC_RESPONSE" | jq -r '.access_token // empty' 2>/dev/null)
+
+if [[ -n "$TOKEN" && "$TOKEN" != "null" ]]; then
+  log_pass "Keycloak login → JWT obtained for user $KC_USER"
+  KC_ROLE=$(echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq -r '.role // "unknown"' 2>/dev/null)
+  log_info "Token role: $KC_ROLE"
+else
+  KC_ERROR=$(echo "$KC_RESPONSE" | jq -r '.error_description // .error // "unknown error"' 2>/dev/null)
+  log_fail "Keycloak login failed: $KC_ERROR"
+  echo ""
+  echo "  Check Keycloak realm/client/user configuration."
+  echo "  Realm: $KC_REALM | Client: $KC_CLIENT | User: $KC_USER"
+  exit 1
+fi
+
 echo ""
 
 # ─── Step 1: Public Health Check ────────────────────────────────────────────────
@@ -109,19 +153,6 @@ echo ""
 # ─── Step 2: Admin Health Check ─────────────────────────────────────────────────
 
 echo "─── Step 2: Admin Health Check ───"
-
-if [[ -z "$TOKEN" ]]; then
-  log_skip "GET /admin/health (no JWT token provided)"
-  log_skip "GET /admin/llm/health (no JWT token provided)"
-  echo ""
-  echo "  Set TOKEN env var to test authenticated endpoints."
-  echo "  Remaining steps require authentication. Exiting."
-  echo ""
-  echo "═══════════════════════════════════════════════════════════"
-  echo "  Results: ${GREEN}${pass} passed${NC}, ${RED}${fail} failed${NC}, ${YELLOW}${skip} skipped${NC}"
-  echo "═══════════════════════════════════════════════════════════"
-  exit 0
-fi
 
 response=$(api_get "/admin/health")
 status=$(extract_status "$response")
@@ -427,35 +458,30 @@ echo ""
 
 echo "─── Step 10: UI Verification ───"
 
-if [[ -n "$WEB_URL" ]]; then
-  response=$(curl -sf -o /dev/null -w "%{http_code}" "$WEB_URL" 2>&1) || true
+response=$(curl -sk -o /dev/null -w "%{http_code}" "$WEB_URL" 2>&1) || true
 
-  if [[ "$response" == "200" ]]; then
-    log_pass "Web UI reachable at $WEB_URL"
-  else
-    log_fail "Web UI returned $response at $WEB_URL"
-  fi
-
-  echo ""
-  echo "  ┌────────────────────────────────────────────────────────┐"
-  echo "  │  Open in browser to verify briefing display:          │"
-  echo "  │                                                        │"
-  echo "  │  ${WEB_URL}/briefings                                  │"
-  echo "  │                                                        │"
-  echo "  │  Verify:                                               │"
-  echo "  │   • Briefing cards render with headlines & summaries   │"
-  echo "  │   • Role-based layout matches user role                │"
-  echo "  │   • Freshness timestamp shows today's date             │"
-  echo "  │   • Workstream filter works (Feed layout)              │"
-  echo "  │   • Slack deep links point to correct threads          │"
-  echo "  │   • Item type badges display (cross_workstream, etc.)  │"
-  echo "  └────────────────────────────────────────────────────────┘"
+if [[ "$response" == "200" ]]; then
+  log_pass "Web UI reachable at $WEB_URL"
 else
-  log_skip "Web UI verification (WEB_URL not set)"
-  echo ""
-  echo "  Set WEB_URL to enable UI reachability check."
-  echo "  Example: WEB_URL=https://stm-web.apps.cluster.example.com"
+  log_fail "Web UI returned $response at $WEB_URL"
 fi
+
+echo ""
+echo "  ┌────────────────────────────────────────────────────────┐"
+echo "  │  Open in browser to verify briefing display:          │"
+echo "  │                                                        │"
+echo "  │  ${WEB_URL}/briefings                                  │"
+echo "  │                                                        │"
+echo "  │  Login: ${KC_USER} / ${KC_PASS}                        │"
+echo "  │                                                        │"
+echo "  │  Verify:                                               │"
+echo "  │   • Briefing cards render with headlines & summaries   │"
+echo "  │   • Role-based layout matches user role                │"
+echo "  │   • Freshness timestamp shows today's date             │"
+echo "  │   • Workstream filter works (Feed layout)              │"
+echo "  │   • Slack deep links point to correct threads          │"
+echo "  │   • Item type badges display (cross_workstream, etc.)  │"
+echo "  └────────────────────────────────────────────────────────┘"
 
 echo ""
 
