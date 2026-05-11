@@ -311,6 +311,33 @@ export class BriefingsService {
     return items;
   }
 
+  async getTodayBriefing(userId: string) {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const [briefing] = await this.db
+      .select()
+      .from(briefings)
+      .where(
+        and(
+          eq(briefings.userId, userId),
+          eq(briefings.briefingDate, today),
+        ),
+      )
+      .orderBy(sql`${briefings.generatedAt} DESC`)
+      .limit(1);
+
+    if (!briefing) return null;
+
+    const items = await this.db
+      .select()
+      .from(briefingItems)
+      .where(eq(briefingItems.briefingId, briefing.id))
+      .orderBy(sql`${briefingItems.sortOrder} ASC`);
+
+    return { briefing, items };
+  }
+
   private extractSummaryText(summary: unknown): string {
     if (typeof summary === 'string') return summary;
     if (summary && typeof summary === 'object' && 'text' in summary) {

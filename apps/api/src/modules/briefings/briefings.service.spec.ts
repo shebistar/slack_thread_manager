@@ -280,6 +280,76 @@ describe('BriefingsService', () => {
     });
   });
 
+  describe('getTodayBriefing', () => {
+    it('should return briefing with items when one exists for today', async () => {
+      const mockBriefing = {
+        id: 'briefing-1',
+        userId: 'user-1',
+        briefingDate: new Date(),
+        briefingShape: 'executive_scan' as const,
+        generatedAt: new Date(),
+        threadCount: 3,
+        workstreamCount: 2,
+      };
+      const mockItems = [
+        {
+          id: 'item-1',
+          briefingId: 'briefing-1',
+          threadId: 'thread-1',
+          headline: 'Test headline',
+          summaryText: 'Test summary',
+          workstreamName: 'Engineering',
+          sourceThreadUrl: null,
+          itemType: 'standard' as const,
+          sortOrder: 0,
+        },
+      ];
+
+      mockSelectFrom
+        .mockImplementationOnce(() => {
+          selectCallCount++;
+          return {
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([mockBriefing]),
+              }),
+            }),
+          };
+        })
+        .mockImplementationOnce(() => {
+          selectCallCount++;
+          return {
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockResolvedValue(mockItems),
+            }),
+          };
+        });
+
+      const result = await service.getTodayBriefing('user-1');
+
+      expect(result).not.toBeNull();
+      expect(result!.briefing).toEqual(mockBriefing);
+      expect(result!.items).toEqual(mockItems);
+    });
+
+    it('should return null when no briefing exists for today', async () => {
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return {
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([]),
+            }),
+          }),
+        };
+      });
+
+      const result = await service.getTodayBriefing('user-1');
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('generateBriefingsForAllUsers', () => {
     it('should return zeros when no users exist', async () => {
       const fromMock = mockSelectFrom;

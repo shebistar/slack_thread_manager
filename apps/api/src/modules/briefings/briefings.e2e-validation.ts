@@ -298,7 +298,7 @@ async function runValidation() {
 
   const urlItems = archItems.filter((i) => i.sourceThreadUrl !== null);
   assert('Slack permalinks are generated', urlItems.length > 0);
-  assert('Permalink format correct', urlItems[0]?.sourceThreadUrl?.startsWith('https://app.slack.com/client/T-TEST/'));
+  assert('Permalink format correct', urlItems[0]?.sourceThreadUrl?.startsWith('https://app.slack.com/client/T-TEST/') ?? false);
   console.log('');
 
   console.log('6. Verifying thread state transitions (APPROVED → DELIVERED)...');
