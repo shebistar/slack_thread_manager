@@ -541,7 +541,9 @@ function DashboardPanels({ data }: { data: BriefingWithItems }) {
                       <td className="px-6 py-3 text-sm text-[--color-gray-50] text-right">
                         {ws.latestActivityAt
                           ? new Intl.DateTimeFormat(undefined, {
-                            dateStyle: 'medium',
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
                             hour: 'numeric',
                             minute: '2-digit',
                           }).format(new Date(ws.latestActivityAt))
