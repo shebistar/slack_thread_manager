@@ -67,8 +67,6 @@ describe('BlocklistFilterProcessor', () => {
       from: vi.fn().mockResolvedValue(blocklistEntries),
     });
 
-    if (blocklistEntries.length === 0) return;
-
     // 3rd select: classifiedTopics where threadId in threadIds
     mockDb.select.mockReturnValueOnce({
       from: vi.fn().mockReturnValue({
@@ -215,7 +213,7 @@ describe('BlocklistFilterProcessor', () => {
     });
   });
 
-  it('8.8: zero blocklist terms returns zero matches', async () => {
+  it('8.8: zero blocklist terms returns zero matches but still produces results for staging', async () => {
     const techSummary = makeSummary('Some content', 'Body text');
     const plainSummary = makeSummary('Summary', 'Plain');
 
@@ -230,6 +228,9 @@ describe('BlocklistFilterProcessor', () => {
     expect(result.threadsScanned).toBe(1);
     expect(result.threadsWithMatches).toBe(0);
     expect(result.totalMatches).toBe(0);
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].threadId).toBe('thread-1');
+    expect(result.results[0].flags).toHaveLength(0);
   });
 
   it('8.9: original content is preserved unmodified', async () => {

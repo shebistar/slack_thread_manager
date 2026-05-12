@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-05-11T21:56:00+02:00
+last_updated: 2026-05-11T23:20:00+02:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system

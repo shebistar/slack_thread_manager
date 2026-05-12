@@ -182,7 +182,9 @@ An end-to-end smoke test script exercises the full pipeline against the OpenShif
 ./deploy/test-pipeline.sh
 ```
 
-The script is self-contained — it handles OpenShift login (`oc login`), obtains a JWT from Keycloak, then runs 10 steps: health checks → channel listing → test data import (realistic multi-thread conversations) → full pipeline run → roster verification → staging approval (auto-approves clean items, individually approves flagged items) → briefing generation → briefing API verification → web UI reachability check with a manual verification checklist.
+The script is self-contained — it handles OpenShift login (`oc login`), obtains a JWT from Keycloak, then runs 11 steps: health checks → channel listing → roster user setup → test data import (realistic multi-thread conversations) → full pipeline run → staging approval (auto-approves clean items, individually approves flagged items) → briefing generation → briefing API verification → web UI reachability check with a manual verification checklist.
+
+**Important:** The pipeline requires at least one user in the application roster for briefing generation to produce output. Step 3 automatically creates a workstream and roster user if they don't already exist.
 
 Configuration is hardcoded for the OpenShift environment:
 

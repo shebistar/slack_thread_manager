@@ -367,6 +367,9 @@ Claude Opus 4.6 (via Cursor)
 - 2026-05-11: Implemented Story 5.2 — Executive Scan Briefing Shape (Dashboard Layout)
 - 2026-05-11: `GET /api/briefings/today` endpoint now testable via E2E smoke test (`deploy/test-pipeline.sh` Step 9). On-demand briefing generation via `POST /api/admin/briefings/generate` removes dependency on cron schedule for validation.
 - 2026-05-11: E2E smoke test now fully self-contained for OpenShift — auto-authenticates via `oc login` and obtains JWT from Keycloak. No manual environment variables needed.
+- 2026-05-11: **Prerequisite identified** — briefing generation requires at least one user in the application roster (`users` table). Without a roster user, `generateBriefingsForAllUsers()` returns `usersProcessed: 0` and no briefings are created. The E2E test now ensures a roster user exists (Step 3) before running the pipeline and generating briefings.
+- 2026-05-11: **Pipeline flow dependency** — threads must reach `approved` state in `staging_queue` before briefing items are sourced from them. Fixed blocklist filter pass-through (zero entries was blocking staging entirely) and correlation resilience to ensure pipeline completes end-to-end.
+- 2026-05-11: Full E2E flow validated on OpenShift: import → classify → summarize → embed → (correlation skipped gracefully) → blocklist filter → staging → approve all → generate briefings → `GET /api/briefings/today` returns briefing with items → web UI renders `BriefingCard` components.
 
 ### File List
 

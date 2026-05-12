@@ -4,7 +4,12 @@
 
 - ~~`drizzle-kit push` fallback in deploy.sh can drop Keycloak tables~~ — **RESOLVED**: Removed `drizzle-kit push` fallback entirely from `deploy/deploy.sh`; deploy now fails fast if `drizzle-kit migrate` fails with debug guidance. Added `tablesFilter` to `packages/db/drizzle.config.ts` listing all 16 STM tables as defense-in-depth so Drizzle never introspects or manages non-STM tables (Keycloak, extensions, etc.).
 - ~~No admin endpoint for on-demand briefing generation~~ — **RESOLVED**: Added `POST /api/admin/briefings/generate` to `AdminController`; `AdminModule` imports `BriefingsModule`; enables E2E testing without cron dependency.
-- ~~E2E smoke test does not cover staging or briefing chain~~ — **RESOLVED**: Extended `deploy/test-pipeline.sh` from 6-step to 10-step test covering: staging approval (bulk + individual), briefing generation, briefing API verification, and web UI reachability check. Script is now self-contained for OpenShift (auto `oc login` + Keycloak JWT).
+- ~~E2E smoke test does not cover staging or briefing chain~~ — **RESOLVED**: Extended `deploy/test-pipeline.sh` from 6-step to 11-step test covering: roster setup, staging approval (bulk + individual), briefing generation, briefing API verification, and web UI reachability check. Script is now self-contained for OpenShift (auto `oc login` + Keycloak JWT).
+- ~~Blocklist filter returns empty results when no blocklist entries configured~~ — **RESOLVED**: Fixed `blocklist-filter.processor.ts` to always produce pass-through `AnonymizationResult[]` for embedded threads even with zero blocklist entries (empty flags array). Previously, this blocked the entire pipeline by returning `results: []`, preventing threads from reaching staging.
+- ~~Correlation processor crash (`cannot cast type record to uuid[]`) breaks entire pipeline endpoint~~ — **RESOLVED**: Wrapped `runCorrelation()` in try-catch within `AdminController.runPipeline()` so it's non-blocking. Errors are logged as warnings and the pipeline continues to blocklist/staging steps.
+- ~~LLM entity detection called for all threads regardless of blocklist flags~~ — **RESOLVED**: Added conditional check in `AdminController.runPipeline()` — `runLlmEntityDetection` is now skipped entirely when `blocklistFilter.results` contains zero flagged threads. Prevents hundreds of unnecessary Ollama calls and request timeouts.
+- ~~No roster user setup in E2E test~~ — **RESOLVED**: Added Step 3 (Ensure Roster User) to `test-pipeline.sh` that creates a workstream via `oc exec psql` and a roster user via `POST /admin/roster` before pipeline execution. Briefing generation requires users in the roster.
+- ~~OpenShift route timeout too short for pipeline runs~~ — **RESOLVED**: Annotated `stm-web` route with `haproxy.router.openshift.io/timeout=300s` (up from default 30s) to accommodate full pipeline runs with large thread counts.
 
 ## Resolved from: code review of story-4.5 (2026-05-11)
 
@@ -34,7 +39,7 @@
 - No minimum threshold for participant overlap — any non-zero Jaccard emits a correlation; may produce noise at scale [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:168-193`]
 - Topic match signal quality — equality on `primaryTopic` with confidence=1.0 treats coarse labels as perfect ground truth; normalization/case-folding/generic-topic filtering deferred [`apps/api/src/modules/pipeline/processors/correlator.processor.ts:130-166`]
 - FK `ON DELETE NO ACTION` on topic_correlations — thread deletion leaves orphan correlations; cleanup strategy deferred [`packages/db/src/migrations/0011_colorful_clint_barton.sql`]
-- Admin pipeline endpoint chains 4 heavy operations synchronously — no timeout, partial failure handling, or rate limiting; pre-existing admin pattern [`apps/api/src/modules/admin/admin.controller.ts:39-54`]
+- ~~Admin pipeline endpoint chains 4 heavy operations synchronously — no timeout, partial failure handling, or rate limiting~~ — **PARTIALLY RESOLVED**: Correlation is now wrapped in try-catch (non-blocking); LLM entity detection is conditional. Route timeout increased to 300s. Full async/queue architecture deferred. [`apps/api/src/modules/admin/admin.controller.ts`]
 
 ## Deferred from: code review of 3-4-thread-summarization (2026-05-08)
 

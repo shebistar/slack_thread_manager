@@ -57,17 +57,16 @@ export class BlocklistFilterProcessor {
       .select()
       .from(anonymizationBlocklist);
 
-    if (blocklistEntries.length === 0) {
-      this.logger.log('No blocklist entries configured, skipping filter');
-      return { threadsScanned: threads.length, threadsWithMatches: 0, totalMatches: 0, results: [] };
-    }
-
     const compiledTerms: CompiledTerm[] = [];
     for (const entry of blocklistEntries) {
       const pattern = buildTermPattern(entry.term);
       if (pattern) {
         compiledTerms.push({ entry, pattern });
       }
+    }
+
+    if (compiledTerms.length === 0) {
+      this.logger.log('No active blocklist terms — passing all threads through with empty flags');
     }
 
     const threadIds = threads.map((t) => t.id);

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-05-11
+
+### Fixed
+
+- **Blocklist Filter Pass-Through:** Fixed critical pipeline bottleneck where zero blocklist entries caused `BlocklistFilterProcessor.runFilter()` to return empty results, preventing all threads from reaching the staging queue. Threads now always flow through with empty flags when no blocklist terms are configured.
+- **Correlation Resilience:** Wrapped `runCorrelation()` in try-catch within `POST /admin/pipeline/run` so the PostgreSQL type-cast error (`cannot cast type record to uuid[]`) in `CorrelatorProcessor.findSemanticCorrelations` no longer crashes the entire pipeline. Errors are logged as warnings and pipeline continues.
+- **Conditional LLM Entity Detection:** `runLlmEntityDetection` is now skipped when no threads have blocklist flags, preventing hundreds of unnecessary Ollama calls that caused gateway timeouts on large thread counts.
+- **OpenShift Route Timeout:** Increased `stm-web` route timeout from default 30s to 300s (`haproxy.router.openshift.io/timeout=300s`) to accommodate full pipeline runs.
+
+### Added
+
+- **E2E Roster Setup (Step 3):** `test-pipeline.sh` now ensures a workstream and roster user exist before running the pipeline. Briefing generation requires users in the roster — without this, `generateBriefingsForAllUsers()` returns zero briefings.
+
+### Changed
+
+- **E2E Test Steps:** `test-pipeline.sh` expanded from 10 to 11 steps (new Step 3: Ensure Roster User). Steps renumbered accordingly.
+
 ## [0.8.1] - 2026-05-11
 
 ### Changed

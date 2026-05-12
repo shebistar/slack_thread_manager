@@ -324,6 +324,12 @@ Claude Opus 4.6 (via Cursor)
 - 2026-05-11: Added `tablesFilter` to `packages/db/drizzle.config.ts` (16 STM tables) to prevent Drizzle from interfering with Keycloak or other tables sharing the same database.
 - 2026-05-11: Removed dangerous `drizzle-kit push` fallback from `deploy/deploy.sh` — push compares the entire database and can DROP tables not in the Drizzle schema (e.g. Keycloak tables). Deploy now fails fast with debug guidance if `drizzle-kit migrate` fails.
 - 2026-05-11: Made `test-pipeline.sh` fully self-contained for OpenShift — script now handles `oc login` and obtains JWT from Keycloak automatically. No manual TOKEN/BASE_URL/WEB_URL env vars needed. Run with `./deploy/test-pipeline.sh`.
+- 2026-05-11: Fixed critical pipeline bottleneck — blocklist filter now generates pass-through results (with empty flags) when no blocklist entries exist, allowing threads to flow through staging. Previously, zero blocklist entries caused `results: []` which blocked the entire staging pipeline, leaving threads stuck at `embedded` state forever.
+- 2026-05-11: Made correlation step non-blocking in `POST /admin/pipeline/run` — wrapped in try-catch so the PostgreSQL type-cast error (`cannot cast type record to uuid[]`) in `CorrelatorProcessor.findSemanticCorrelations` doesn't crash the entire pipeline run. Correlation errors are logged as warnings and the pipeline continues to blocklist/staging.
+- 2026-05-11: Optimized pipeline by skipping LLM entity detection when no threads have blocklist flags — previously called Ollama for every single thread (200+ calls), causing request timeouts. Now only invoked when actual blocklist matches exist that need LLM-based entity enhancement.
+- 2026-05-11: Added Step 3 (Ensure Roster User) to `test-pipeline.sh` — creates a workstream via `oc exec psql` and a roster user via `POST /admin/roster` if they don't already exist. The briefing generation service requires users in the roster table.
+- 2026-05-11: Increased OpenShift route timeout from default 30s to 300s (`haproxy.router.openshift.io/timeout=300s`) on the `stm-web` route to prevent gateway timeouts during pipeline runs with large thread counts.
+- 2026-05-11: Restored Keycloak realm, client, user profile, and test user after tables were dropped by the `drizzle-kit push` incident. Keycloak 26 requires custom attributes (like `role`) to be registered in the User Profile configuration before they can be set via the Admin API.
 
 ### File List
 
@@ -349,8 +355,11 @@ Claude Opus 4.6 (via Cursor)
 - `apps/api/src/modules/admin/admin.controller.spec.ts` — Added tests for on-demand generation endpoint
 - `packages/db/drizzle.config.ts` — Added `tablesFilter` for database safety
 - `deploy/deploy.sh` — Removed `drizzle-kit push` fallback; fail-fast on migration failure
-- `deploy/test-pipeline.sh` — Extended to 10-step E2E smoke test with briefing chain
+- `deploy/test-pipeline.sh` — Extended to 11-step self-contained OpenShift E2E smoke test (oc login, Keycloak auth, roster setup, full pipeline, briefings, UI)
+- `apps/api/src/modules/pipeline/anonymization/blocklist-filter.processor.ts` — Fixed pass-through behavior for zero blocklist entries
+- `apps/api/src/modules/pipeline/anonymization/blocklist-filter.processor.spec.ts` — Updated test for pass-through behavior
+- `apps/api/src/modules/admin/admin.controller.ts` — Resilient correlation (try-catch), conditional LLM entity detection
 - `README.md` — Updated with Epics 3-5 features, new API endpoints, E2E testing docs, OpenShift deployment section
-- `CHANGELOG.md` — Added v0.6.0, v0.7.0, v0.8.0 entries
+- `CHANGELOG.md` — Added v0.6.0, v0.7.0, v0.8.0, v0.8.1, v0.8.2 entries
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` — Story 5.1 status updated
 - `_bmad-output/implementation-artifacts/5-1-briefing-generation-service-and-scheduling.md` — This story file

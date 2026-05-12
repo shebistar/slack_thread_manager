@@ -180,9 +180,71 @@ fi
 
 echo ""
 
-# ─── Step 3: List Channels ──────────────────────────────────────────────────────
+# ─── Step 3: Ensure Roster User Exists ────────────────────────────────────────
 
-echo "─── Step 3: List Channels ───"
+echo "─── Step 3: Ensure Roster User (${KC_USER}) ───"
+
+response=$(api_get "/admin/roster")
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" ]]; then
+  existing_user=$(echo "$body" | jq -r --arg email "${KC_USER}@shebi.eu" '.data[] | select(.email == $email) | .id' 2>/dev/null)
+
+  if [[ -n "$existing_user" ]]; then
+    log_pass "Roster user already exists: $existing_user"
+  else
+    log_info "Creating workstream and roster user..."
+
+    # Create workstream via DB (no admin API for workstreams)
+    WS_ID=$(oc exec deployment/stm-postgres -n slack-thread-manager -- psql -U stm_dev -d slack_thread_manager -tAc "
+      INSERT INTO workstreams (id, name, description, created_at)
+      VALUES (gen_random_uuid(), 'Engineering', 'Platform engineering workstream', now())
+      ON CONFLICT DO NOTHING
+      RETURNING id;
+    " 2>/dev/null)
+
+    if [[ -z "$WS_ID" ]]; then
+      WS_ID=$(oc exec deployment/stm-postgres -n slack-thread-manager -- psql -U stm_dev -d slack_thread_manager -tAc "
+        SELECT id FROM workstreams WHERE name = 'Engineering' LIMIT 1;
+      " 2>/dev/null)
+    fi
+    WS_ID=$(echo "$WS_ID" | tr -d '[:space:]')
+    log_info "Workstream ID: $WS_ID"
+
+    # Create roster user via admin API
+    roster_body=$(cat <<ROSTER_EOF
+{
+  "email": "${KC_USER}@shebi.eu",
+  "displayName": "Shebi (Admin)",
+  "slackHandle": "${KC_USER}",
+  "slackNicknames": [],
+  "role": "ADMIN",
+  "workstreamIds": $(if [[ -n "$WS_ID" ]]; then echo "[\"$WS_ID\"]"; else echo "[]"; fi)
+}
+ROSTER_EOF
+)
+
+    response=$(api_post "/admin/roster" "$roster_body")
+    status=$(extract_status "$response")
+
+    if [[ "$status" == "201" ]]; then
+      log_pass "Roster user created for ${KC_USER}@shebi.eu"
+    elif [[ "$status" == "409" ]]; then
+      log_pass "Roster user already exists (409 conflict)"
+    else
+      log_fail "POST /admin/roster → $status"
+    fi
+  fi
+else
+  log_fail "GET /admin/roster → $status"
+fi
+
+echo ""
+
+# ─── Step 4: List Channels ──────────────────────────────────────────────────────
+
+echo "─── Step 4: List Channels ───"
 
 response=$(api_get "/admin/channels")
 status=$(extract_status "$response")
@@ -203,9 +265,9 @@ fi
 
 echo ""
 
-# ─── Step 4: Import Test Data ───────────────────────────────────────────────────
+# ─── Step 5: Import Test Data ───────────────────────────────────────────────────
 
-echo "─── Step 4: Import Test Data ───"
+echo "─── Step 5: Import Test Data ───"
 
 if [[ -z "$CHANNEL_ID" ]]; then
   log_skip "POST /admin/channels/:id/import (no channel available)"
@@ -242,9 +304,9 @@ fi
 
 echo ""
 
-# ─── Step 5: Run Pipeline ───────────────────────────────────────────────────────
+# ─── Step 6: Run Pipeline ───────────────────────────────────────────────────────
 
-echo "─── Step 5: Run Pipeline (classify → summarize → embed → correlate → anonymize → stage) ───"
+echo "─── Step 6: Run Pipeline (classify → summarize → embed → correlate → anonymize → stage) ───"
 
 response=$(api_post "/admin/pipeline/run" "")
 status=$(extract_status "$response")
@@ -297,9 +359,9 @@ fi
 
 echo ""
 
-# ─── Step 6: Verify Roster ──────────────────────────────────────────────────────
+# ─── Step 7: Verify Roster ──────────────────────────────────────────────────────
 
-echo "─── Step 6: Verify Roster & Workstreams ───"
+echo "─── Step 7: Verify Roster & Workstreams ───"
 
 response=$(api_get "/admin/roster")
 status=$(extract_status "$response")
@@ -327,9 +389,9 @@ fi
 
 echo ""
 
-# ─── Step 7: Approve Staged Threads ─────────────────────────────────────────────
+# ─── Step 8: Approve Staged Threads ─────────────────────────────────────────────
 
-echo "─── Step 7: Approve Staged Threads (staging gate) ───"
+echo "─── Step 8: Approve Staged Threads (staging gate) ───"
 
 response=$(api_get "/admin/staging")
 status=$(extract_status "$response")
@@ -380,9 +442,9 @@ fi
 
 echo ""
 
-# ─── Step 8: Generate Briefings ──────────────────────────────────────────────────
+# ─── Step 9: Generate Briefings ──────────────────────────────────────────────────
 
-echo "─── Step 8: Generate Briefings ───"
+echo "─── Step 9: Generate Briefings ───"
 
 response=$(api_post "/admin/briefings/generate" "")
 status=$(extract_status "$response")
@@ -411,9 +473,9 @@ fi
 
 echo ""
 
-# ─── Step 9: Verify Briefing API ────────────────────────────────────────────────
+# ─── Step 10: Verify Briefing API ───────────────────────────────────────────────
 
-echo "─── Step 9: Verify Briefing API (authenticated user view) ───"
+echo "─── Step 10: Verify Briefing API (authenticated user view) ───"
 
 response=$(api_get "/briefings/today")
 status=$(extract_status "$response")
@@ -454,9 +516,9 @@ fi
 
 echo ""
 
-# ─── Step 10: UI Verification Summary ───────────────────────────────────────────
+# ─── Step 11: UI Verification Summary ───────────────────────────────────────────
 
-echo "─── Step 10: UI Verification ───"
+echo "─── Step 11: UI Verification ───"
 
 response=$(curl -sk -o /dev/null -w "%{http_code}" "$WEB_URL" 2>&1) || true
 

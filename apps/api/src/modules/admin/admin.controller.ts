@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Post, Query } from '@nestjs/common';
+import { Controller, Get, Inject, Logger, Post, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { LlmService } from '../pipeline/llm/llm.service.js';
 import { CpuModelProvider } from '../pipeline/llm/providers/cpu-model.provider.js';
@@ -41,14 +41,32 @@ export class AdminController {
   @Post('pipeline/run')
   @Roles('ADMIN')
   async runPipeline(@Query('date') date?: string) {
+    const logger = new Logger('AdminController');
+
     const classification = await this.pipelineService.runClassification(date);
     const summarization = await this.pipelineService.runSummarization(date);
     const embedding = await this.pipelineService.runEmbedding(date);
-    const correlation = await this.pipelineService.runCorrelation();
+
+    let correlation = null;
+    try {
+      correlation = await this.pipelineService.runCorrelation();
+    } catch (err) {
+      logger.warn('Correlation step failed (non-blocking)', err instanceof Error ? err.message : err);
+      correlation = { error: err instanceof Error ? err.message : 'unknown error' };
+    }
+
     const blocklistFilter = await this.pipelineService.runBlocklistFilter();
-    const entityDetection = await this.pipelineService.runLlmEntityDetection(
-      blocklistFilter.results,
-    );
+
+    let entityDetection = { threadsProcessed: 0, entitiesDetected: 0, results: [] as typeof blocklistFilter.results };
+    const hasFlaggedThreads = blocklistFilter.results.some((r) => r.flags.length > 0);
+
+    if (hasFlaggedThreads) {
+      entityDetection = await this.pipelineService.runLlmEntityDetection(
+        blocklistFilter.results,
+      );
+    } else {
+      logger.log('No blocklist flags detected — skipping LLM entity detection');
+    }
 
     const flaggedIds = new Set(entityDetection.results.map((r) => r.threadId));
     const unflaggedResults = blocklistFilter.results.filter(
