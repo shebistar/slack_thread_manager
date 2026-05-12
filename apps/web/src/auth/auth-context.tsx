@@ -32,6 +32,9 @@ function parseToken(token: string | undefined): AuthenticatedUser | null {
   if (!token) return null;
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
+    if (!payload.role) {
+      console.warn('[AuthContext] JWT missing "role" claim — defaulting to CONSULTANT');
+    }
     return {
       sub: payload.sub,
       email: payload.email,

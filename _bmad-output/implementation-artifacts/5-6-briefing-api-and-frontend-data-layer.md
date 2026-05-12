@@ -1,6 +1,6 @@
 # Story 5.6: Briefing API & Frontend Data Layer
 
-Status: review
+Status: done
 
 ## Story
 

@@ -10,8 +10,13 @@ export const DATABASE_TOKEN = 'DATABASE';
     {
       provide: DATABASE_TOKEN,
       inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
-        createDb(config.get<string>('DATABASE_URL', '')),
+      useFactory: (config: ConfigService) => {
+        const url = config.get<string>('DATABASE_URL');
+        if (!url) {
+          throw new Error('DATABASE_URL is required but not set');
+        }
+        return createDb(url);
+      },
     },
   ],
   exports: [DATABASE_TOKEN],

@@ -103,7 +103,7 @@ function AdminPage() {
 
 function RosterTabContent() {
   const { data: members = [], isLoading, error } = useRosterMembers();
-  const { data: workstreams = [] } = useWorkstreams();
+  const { data: workstreams = [], error: workstreamsError } = useWorkstreams();
   const createMember = useCreateRosterMember();
   const updateMember = useUpdateRosterMember();
   const deleteMember = useDeleteRosterMember();
@@ -133,6 +133,12 @@ function RosterTabContent() {
         </Button>
       </div>
 
+      {workstreamsError && (
+        <p className="text-sm text-red-600">
+          Failed to load workstreams: {(workstreamsError as Error).message}
+        </p>
+      )}
+
       <RosterTable
         members={members}
         isLoading={isLoading}
@@ -155,7 +161,7 @@ function RosterTabContent() {
 
 function ChannelsTabContent() {
   const { data: channels = [], isLoading, error } = useChannels();
-  const { data: workstreams = [] } = useWorkstreams();
+  const { data: workstreams = [], error: workstreamsError } = useWorkstreams();
   const createChannel = useCreateChannel();
   const updateChannel = useUpdateChannel();
   const toggleChannel = useToggleChannel();
@@ -186,6 +192,12 @@ function ChannelsTabContent() {
           Add Channel
         </Button>
       </div>
+
+      {workstreamsError && (
+        <p className="text-sm text-red-600">
+          Failed to load workstreams: {(workstreamsError as Error).message}
+        </p>
+      )}
 
       <ChannelsTable
         channels={channels}

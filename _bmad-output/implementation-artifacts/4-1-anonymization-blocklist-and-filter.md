@@ -1,6 +1,6 @@
 # Story 4.1: Anonymization Blocklist & Filter
 
-Status: review
+Status: done
 
 ## Story
 

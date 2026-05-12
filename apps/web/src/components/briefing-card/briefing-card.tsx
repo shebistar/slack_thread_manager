@@ -106,6 +106,7 @@ export function BriefingCard({
                 isCrossWorkstream={isCrossWorkstream}
                 isOrphaned={isOrphaned}
                 isQuiet={isQuiet}
+                isNew={!isRead}
                 showChevron
                 expanded={expanded}
               />
@@ -120,6 +121,7 @@ export function BriefingCard({
               isCrossWorkstream={isCrossWorkstream}
               isOrphaned={isOrphaned}
               isQuiet={isQuiet}
+              isNew={!isRead}
               showChevron={false}
               expanded={false}
             />
@@ -164,11 +166,9 @@ export function BriefingCard({
         </p>
         <div className="flex items-center gap-2 mt-1">
           {workstreamName && (
-            <Badge
-              className="bg-[--color-blue-50] text-white text-[10px] px-1.5 py-0"
-            >
+            <span className="text-[11px] font-medium uppercase tracking-wide text-[--color-blue-50]">
               {workstreamName}
-            </Badge>
+            </span>
           )}
           {itemType === 'cross_workstream' && (
             <Badge className="bg-[--color-brand-red] text-white text-[10px] px-1.5 py-0">
@@ -206,6 +206,7 @@ function StandardCardHeader({
   isCrossWorkstream,
   isOrphaned,
   isQuiet,
+  isNew,
   showChevron,
   expanded,
 }: {
@@ -217,6 +218,7 @@ function StandardCardHeader({
   isCrossWorkstream: boolean;
   isOrphaned: boolean;
   isQuiet: boolean;
+  isNew?: boolean;
   showChevron: boolean;
   expanded: boolean;
 }) {
@@ -224,9 +226,9 @@ function StandardCardHeader({
     <div className="flex items-start justify-between gap-3">
       <div className="flex-1 min-w-0">
         {workstreamName && (
-          <Badge className="bg-[--color-blue-50] text-white text-[10px] px-1.5 py-0 mb-1">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-[--color-blue-50] mb-1 block">
             {workstreamName}
-          </Badge>
+          </span>
         )}
         <h3 className="font-medium font-[--font-display] text-sm text-[--color-gray-95] leading-snug">
           {headline}
@@ -253,8 +255,13 @@ function StandardCardHeader({
           </Badge>
         )}
         {isQuiet && (
-          <Badge className="bg-[--color-yellow-30] text-[--color-gray-95] text-[10px] px-1.5 py-0">
+          <Badge className="bg-[--color-yellow-10] text-[--color-yellow-70] text-[10px] px-1.5 py-0">
             Gone Quiet
+          </Badge>
+        )}
+        {!isCrossWorkstream && !isOrphaned && !isQuiet && isNew && (
+          <Badge className="bg-[--color-green-10] text-[--color-green-50] text-[10px] px-1.5 py-0">
+            New
           </Badge>
         )}
         {showChevron && (

@@ -1,6 +1,6 @@
 # Story 4.3: Staging Queue & Pipeline Gate
 
-Status: review
+Status: done
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story 4.2: LLM Entity Detection
 
-Status: review
+Status: done
 
 ## Story
 

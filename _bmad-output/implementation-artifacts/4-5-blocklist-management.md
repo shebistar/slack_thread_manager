@@ -1,6 +1,6 @@
 # Story 4.5: Blocklist Management
 
-Status: review
+Status: done
 
 ## Story
 

@@ -15,7 +15,7 @@ function StatCell({ value, label, colorClass }: StatCellProps) {
       aria-label={`${label}: ${value}`}
     >
       <span
-        className={`font-[--font-display] text-[32px] font-medium leading-tight ${colorClass}`}
+        className={`font-[--font-display] text-[32px] font-bold leading-tight ${colorClass}`}
       >
         {value}
       </span>
@@ -74,7 +74,7 @@ export function StatsBar({ data, isLoading }: StatsBarProps) {
       <StatCell
         value={goneQuietCount}
         label="Gone Quiet"
-        colorClass="text-[--color-gray-95] bg-[--color-yellow-30] rounded px-2"
+        colorClass="text-[--color-yellow-70]"
       />
       <StatCell
         value={flagsRaisedCount}

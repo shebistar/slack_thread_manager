@@ -1,6 +1,6 @@
 # Story 5.5: Read/Unread State & Source Deep-Links
 
-Status: review
+Status: done
 
 ## Story
 

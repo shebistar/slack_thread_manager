@@ -74,7 +74,14 @@ export class PipelineService {
       return { processed: 0, failed: 0, pendingRetry: 0 };
     }
 
-    const run = await this.pipelineRunService.startRun();
+    let run: { id: string };
+    try {
+      run = await this.pipelineRunService.startRun();
+    } catch (err) {
+      this.logger.error('Failed to start classification run', err instanceof Error ? err.stack : err);
+      return { processed: 0, failed: threads.length, pendingRetry: 0 };
+    }
+
     this.llmService.resetBatchCounters();
 
     const workstreamRows = await this.db

@@ -1,6 +1,6 @@
 # Story 5.1: Briefing Generation Service & Scheduling
 
-Status: review
+Status: done
 
 ## Story
 

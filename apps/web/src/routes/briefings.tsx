@@ -95,62 +95,84 @@ function FeedLayout() {
     <div>
       <h1 className="sr-only">Daily Briefing</h1>
 
-      {isLoading ? (
-        <FreshnessTimestampSkeleton />
-      ) : data ? (
-        <FreshnessTimestamp data={data} />
-      ) : null}
+      <FeedHeader data={data} isLoading={isLoading} />
 
       {isLoading ? (
         <FeedSkeleton />
       ) : data ? (
-        <div className="mt-6 space-y-6">
-          <WorkstreamFilter
+        <div className="space-y-0">
+          <div className="bg-[--color-gray-10] border-b border-[--color-gray-20] px-6 py-3">
+            <WorkstreamFilter
             workstreams={workstreams}
             selectedWorkstream={selectedWorkstream}
             onSelect={setSelectedWorkstream}
           />
+          </div>
 
-          {filteredItems.length === 0 ? (
-            <FeedEmptyState hasFilter={selectedWorkstream !== null} />
-          ) : (
-            <>
-              {featuredItem && (
-                <FeedFeaturedCard
-                  item={featuredItem}
-                  isRead={(data.readItemIds ?? []).includes(featuredItem.id)}
-                  onExpandChange={() => markItemRead.mutate(featuredItem.id)}
-                />
-              )}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                {standardItems.map((item) => (
-                  <BriefingCard
-                    key={item.id}
-                    headline={item.headline}
-                    workstreamName={item.workstreamName}
-                    sourceThreadUrl={item.sourceThreadUrl}
-                    itemType={item.itemType}
-                    variant="standard"
-                    summaryText={item.summaryText}
-                    messageCount={item.messageCount}
-                    participantCount={item.participantCount}
-                    latestActivityAt={item.latestActivityAt}
-                    isRead={(data.readItemIds ?? []).includes(item.id)}
-                    onExpandChange={() => markItemRead.mutate(item.id)}
+          <div className="p-6 space-y-4">
+            {filteredItems.length === 0 ? (
+              <FeedEmptyState hasFilter={selectedWorkstream !== null} />
+            ) : (
+              <>
+                {featuredItem && (
+                  <FeedFeaturedCard
+                    item={featuredItem}
+                    isRead={(data.readItemIds ?? []).includes(featuredItem.id)}
+                    onExpandChange={() => markItemRead.mutate(featuredItem.id)}
                   />
-                ))}
-              </div>
-            </>
-          )}
+                )}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  {standardItems.map((item) => (
+                    <BriefingCard
+                      key={item.id}
+                      headline={item.headline}
+                      workstreamName={item.workstreamName}
+                      sourceThreadUrl={item.sourceThreadUrl}
+                      itemType={item.itemType}
+                      variant="standard"
+                      summaryText={item.summaryText}
+                      messageCount={item.messageCount}
+                      participantCount={item.participantCount}
+                      latestActivityAt={item.latestActivityAt}
+                      isRead={(data.readItemIds ?? []).includes(item.id)}
+                      onExpandChange={() => markItemRead.mutate(item.id)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       ) : null}
     </div>
   );
 }
 
+function FeedHeader({ data, isLoading }: { data: BriefingWithItems | null | undefined; isLoading: boolean }) {
+  const dateStr = data
+    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(new Date(data.briefing.generatedAt))
+    : '';
+  const timeStr = data
+    ? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(data.briefing.generatedAt))
+    : '';
+
+  return (
+    <div className="bg-white border-b-[3px] border-b-[--color-brand-red] px-6 py-4 flex items-center justify-between rounded-t-lg">
+      <div>
+        <h2 className="font-[--font-display] text-xl font-medium text-[--color-gray-95]">Daily Briefing</h2>
+        {!isLoading && data && (
+          <p className="text-[13px] text-[--color-gray-50] mt-1">
+            {dateStr} · Generated at {timeStr} · {data.briefing.threadCount} threads across {data.briefing.workstreamCount} workstreams
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function FeedFeaturedCard({ item, isRead, onExpandChange }: { item: BriefingItem; isRead?: boolean; onExpandChange?: () => void }) {
   return (
-    <div className="w-full">
+    <div className="border-l-[3px] border-l-[--color-brand-red] rounded-lg">
       <BriefingCard
         headline={item.headline}
         workstreamName={item.workstreamName}
@@ -256,16 +278,12 @@ function SplitPanelLayout() {
     <div>
       <h1 className="sr-only">Daily Briefing</h1>
 
-      {isLoading ? (
-        <FreshnessTimestampSkeleton />
-      ) : data ? (
-        <FreshnessTimestamp data={data} />
-      ) : null}
+      <SplitPanelTopBar />
 
       {isLoading ? (
         <SplitPanelSkeleton />
       ) : data ? (
-        <div className="mt-6 flex flex-col xl:flex-row gap-6">
+        <div className="mt-4 flex flex-col xl:flex-row gap-6">
           <div className="flex-1 min-w-0 space-y-4" role="listbox" aria-label="Briefing topics">
             {sortedItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -310,6 +328,20 @@ function SplitPanelLayout() {
   );
 }
 
+function SplitPanelTopBar() {
+  return (
+    <div className="relative bg-white border border-[--color-gray-20] rounded-lg px-6 py-3 flex items-center gap-4">
+      <div className="absolute top-0 left-0 right-0 h-0.5 bg-[--color-brand-red] rounded-t-lg" />
+      <h2 className="font-[--font-display] text-base font-medium text-[--color-gray-95]">
+        Daily Briefing — Intelligence Report
+      </h2>
+      <span className="ml-auto px-2.5 py-1 bg-[--color-teal-10] text-[--color-teal-50] rounded text-[11px] font-medium">
+        Lead Architect View
+      </span>
+    </div>
+  );
+}
+
 function SidePanel({
   isOpen,
   onToggle,
@@ -348,12 +380,39 @@ function SidePanel({
         </div>
 
         <div className={`p-4 pt-0 xl:pt-0 ${isOpen ? '' : 'xl:hidden'}`}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="px-2 py-0.5 bg-[--color-teal-50] text-white rounded text-[10px] font-medium">
+                AI-Assisted
+              </span>
+              <h4 className="text-sm font-medium text-[--color-gray-95]">Related Context</h4>
+            </div>
+
             {hasSelection ? (
-              <div className="text-center py-8">
-                <p className="text-sm font-medium text-[--color-gray-95]">AI enrichment coming soon</p>
-                <p className="text-xs text-[--color-gray-50] mt-2">
-                  Related documentation, knowledge base, and similar past discussions will appear here — Epic 8
-                </p>
+              <div className="space-y-5">
+                <div>
+                  <h5 className="text-xs uppercase tracking-wide text-[--color-gray-50] mb-2">Documentation</h5>
+                  <div className="bg-white rounded-md p-3 text-center">
+                    <p className="text-xs text-[--color-gray-50]">
+                      Proactive documentation links will appear here — Epic 8
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <h5 className="text-xs uppercase tracking-wide text-[--color-gray-50] mb-2">Knowledge Base</h5>
+                  <div className="bg-white rounded-md p-3 text-center">
+                    <p className="text-xs text-[--color-gray-50]">
+                      Related knowledge base entries will appear here — Epic 8
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <h5 className="text-xs uppercase tracking-wide text-[--color-gray-50] mb-2">Similar Past Discussions</h5>
+                  <div className="bg-white rounded-md p-3 text-center">
+                    <p className="text-xs text-[--color-gray-50]">
+                      Correlated threads will appear here — Epic 8
+                    </p>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="text-center py-8">
@@ -422,13 +481,9 @@ function DashboardLayout() {
     <div>
       <h1 className="sr-only">Daily Briefing</h1>
 
-      <StatsBar data={data} isLoading={isLoading} />
+      <DashboardHeader data={data} isLoading={isLoading} />
 
-      {isLoading ? (
-        <FreshnessTimestampSkeleton />
-      ) : data ? (
-        <FreshnessTimestamp data={data} />
-      ) : null}
+      <StatsBar data={data} isLoading={isLoading} />
 
       {isLoading ? (
         <PanelsSkeleton />
@@ -439,57 +494,21 @@ function DashboardLayout() {
   );
 }
 
-function FreshnessTimestamp({ data }: { data: BriefingWithItems }) {
-  const { briefing } = data;
-  const generatedAt = new Date(briefing.generatedAt);
-  const now = new Date();
-  const ageMs = now.getTime() - generatedAt.getTime();
-  const isStale = ageMs > 24 * 60 * 60 * 1000;
-  const isToday = generatedAt.toDateString() === now.toDateString();
-
-  const timeStr = new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(generatedAt);
-  const dateStr = new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-  }).format(generatedAt);
-
-  const nextBatchTime = data.nextBatchScheduledAt
-    ? new Intl.DateTimeFormat(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-    }).format(new Date(data.nextBatchScheduledAt))
-    : null;
+function DashboardHeader({ data, isLoading }: { data: BriefingWithItems | null | undefined; isLoading: boolean }) {
+  const dateStr = data
+    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(data.briefing.generatedAt))
+    : '';
+  const timeStr = data
+    ? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(data.briefing.generatedAt))
+    : '';
 
   return (
-    <div className="mt-3 space-y-2">
-      <span
-        className="text-xs text-[--color-gray-50]"
-        role="status"
-        aria-label="Briefing freshness"
-      >
-        {isToday ? 'Generated today' : `Generated on ${dateStr}`} at {timeStr} from {briefing.threadCount} threads across {briefing.workstreamCount} workstreams
+    <div className="flex items-center gap-4 bg-[--color-gray-95] text-white rounded-t-lg px-6 py-4 mb-0">
+      <div className="w-1 h-6 bg-[--color-brand-red] rounded-sm shrink-0" />
+      <h2 className="font-[--font-display] text-lg font-medium">Briefing Dashboard</h2>
+      <span className="ml-auto text-xs text-[--color-gray-50]">
+        {isLoading ? '' : `${dateStr} · ${timeStr}`}
       </span>
-
-      {isStale && (
-        <div
-          className="rounded-md border border-[--color-yellow-30] bg-[--color-yellow-10] px-4 py-3 text-sm text-[--color-gray-95]"
-          role="alert"
-        >
-          Briefing data is from{' '}
-          {dateStr}
-          . Next batch scheduled at {nextBatchTime ?? '4:00 AM'}.
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FreshnessTimestampSkeleton() {
-  return (
-    <div className="mt-3">
-      <Skeleton className="h-4 w-80" />
     </div>
   );
 }
@@ -498,21 +517,26 @@ function DashboardPanels({ data }: { data: BriefingWithItems }) {
   const { items } = data;
 
   const workstreamStats = useMemo(() => {
-    const map = new Map<string, { count: number; latestActivityAt: string | null }>();
+    const map = new Map<string, { count: number; messageCount: number; hasQuiet: boolean; latestActivityAt: string | null }>();
     items.forEach((item) => {
       const name = item.workstreamName ?? 'Unassigned';
-      const existing = map.get(name) ?? { count: 0, latestActivityAt: null };
+      const existing = map.get(name) ?? { count: 0, messageCount: 0, hasQuiet: false, latestActivityAt: null };
       let latestActivityAt = existing.latestActivityAt;
       if (item.latestActivityAt) {
         if (!latestActivityAt || new Date(item.latestActivityAt) > new Date(latestActivityAt)) {
           latestActivityAt = item.latestActivityAt;
         }
       }
-      map.set(name, { count: existing.count + 1, latestActivityAt });
+      map.set(name, {
+        count: existing.count + 1,
+        messageCount: existing.messageCount + (item.messageCount ?? 0),
+        hasQuiet: existing.hasQuiet || item.itemType === 'gone_quiet',
+        latestActivityAt,
+      });
     });
     return Array.from(map.entries())
       .sort(([, a], [, b]) => b.count - a.count)
-      .map(([name, value]) => ({ name, count: value.count, latestActivityAt: value.latestActivityAt }));
+      .map(([name, value]) => ({ name, ...value }));
   }, [items]);
 
   const decisionItems = useMemo(
@@ -520,84 +544,100 @@ function DashboardPanels({ data }: { data: BriefingWithItems }) {
     [items],
   );
 
-  return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
-      <section aria-labelledby="workstream-status-heading">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <h2 id="workstream-status-heading">Workstream Status</h2>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {workstreamStats.length === 0 ? (
-              <p className="px-6 py-4 text-sm text-[--color-gray-50]">No workstreams</p>
-            ) : (
-              <table className="w-full">
-                <thead className="sr-only">
-                  <tr>
-                    <th>Workstream</th>
-                    <th>Threads</th>
-                    <th>Latest activity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {workstreamStats.map((ws) => (
-                    <tr
-                      key={ws.name}
-                      className="border-b border-[--color-gray-20] last:border-b-0"
-                    >
-                      <td className="px-6 py-3 text-sm font-medium text-[--color-gray-95]">
-                        {ws.name}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-[--color-gray-50] text-right tabular-nums">
-                        {ws.count} {ws.count === 1 ? 'thread' : 'threads'}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-[--color-gray-50] text-right">
-                        {ws.latestActivityAt
-                          ? new Intl.DateTimeFormat(undefined, {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          }).format(new Date(ws.latestActivityAt))
-                          : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </CardContent>
-        </Card>
-      </section>
+  const quietItems = useMemo(
+    () => items.filter((i) => i.itemType === 'gone_quiet'),
+    [items],
+  );
 
-      <section aria-labelledby="key-decisions-heading">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <h2 id="key-decisions-heading">Key Decisions</h2>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {decisionItems.length === 0 ? (
-              <p className="text-sm text-[--color-gray-50]">No decisions in this briefing</p>
-            ) : (
-              decisionItems.map((item) => (
-                <BriefingCard
-                  key={item.id}
-                  headline={item.headline}
-                  workstreamName={item.workstreamName}
-                  sourceThreadUrl={item.sourceThreadUrl}
-                  itemType={item.itemType}
-                  variant="compact"
-                />
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </section>
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6 mt-6">
+      <div className="space-y-6">
+        <section aria-labelledby="workstream-status-heading">
+          <Card>
+            <div className="flex items-center justify-between bg-[--color-gray-10] border-b border-[--color-gray-20] px-4 py-3">
+              <h2 id="workstream-status-heading" className="text-[13px] font-medium text-[--color-gray-95]">Workstream Status</h2>
+              <span className="text-[11px] text-[--color-gray-30]">Last 24h</span>
+            </div>
+            <CardContent className="p-0">
+              {workstreamStats.length === 0 ? (
+                <p className="px-4 py-4 text-sm text-[--color-gray-50]">No workstreams</p>
+              ) : (
+                <div>
+                  {workstreamStats.map((ws) => (
+                    <div
+                      key={ws.name}
+                      className="flex items-center gap-3 px-4 py-2.5 border-b border-[--color-gray-10] last:border-b-0"
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${ws.hasQuiet ? 'bg-[--color-yellow-30]' : 'bg-[--color-green-50]'}`}
+                        aria-label={ws.hasQuiet ? 'Quiet' : 'Active'}
+                      />
+                      <span className="text-sm font-medium text-[--color-gray-95] flex-1">{ws.name}</span>
+                      <span className="text-xs text-[--color-gray-50]">
+                        {ws.count} {ws.count === 1 ? 'thread' : 'threads'} · {ws.messageCount} messages
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        <section aria-labelledby="key-decisions-heading">
+          <Card>
+            <div className="bg-[--color-gray-10] border-b border-[--color-gray-20] px-4 py-3">
+              <h2 id="key-decisions-heading" className="text-[13px] font-medium text-[--color-gray-95]">Key Decisions</h2>
+            </div>
+            <CardContent className="p-4">
+              {decisionItems.length === 0 ? (
+                <p className="text-sm text-[--color-gray-50]">No decisions in this briefing</p>
+              ) : (
+                decisionItems.map((item) => (
+                  <BriefingCard
+                    key={item.id}
+                    headline={item.headline}
+                    workstreamName={item.workstreamName}
+                    sourceThreadUrl={item.sourceThreadUrl}
+                    itemType={item.itemType}
+                    variant="compact"
+                  />
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      </div>
+
+      <div className="space-y-6">
+        <section aria-labelledby="silence-monitor-heading">
+          <Card>
+            <div className="bg-[--color-yellow-10] border-b border-[--color-gray-20] px-4 py-3">
+              <h2 id="silence-monitor-heading" className="text-[13px] font-medium text-[--color-gray-95]">Silence Monitor</h2>
+            </div>
+            <CardContent className="p-4">
+              {quietItems.length === 0 ? (
+                <p className="text-sm text-[--color-gray-50]">No silent threads detected</p>
+              ) : (
+                <div className="space-y-2">
+                  {quietItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-[--color-yellow-10] border-l-[3px] border-l-[--color-yellow-30] rounded-r-md p-3"
+                    >
+                      <h4 className="text-[13px] font-medium text-[--color-gray-95]">{item.headline}</h4>
+                      <p className="text-xs text-[--color-gray-50] mt-1">
+                        {item.participantCount != null && `${item.participantCount} participants`}
+                        {item.latestActivityAt && ` · Last activity ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(item.latestActivityAt))}`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      </div>
     </div>
   );
 }

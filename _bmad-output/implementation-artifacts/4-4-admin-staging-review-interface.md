@@ -1,6 +1,6 @@
 # Story 4.4: Admin Staging Review Interface
 
-Status: review
+Status: done
 
 ## Story
 
