@@ -463,18 +463,15 @@ describe('BriefingsService', () => {
         selectCallCount++;
         return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ id: 'item-1' }]) }) };
       });
-      mockSelectFrom.mockImplementationOnce(() => {
-        selectCallCount++;
-        return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }) };
-      });
-
       const mockReturning = vi.fn().mockResolvedValue([{ readAt }]);
-      mockInsertValues.mockReturnValue({ returning: mockReturning });
+      const mockOnConflictDoNothing = vi.fn().mockReturnValue({ returning: mockReturning });
+      mockInsertValues.mockReturnValue({ onConflictDoNothing: mockOnConflictDoNothing });
 
       const result = await service.markItemAsRead('user-1', 'item-1');
 
       expect(result.briefingItemId).toBe('item-1');
       expect(result.readAt).toEqual(readAt);
+      expect(mockOnConflictDoNothing).toHaveBeenCalled();
     });
 
     it('should return existing read record if already marked (idempotent)', async () => {
@@ -488,12 +485,15 @@ describe('BriefingsService', () => {
         selectCallCount++;
         return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ readAt: existingReadAt }]) }) };
       });
+      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockOnConflictDoNothing = vi.fn().mockReturnValue({ returning: mockReturning });
+      mockInsertValues.mockReturnValue({ onConflictDoNothing: mockOnConflictDoNothing });
 
       const result = await service.markItemAsRead('user-1', 'item-1');
 
       expect(result.briefingItemId).toBe('item-1');
       expect(result.readAt).toEqual(existingReadAt);
-      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockDb.insert).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException for non-existent item', async () => {

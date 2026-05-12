@@ -63,7 +63,7 @@ export function useMarkItemRead() {
       if (previous) {
         queryClient.setQueryData<BriefingWithItems | null>(BRIEFINGS_KEY, {
           ...previous,
-          readItemIds: [...previous.readItemIds, briefingItemId],
+          readItemIds: Array.from(new Set([...(previous.readItemIds ?? []), briefingItemId])),
         });
       }
 

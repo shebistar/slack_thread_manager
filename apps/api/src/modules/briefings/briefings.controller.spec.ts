@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { NotFoundException } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { BriefingsController } from './briefings.controller.js';
 import { BriefingsService } from './briefings.service.js';
@@ -37,16 +38,23 @@ const mockBriefingResult = {
       sortOrder: 0,
     },
   ],
+  readItemIds: [] as string[],
 };
 
 describe('BriefingsController', () => {
   let controller: BriefingsController;
-  let briefingsService: { getTodayBriefing: ReturnType<typeof vi.fn> };
+  let briefingsService: {
+    getTodayBriefing: ReturnType<typeof vi.fn>;
+    resolveUserIdFromAuth: ReturnType<typeof vi.fn>;
+    markItemAsRead: ReturnType<typeof vi.fn>;
+  };
   let configService: { get: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     briefingsService = {
       getTodayBriefing: vi.fn(),
+      resolveUserIdFromAuth: vi.fn(),
+      markItemAsRead: vi.fn(),
     };
     configService = {
       get: vi.fn().mockReturnValue('0 4 * * *'),
@@ -106,6 +114,44 @@ describe('BriefingsController', () => {
       await controller.getTodayBriefing(adminUser);
 
       expect(briefingsService.getTodayBriefing).toHaveBeenCalledWith('admin-456', 'admin@example.com');
+    });
+  });
+
+  describe('POST /briefings/items/:itemId/read', () => {
+    it('returns data envelope with item id and readAt', async () => {
+      const readAt = new Date('2026-05-12T07:00:00.000Z');
+      briefingsService.resolveUserIdFromAuth.mockResolvedValue('user-123');
+      briefingsService.markItemAsRead.mockResolvedValue({
+        briefingItemId: '7f4de3cf-838c-4ff1-8348-5ad4dd8878f0',
+        readAt,
+      });
+
+      const result = await controller.markItemRead(
+        mockUser,
+        '7f4de3cf-838c-4ff1-8348-5ad4dd8878f0',
+      );
+
+      expect(briefingsService.resolveUserIdFromAuth).toHaveBeenCalledWith('user-123', 'shebi@example.com');
+      expect(briefingsService.markItemAsRead).toHaveBeenCalledWith(
+        'user-123',
+        '7f4de3cf-838c-4ff1-8348-5ad4dd8878f0',
+      );
+      expect(result).toEqual({
+        data: {
+          briefingItemId: '7f4de3cf-838c-4ff1-8348-5ad4dd8878f0',
+          readAt: '2026-05-12T07:00:00.000Z',
+        },
+      });
+    });
+
+    it('throws NotFoundException when auth user cannot be resolved', async () => {
+      briefingsService.resolveUserIdFromAuth.mockResolvedValue(null);
+
+      await expect(
+        controller.markItemRead(mockUser, '7f4de3cf-838c-4ff1-8348-5ad4dd8878f0'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(briefingsService.markItemAsRead).not.toHaveBeenCalled();
     });
   });
 });

@@ -374,6 +374,18 @@ export class BriefingsService {
       throw new NotFoundException(`Briefing item ${briefingItemId} not found`);
     }
 
+    const [inserted] = await this.db
+      .insert(briefingItemReads)
+      .values({ userId, briefingItemId })
+      .onConflictDoNothing({
+        target: [briefingItemReads.userId, briefingItemReads.briefingItemId],
+      })
+      .returning({ readAt: briefingItemReads.readAt });
+
+    if (inserted) {
+      return { briefingItemId, readAt: inserted.readAt };
+    }
+
     const [existing] = await this.db
       .select({ readAt: briefingItemReads.readAt })
       .from(briefingItemReads)
@@ -385,16 +397,11 @@ export class BriefingsService {
       )
       .limit(1);
 
-    if (existing) {
-      return { briefingItemId, readAt: existing.readAt };
+    if (!existing) {
+      throw new NotFoundException(`Briefing item ${briefingItemId} not found`);
     }
 
-    const [inserted] = await this.db
-      .insert(briefingItemReads)
-      .values({ userId, briefingItemId })
-      .returning({ readAt: briefingItemReads.readAt });
-
-    return { briefingItemId, readAt: inserted!.readAt };
+    return { briefingItemId, readAt: existing.readAt };
   }
 
   async getReadItemIds(userId: string, briefingId: string): Promise<string[]> {
