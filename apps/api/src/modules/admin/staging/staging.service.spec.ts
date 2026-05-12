@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { StagingService } from './staging.service.js';
 import { DATABASE_TOKEN } from '../../../database/database.module.js';
+import { FtsService } from '../../search/fts.service.js';
 
 const mockStagingId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const mockThreadId = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
@@ -81,6 +82,10 @@ function buildMockDb() {
   return { dbMock: chain, txMock, enqueue };
 }
 
+const mockFtsService = {
+  refreshSearchVector: vi.fn().mockResolvedValue(undefined),
+};
+
 describe('StagingService', () => {
   let service: StagingService;
   let dbMock: ReturnType<typeof buildMockDb>['dbMock'];
@@ -92,11 +97,13 @@ describe('StagingService', () => {
     dbMock = mocks.dbMock;
     txMock = mocks.txMock;
     enqueue = mocks.enqueue;
+    mockFtsService.refreshSearchVector.mockClear();
 
     const module = await Test.createTestingModule({
       providers: [
         StagingService,
         { provide: DATABASE_TOKEN, useValue: dbMock },
+        { provide: FtsService, useValue: mockFtsService },
       ],
     }).compile();
 
@@ -197,6 +204,11 @@ describe('StagingService', () => {
 
       expect(txMock.update).toHaveBeenCalled();
       expect(result.batchComplete).toBe(true);
+      expect(mockFtsService.refreshSearchVector).toHaveBeenCalledWith(
+        txMock,
+        mockThreadId,
+        mockStagingRow.anonymizedContent,
+      );
     });
 
     it('rejects item without transitioning thread state', async () => {
@@ -209,6 +221,7 @@ describe('StagingService', () => {
 
       expect(result.batchComplete).toBe(false);
       expect(result.remainingPending).toBe(2);
+      expect(mockFtsService.refreshSearchVector).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException for non-existent item', async () => {
@@ -229,8 +242,13 @@ describe('StagingService', () => {
   });
 
   describe('approveAllClean', () => {
-    it('approves only items with empty flags', async () => {
-      const cleanItem = { id: 'clean-1', threadId: mockThreadId, batchId: mockBatchId };
+    it('approves only items with empty flags and refreshes FTS', async () => {
+      const cleanItem = {
+        id: 'clean-1',
+        threadId: mockThreadId,
+        batchId: mockBatchId,
+        anonymizedContent: mockStagingRow.anonymizedContent,
+      };
       enqueue(
         [cleanItem],    // select clean items .where()
         [{ cnt: 0 }],  // remaining pending .where()
@@ -240,10 +258,20 @@ describe('StagingService', () => {
 
       expect(result.approvedCount).toBe(1);
       expect(result.batchComplete).toBe(true);
+      expect(mockFtsService.refreshSearchVector).toHaveBeenCalledWith(
+        expect.anything(),
+        mockThreadId,
+        mockStagingRow.anonymizedContent,
+      );
     });
 
     it('respects workstream filter during bulk approval', async () => {
-      const cleanItem = { id: 'clean-1', threadId: mockThreadId, batchId: mockBatchId };
+      const cleanItem = {
+        id: 'clean-1',
+        threadId: mockThreadId,
+        batchId: mockBatchId,
+        anonymizedContent: mockStagingRow.anonymizedContent,
+      };
       enqueue(
         [cleanItem],                      // select clean items
         [{ threadId: mockThreadId }],     // workstream thread lookup

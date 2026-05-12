@@ -1,5 +1,5 @@
 # generated: 2026-05-06
-# last_updated: 2026-05-09T16:58:00-04:00
+# last_updated: 2026-05-12T18:51:00+02:00
 # project: slack_thread_manager
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-05-12T09:23:00+02:00
+last_updated: 2026-05-12T18:51:00+02:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -74,28 +74,28 @@ development_status:
   epic-3-retrospective: done
 
   # Epic 4: Anonymization & Content Governance
-  epic-4: in-progress
-  4-1-anonymization-blocklist-and-filter: review
-  4-2-llm-entity-detection: review
-  4-3-staging-queue-and-pipeline-gate: review
-  4-4-admin-staging-review-interface: review
-  4-5-blocklist-management: review
-  epic-4-retrospective: optional
+  epic-4: done
+  4-1-anonymization-blocklist-and-filter: done
+  4-2-llm-entity-detection: done
+  4-3-staging-queue-and-pipeline-gate: done
+  4-4-admin-staging-review-interface: done
+  4-5-blocklist-management: done
+  epic-4-retrospective: done
 
   # Epic 5: Daily Briefings & Core Dashboard
-  epic-5: in-progress
-  5-1-briefing-generation-service-and-scheduling: review
+  epic-5: done
+  5-1-briefing-generation-service-and-scheduling: done
   5-2-executive-scan-briefing-shape: done
   5-3-filtered-brief-briefing-shape: done
   5-4-intelligence-report-briefing-shape: done
-  5-5-read-unread-state-and-source-deep-links: review
-  5-6-briefing-api-and-frontend-data-layer: review
-  epic-5-retrospective: optional
+  5-5-read-unread-state-and-source-deep-links: done
+  5-6-briefing-api-and-frontend-data-layer: done
+  epic-5-retrospective: done
 
   # Epic 6: Search & Discovery
-  epic-6: backlog
-  6-1-full-text-search-infrastructure: backlog
-  6-2-semantic-search-with-pgvector: backlog
+  epic-6: in-progress
+  6-1-full-text-search-infrastructure: review
+  6-2-semantic-search-with-pgvector: ready-for-dev
   6-3-search-api-and-query-processing: backlog
   6-4-search-frontend-interface: backlog
   epic-6-retrospective: optional

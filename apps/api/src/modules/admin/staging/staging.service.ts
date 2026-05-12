@@ -16,12 +16,16 @@ import type {
   BatchSummary,
   ApproveAllCleanResponse,
 } from '@slack-thread-manager/shared';
+import { FtsService } from '../../search/fts.service.js';
 
 @Injectable()
 export class StagingService {
   private readonly logger = new Logger(StagingService.name);
 
-  constructor(@Inject(DATABASE_TOKEN) private readonly db: Database) {}
+  constructor(
+    @Inject(DATABASE_TOKEN) private readonly db: Database,
+    private readonly ftsService: FtsService,
+  ) {}
 
   async listPending(filters: StagingQueueFilter): Promise<StagingQueueList> {
     const conditions = [eq(stagingQueue.status, 'pending')];
@@ -164,6 +168,9 @@ export class StagingService {
               eq(slackThreads.pipelineState, 'staged'),
             ),
           );
+
+        const anonymizedContent = item.anonymizedContent as StagingQueueItem['anonymizedContent'];
+        await this.ftsService.refreshSearchVector(tx, item.threadId, anonymizedContent);
       }
 
       const remainingPending = await this.countPendingInBatch(tx, item.batchId);
@@ -195,7 +202,12 @@ export class StagingService {
     }
 
     const cleanItems = await this.db
-      .select({ id: stagingQueue.id, threadId: stagingQueue.threadId, batchId: stagingQueue.batchId })
+      .select({
+        id: stagingQueue.id,
+        threadId: stagingQueue.threadId,
+        batchId: stagingQueue.batchId,
+        anonymizedContent: stagingQueue.anonymizedContent,
+      })
       .from(stagingQueue)
       .where(and(...conditions));
 
@@ -240,6 +252,9 @@ export class StagingService {
                 eq(slackThreads.pipelineState, 'staged'),
               ),
             );
+
+          const anonymizedContent = item.anonymizedContent as StagingQueueItem['anonymizedContent'];
+          await this.ftsService.refreshSearchVector(tx, item.threadId, anonymizedContent);
         });
         approvedCount++;
       } catch (err) {

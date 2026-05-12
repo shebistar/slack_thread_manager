@@ -120,6 +120,13 @@
       "when": 1778566450839,
       "tag": "0016_nebulous_chamber",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1778604783150,
+      "tag": "0017_awesome_steel_serpent",
+      "breakpoints": true
     }
   ]
 }
