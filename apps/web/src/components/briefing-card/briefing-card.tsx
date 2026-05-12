@@ -16,6 +16,8 @@ interface BriefingCardProps {
   latestActivityAt?: string | null;
   selected?: boolean;
   onSelect?: () => void;
+  isRead?: boolean;
+  onExpandChange?: (expanded: boolean) => void;
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -42,6 +44,8 @@ export function BriefingCard({
   latestActivityAt,
   selected,
   onSelect,
+  isRead,
+  onExpandChange,
 }: BriefingCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isSelectable = !!onSelect;
@@ -50,6 +54,9 @@ export function BriefingCard({
     const isOrphaned = itemType === 'orphaned_action';
     const isCrossWorkstream = itemType === 'cross_workstream';
     const isQuiet = itemType === 'gone_quiet';
+
+    const showUnreadBorder = !isRead && !isQuiet && !isOrphaned;
+    const showReadOpacity = isRead && !selected;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isSelectable && (e.key === 'Enter' || e.key === ' ')) {
@@ -60,10 +67,12 @@ export function BriefingCard({
 
     return (
       <Card
-        className={`transition-shadow hover:shadow-md ${
-          isQuiet ? `border-l-2 border-l-[--color-yellow-30] ${!selected ? 'bg-[--color-yellow-10]' : ''}` : ''
-        } ${isOrphaned ? 'border-l-2 border-l-[--color-yellow-30]' : ''} ${
+        className={`transition-shadow hover:shadow-md transition-opacity duration-200 ease-out motion-reduce:transition-none ${
+          showUnreadBorder ? 'border-l-2 border-l-[--color-blue-50]' : ''
+        } ${isQuiet && !isRead ? `border-l-2 border-l-[--color-yellow-30] ${!selected ? 'bg-[--color-yellow-10]' : ''}` : ''
+        } ${isOrphaned && !isRead ? 'border-l-2 border-l-[--color-yellow-30]' : ''} ${
           selected ? 'border-[--color-blue-50] bg-[--color-blue-10]' : ''
+        } ${showReadOpacity ? 'opacity-60' : ''
         } ${isSelectable ? 'focus-visible:ring-2 focus-visible:ring-[--color-blue-50] focus-visible:outline-none' : ''}`}
         {...(isSelectable
           ? {
@@ -81,7 +90,11 @@ export function BriefingCard({
             <button
               type="button"
               className="w-full text-left focus-visible:ring-2 focus-visible:ring-[--color-blue-50] focus-visible:outline-none rounded"
-              onClick={() => setExpanded((prev) => !prev)}
+              onClick={() => {
+                const next = !expanded;
+                setExpanded(next);
+                if (next && onExpandChange) onExpandChange(next);
+              }}
               aria-expanded={expanded}
             >
               <StandardCardHeader

@@ -43,3 +43,10 @@ export const briefingResponseSchema = z.object({
 });
 
 export type BriefingResponse = z.infer<typeof briefingResponseSchema>;
+
+export const markItemReadResponseSchema = z.object({
+  briefingItemId: z.string().uuid(),
+  readAt: z.string(),
+});
+
+export type MarkItemReadResponse = z.infer<typeof markItemReadResponseSchema>;

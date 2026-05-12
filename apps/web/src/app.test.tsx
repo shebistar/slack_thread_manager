@@ -35,6 +35,10 @@ vi.mock('./hooks/use-briefings.js', () => ({
     isError: false,
     error: null,
   }),
+  useMarkItemRead: () => ({
+    mutate: () => {},
+    isPending: false,
+  }),
 }));
 
 import keycloak from './auth/keycloak.js';

@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { getLayoutVariant } from '@/lib/role-layout.js';
-import { useTodayBriefing } from '@/hooks/use-briefings.js';
+import { useTodayBriefing, useMarkItemRead } from '@/hooks/use-briefings.js';
 import type { BriefingWithItems, BriefingItem } from '@/hooks/use-briefings.js';
 import { StatsBar } from '@/components/stats-bar/stats-bar.js';
 import { BriefingCard } from '@/components/briefing-card/briefing-card.js';
@@ -44,6 +44,7 @@ const ITEM_TYPE_PRIORITY: Record<string, number> = {
 function FeedLayout() {
   const { data, isLoading, isError, error } = useTodayBriefing();
   const [selectedWorkstream, setSelectedWorkstream] = useState<string | null>(null);
+  const markItemRead = useMarkItemRead();
 
   const workstreams = useMemo(() => {
     if (!data?.items) return [];
@@ -115,7 +116,11 @@ function FeedLayout() {
           ) : (
             <>
               {featuredItem && (
-                <FeedFeaturedCard item={featuredItem} />
+                <FeedFeaturedCard
+                  item={featuredItem}
+                  isRead={(data.readItemIds ?? []).includes(featuredItem.id)}
+                  onExpandChange={() => markItemRead.mutate(featuredItem.id)}
+                />
               )}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 {standardItems.map((item) => (
@@ -130,6 +135,8 @@ function FeedLayout() {
                     messageCount={item.messageCount}
                     participantCount={item.participantCount}
                     latestActivityAt={item.latestActivityAt}
+                    isRead={(data.readItemIds ?? []).includes(item.id)}
+                    onExpandChange={() => markItemRead.mutate(item.id)}
                   />
                 ))}
               </div>
@@ -141,7 +148,7 @@ function FeedLayout() {
   );
 }
 
-function FeedFeaturedCard({ item }: { item: BriefingItem }) {
+function FeedFeaturedCard({ item, isRead, onExpandChange }: { item: BriefingItem; isRead?: boolean; onExpandChange?: () => void }) {
   return (
     <div className="w-full">
       <BriefingCard
@@ -154,6 +161,8 @@ function FeedFeaturedCard({ item }: { item: BriefingItem }) {
         messageCount={item.messageCount}
         participantCount={item.participantCount}
         latestActivityAt={item.latestActivityAt}
+        isRead={isRead}
+        onExpandChange={onExpandChange ? () => onExpandChange() : undefined}
       />
     </div>
   );
@@ -198,6 +207,7 @@ function SplitPanelLayout() {
   const { data, isLoading, isError, error } = useTodayBriefing();
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [sidePanelOpen, setSidePanelOpen] = useState(true);
+  const markItemRead = useMarkItemRead();
 
   const sortedItems = useMemo(() => {
     if (!data?.items) return [];
@@ -278,7 +288,12 @@ function SplitPanelLayout() {
                   participantCount={item.participantCount}
                   latestActivityAt={item.latestActivityAt}
                   selected={selectedItemId === item.id}
-                  onSelect={() => setSelectedItemId(selectedItemId === item.id ? null : item.id)}
+                  isRead={(data.readItemIds ?? []).includes(item.id)}
+                  onSelect={() => {
+                    const isDeselect = selectedItemId === item.id;
+                    setSelectedItemId(isDeselect ? null : item.id);
+                    if (!isDeselect) markItemRead.mutate(item.id);
+                  }}
                 />
               ))
             )}

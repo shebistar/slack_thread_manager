@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client.js';
 
 export interface BriefingItem {
@@ -29,6 +29,7 @@ export interface Briefing {
 export interface BriefingWithItems {
   briefing: Briefing;
   items: BriefingItem[];
+  readItemIds: string[];
   nextBatchScheduledAt: string | null;
 }
 
@@ -41,5 +42,40 @@ export function useTodayBriefing() {
       api
         .get<{ data: BriefingWithItems | null }>('/briefings/today')
         .then((r) => r.data),
+  });
+}
+
+export function useMarkItemRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (briefingItemId: string) =>
+      api
+        .post<{ data: { briefingItemId: string; readAt: string } }>(
+          `/briefings/items/${briefingItemId}/read`,
+          {},
+        )
+        .then((r) => r.data),
+    onMutate: async (briefingItemId) => {
+      await queryClient.cancelQueries({ queryKey: BRIEFINGS_KEY });
+      const previous = queryClient.getQueryData<BriefingWithItems | null>(BRIEFINGS_KEY);
+
+      if (previous) {
+        queryClient.setQueryData<BriefingWithItems | null>(BRIEFINGS_KEY, {
+          ...previous,
+          readItemIds: [...previous.readItemIds, briefingItemId],
+        });
+      }
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(BRIEFINGS_KEY, context.previous);
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: BRIEFINGS_KEY });
+    },
   });
 }

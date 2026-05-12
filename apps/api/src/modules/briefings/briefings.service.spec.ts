@@ -454,4 +454,83 @@ describe('BriefingsService', () => {
       expect(result.itemsGenerated).toBe(5);
     });
   });
+
+  describe('markItemAsRead', () => {
+    it('should insert a read record and return the result', async () => {
+      const readAt = new Date('2026-05-12T08:00:00Z');
+
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ id: 'item-1' }]) }) };
+      });
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }) };
+      });
+
+      const mockReturning = vi.fn().mockResolvedValue([{ readAt }]);
+      mockInsertValues.mockReturnValue({ returning: mockReturning });
+
+      const result = await service.markItemAsRead('user-1', 'item-1');
+
+      expect(result.briefingItemId).toBe('item-1');
+      expect(result.readAt).toEqual(readAt);
+    });
+
+    it('should return existing read record if already marked (idempotent)', async () => {
+      const existingReadAt = new Date('2026-05-11T10:00:00Z');
+
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ id: 'item-1' }]) }) };
+      });
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ readAt: existingReadAt }]) }) };
+      });
+
+      const result = await service.markItemAsRead('user-1', 'item-1');
+
+      expect(result.briefingItemId).toBe('item-1');
+      expect(result.readAt).toEqual(existingReadAt);
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException for non-existent item', async () => {
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }) };
+      });
+
+      await expect(service.markItemAsRead('user-1', 'nonexistent')).rejects.toThrow('not found');
+    });
+  });
+
+  describe('getReadItemIds', () => {
+    it('should return read item IDs for a given briefing', async () => {
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockResolvedValue([{ id: 'item-1' }, { id: 'item-2' }, { id: 'item-3' }]) };
+      });
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockResolvedValue([{ briefingItemId: 'item-1' }, { briefingItemId: 'item-3' }]) };
+      });
+
+      const result = await service.getReadItemIds('user-1', 'briefing-1');
+
+      expect(result).toEqual(['item-1', 'item-3']);
+    });
+
+    it('should return empty array when no items exist for the briefing', async () => {
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockResolvedValue([]) };
+      });
+
+      const result = await service.getReadItemIds('user-1', 'briefing-1');
+
+      expect(result).toEqual([]);
+    });
+  });
 });

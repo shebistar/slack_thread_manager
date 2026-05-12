@@ -14,6 +14,7 @@ const mockData: BriefingWithItems = {
     workstreamCount: 4,
   },
   nextBatchScheduledAt: new Date().toISOString(),
+  readItemIds: [],
   items: [
     { id: 'i-1', briefingId: 'b-1', threadId: 't-1', headline: 'h1', summaryText: 's1', workstreamName: 'Eng', sourceThreadUrl: null, itemType: 'standard', sortOrder: 0, latestActivityAt: null, messageCount: null, participantCount: null },
     { id: 'i-2', briefingId: 'b-1', threadId: 't-2', headline: 'h2', summaryText: 's2', workstreamName: 'Sales', sourceThreadUrl: null, itemType: 'cross_workstream', sortOrder: 1, latestActivityAt: null, messageCount: null, participantCount: null },

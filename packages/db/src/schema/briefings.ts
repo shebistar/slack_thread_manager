@@ -59,6 +59,24 @@ export const briefingItems = pgTable(
   ],
 );
 
+export const briefingItemReads = pgTable(
+  'briefing_item_reads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    briefingItemId: uuid('briefing_item_id')
+      .notNull()
+      .references(() => briefingItems.id, { onDelete: 'cascade' }),
+    readAt: timestamp('read_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('idx_briefing_item_reads_user_item').on(table.userId, table.briefingItemId),
+    index('idx_briefing_item_reads_user_id').on(table.userId),
+  ],
+);
+
 export const briefingsRelations = relations(briefings, ({ one, many }) => ({
   user: one(users, {
     fields: [briefings.userId],
@@ -67,7 +85,7 @@ export const briefingsRelations = relations(briefings, ({ one, many }) => ({
   items: many(briefingItems),
 }));
 
-export const briefingItemsRelations = relations(briefingItems, ({ one }) => ({
+export const briefingItemsRelations = relations(briefingItems, ({ one, many }) => ({
   briefing: one(briefings, {
     fields: [briefingItems.briefingId],
     references: [briefings.id],
@@ -76,11 +94,25 @@ export const briefingItemsRelations = relations(briefingItems, ({ one }) => ({
     fields: [briefingItems.threadId],
     references: [slackThreads.id],
   }),
+  reads: many(briefingItemReads),
+}));
+
+export const briefingItemReadsRelations = relations(briefingItemReads, ({ one }) => ({
+  user: one(users, {
+    fields: [briefingItemReads.userId],
+    references: [users.id],
+  }),
+  briefingItem: one(briefingItems, {
+    fields: [briefingItemReads.briefingItemId],
+    references: [briefingItems.id],
+  }),
 }));
 
 export type Briefing = typeof briefings.$inferSelect;
 export type NewBriefing = typeof briefings.$inferInsert;
 export type BriefingItem = typeof briefingItems.$inferSelect;
 export type NewBriefingItem = typeof briefingItems.$inferInsert;
+export type BriefingItemRead = typeof briefingItemReads.$inferSelect;
+export type NewBriefingItemRead = typeof briefingItemReads.$inferInsert;
 export type BriefingShapeValue = (typeof briefingShapeEnum.enumValues)[number];
 export type BriefingItemTypeValue = (typeof briefingItemTypeEnum.enumValues)[number];

@@ -1,9 +1,10 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq, and, inArray, sql, gt } from 'drizzle-orm';
 import {
   briefings,
   briefingItems,
+  briefingItemReads,
   slackThreads,
   classifiedTopics,
   users,
@@ -352,7 +353,72 @@ export class BriefingsService {
       .where(eq(briefingItems.briefingId, briefing.id))
       .orderBy(sql`${briefingItems.sortOrder} ASC`);
 
-    return { briefing, items };
+    const readItemIds = briefing.briefingShape === 'executive_scan'
+      ? []
+      : await this.getReadItemIds(userId, briefing.id);
+
+    return { briefing, items, readItemIds };
+  }
+
+  async markItemAsRead(
+    userId: string,
+    briefingItemId: string,
+  ): Promise<{ briefingItemId: string; readAt: Date }> {
+    const [item] = await this.db
+      .select({ id: briefingItems.id })
+      .from(briefingItems)
+      .where(eq(briefingItems.id, briefingItemId))
+      .limit(1);
+
+    if (!item) {
+      throw new NotFoundException(`Briefing item ${briefingItemId} not found`);
+    }
+
+    const [existing] = await this.db
+      .select({ readAt: briefingItemReads.readAt })
+      .from(briefingItemReads)
+      .where(
+        and(
+          eq(briefingItemReads.userId, userId),
+          eq(briefingItemReads.briefingItemId, briefingItemId),
+        ),
+      )
+      .limit(1);
+
+    if (existing) {
+      return { briefingItemId, readAt: existing.readAt };
+    }
+
+    const [inserted] = await this.db
+      .insert(briefingItemReads)
+      .values({ userId, briefingItemId })
+      .returning({ readAt: briefingItemReads.readAt });
+
+    return { briefingItemId, readAt: inserted!.readAt };
+  }
+
+  async getReadItemIds(userId: string, briefingId: string): Promise<string[]> {
+    const itemIds = await this.db
+      .select({ id: briefingItems.id })
+      .from(briefingItems)
+      .where(eq(briefingItems.briefingId, briefingId));
+
+    if (itemIds.length === 0) return [];
+
+    const reads = await this.db
+      .select({ briefingItemId: briefingItemReads.briefingItemId })
+      .from(briefingItemReads)
+      .where(
+        and(
+          eq(briefingItemReads.userId, userId),
+          inArray(
+            briefingItemReads.briefingItemId,
+            itemIds.map((i) => i.id),
+          ),
+        ),
+      );
+
+    return reads.map((r) => r.briefingItemId);
   }
 
   private extractSummaryText(summary: unknown): string {
@@ -386,7 +452,7 @@ export class BriefingsService {
     return latest?.generatedAt ?? null;
   }
 
-  private async resolveUserId(userSub: string, userEmail: string): Promise<string | null> {
+  async resolveUserIdFromAuth(userSub: string, userEmail: string): Promise<string | null> {
     const [byEmail] = await this.db
       .select({ id: users.id })
       .from(users)
@@ -402,5 +468,9 @@ export class BriefingsService {
       .limit(1);
 
     return bySub?.id ?? null;
+  }
+
+  private async resolveUserId(userSub: string, userEmail: string): Promise<string | null> {
+    return this.resolveUserIdFromAuth(userSub, userEmail);
   }
 }

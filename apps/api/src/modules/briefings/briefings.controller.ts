@@ -1,4 +1,4 @@
-import { Controller, Get, Logger, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
@@ -25,6 +25,26 @@ export class BriefingsController {
       data: {
         ...result,
         nextBatchScheduledAt: this.getNextBriefingRunIso(),
+      },
+    };
+  }
+
+  @Post('items/:itemId/read')
+  @HttpCode(HttpStatus.CREATED)
+  async markItemRead(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+  ) {
+    const userId = await this.briefingsService.resolveUserIdFromAuth(user.sub, user.email);
+    if (!userId) {
+      throw new NotFoundException('User not found');
+    }
+
+    const result = await this.briefingsService.markItemAsRead(userId, itemId);
+    return {
+      data: {
+        briefingItemId: result.briefingItemId,
+        readAt: result.readAt.toISOString(),
       },
     };
   }

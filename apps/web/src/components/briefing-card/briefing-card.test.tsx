@@ -368,4 +368,132 @@ describe('BriefingCard', () => {
       expect(chevronSvg).toBeUndefined();
     });
   });
+
+  describe('read/unread state', () => {
+    it('unread standard card has full opacity and blue left border', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Unread card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          isRead={false}
+        />,
+      );
+      const card = container.firstChild as HTMLElement;
+      expect(card.className).toContain('border-l-[--color-blue-50]');
+      expect(card.className).not.toContain('opacity-60');
+    });
+
+    it('read standard card has opacity-60 and no left border', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Read card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          isRead={true}
+        />,
+      );
+      const card = container.firstChild as HTMLElement;
+      expect(card.className).toContain('opacity-60');
+      expect(card.className).not.toContain('border-l-[--color-blue-50]');
+    });
+
+    it('read + selected: selected state overrides read opacity', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Read selected card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          isRead={true}
+          selected={true}
+          onSelect={() => {}}
+        />,
+      );
+      const card = container.querySelector('[role="option"]') as HTMLElement;
+      expect(card.className).toContain('border-[--color-blue-50]');
+      expect(card.className).not.toContain('opacity-60');
+    });
+
+    it('read + gone_quiet: yellow border removed, opacity applied', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Read quiet card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="gone_quiet"
+          variant="standard"
+          summaryText="Summary."
+          isRead={true}
+        />,
+      );
+      const card = container.firstChild as HTMLElement;
+      expect(card.className).toContain('opacity-60');
+      expect(card.className).not.toContain('border-l-[--color-yellow-30]');
+    });
+
+    it('compact variant: isRead prop does not affect visual output', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Compact read card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="compact"
+          isRead={true}
+        />,
+      );
+      const el = container.firstChild as HTMLElement;
+      expect(el.className).not.toContain('opacity-60');
+      expect(el.className).not.toContain('border-l-[--color-blue-50]');
+    });
+
+    it('calls onExpandChange when card is expanded', async () => {
+      const user = userEvent.setup();
+      const handleExpand = vi.fn();
+      render(
+        <BriefingCard
+          headline="Expand callback card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          onExpandChange={handleExpand}
+        />,
+      );
+      const toggle = screen.getByRole('button');
+      await user.click(toggle);
+      expect(handleExpand).toHaveBeenCalledWith(true);
+    });
+
+    it('does not call onExpandChange when collapsing', async () => {
+      const user = userEvent.setup();
+      const handleExpand = vi.fn();
+      render(
+        <BriefingCard
+          headline="Collapse callback card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          onExpandChange={handleExpand}
+        />,
+      );
+      const toggle = screen.getByRole('button');
+      await user.click(toggle); // expand
+      handleExpand.mockClear();
+      await user.click(toggle); // collapse
+      expect(handleExpand).not.toHaveBeenCalled();
+    });
+  });
 });
