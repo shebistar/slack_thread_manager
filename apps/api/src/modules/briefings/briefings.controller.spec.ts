@@ -47,6 +47,8 @@ describe('BriefingsController', () => {
     getTodayBriefing: ReturnType<typeof vi.fn>;
     resolveUserIdFromAuth: ReturnType<typeof vi.fn>;
     markItemAsRead: ReturnType<typeof vi.fn>;
+    getBriefingById: ReturnType<typeof vi.fn>;
+    getBriefingHistory: ReturnType<typeof vi.fn>;
   };
   let configService: { get: ReturnType<typeof vi.fn> };
 
@@ -55,6 +57,8 @@ describe('BriefingsController', () => {
       getTodayBriefing: vi.fn(),
       resolveUserIdFromAuth: vi.fn(),
       markItemAsRead: vi.fn(),
+      getBriefingById: vi.fn(),
+      getBriefingHistory: vi.fn(),
     };
     configService = {
       get: vi.fn().mockReturnValue('0 4 * * *'),
@@ -152,6 +156,101 @@ describe('BriefingsController', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
 
       expect(briefingsService.markItemAsRead).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /briefings/history', () => {
+    it('defaults days to 7 and returns metadata list', async () => {
+      briefingsService.resolveUserIdFromAuth.mockResolvedValue('user-123');
+      briefingsService.getBriefingHistory.mockResolvedValue([
+        {
+          id: '3bdde4e9-7603-4a61-b8f7-216355f4d9e6',
+          briefingDate: new Date('2026-05-11T00:00:00.000Z'),
+          briefingShape: 'executive_scan',
+          threadCount: 5,
+          workstreamCount: 3,
+          generatedAt: new Date('2026-05-11T04:00:00.000Z'),
+        },
+      ]);
+
+      const result = await controller.getBriefingHistory(mockUser, undefined);
+
+      expect(briefingsService.getBriefingHistory).toHaveBeenCalledWith('user-123', 7);
+      expect(result).toEqual({
+        data: {
+          briefings: [
+            {
+              id: '3bdde4e9-7603-4a61-b8f7-216355f4d9e6',
+              briefingDate: '2026-05-11T00:00:00.000Z',
+              briefingShape: 'EXECUTIVE_SCAN',
+              threadCount: 5,
+              workstreamCount: 3,
+              generatedAt: '2026-05-11T04:00:00.000Z',
+            },
+          ],
+        },
+      });
+    });
+
+    it('clamps days to max 30', async () => {
+      briefingsService.resolveUserIdFromAuth.mockResolvedValue('user-123');
+      briefingsService.getBriefingHistory.mockResolvedValue([]);
+
+      await controller.getBriefingHistory(mockUser, 300);
+
+      expect(briefingsService.getBriefingHistory).toHaveBeenCalledWith('user-123', 30);
+    });
+  });
+
+  describe('GET /briefings/:id', () => {
+    it('returns briefing detail when found', async () => {
+      briefingsService.resolveUserIdFromAuth.mockResolvedValue('user-123');
+      briefingsService.getBriefingById.mockResolvedValue({
+        briefing: {
+          id: 'f11d4b4e-5f6f-4d5d-91c5-bfd73e10b9b0',
+          userId: 'user-123',
+          briefingDate: new Date('2026-05-11T00:00:00.000Z'),
+          briefingShape: 'intelligence_report',
+          generatedAt: new Date('2026-05-11T04:00:00.000Z'),
+          threadCount: 4,
+          workstreamCount: 2,
+        },
+        items: [
+          {
+            id: 'item-1',
+            briefingId: 'f11d4b4e-5f6f-4d5d-91c5-bfd73e10b9b0',
+            threadId: 'thread-1',
+            headline: 'Item',
+            summaryText: 'Summary',
+            workstreamName: 'Platform',
+            sourceThreadUrl: null,
+            itemType: 'standard',
+            sortOrder: 0,
+            latestActivityAt: null,
+            messageCount: null,
+            participantCount: null,
+          },
+        ],
+        readItemIds: ['item-1'],
+      });
+
+      const result = await controller.getBriefingById(
+        mockUser,
+        'f11d4b4e-5f6f-4d5d-91c5-bfd73e10b9b0',
+      );
+
+      expect(result.data.briefing.briefingShape).toBe('INTELLIGENCE_REPORT');
+      expect(result.data.items[0]?.itemType).toBe('STANDARD');
+      expect(result.data.readItemIds).toEqual(['item-1']);
+    });
+
+    it('throws NotFoundException when briefing is missing', async () => {
+      briefingsService.resolveUserIdFromAuth.mockResolvedValue('user-123');
+      briefingsService.getBriefingById.mockResolvedValue(null);
+
+      await expect(
+        controller.getBriefingById(mockUser, 'f11d4b4e-5f6f-4d5d-91c5-bfd73e10b9b0'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

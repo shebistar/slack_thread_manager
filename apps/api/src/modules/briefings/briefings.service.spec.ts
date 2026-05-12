@@ -506,6 +506,122 @@ describe('BriefingsService', () => {
     });
   });
 
+  describe('getBriefingById', () => {
+    it('returns briefing with items and readItemIds when found', async () => {
+      const briefing = {
+        id: 'briefing-1',
+        userId: 'user-1',
+        briefingDate: new Date('2026-05-12T00:00:00.000Z'),
+        briefingShape: 'filtered_brief',
+        generatedAt: new Date('2026-05-12T04:00:00.000Z'),
+        threadCount: 2,
+        workstreamCount: 1,
+      };
+      const items = [
+        {
+          id: 'item-1',
+          briefingId: 'briefing-1',
+          threadId: 'thread-1',
+          headline: 'Headline',
+          summaryText: 'Summary',
+          workstreamName: 'Platform',
+          sourceThreadUrl: null,
+          itemType: 'standard',
+          sortOrder: 0,
+          latestActivityAt: null,
+          messageCount: null,
+          participantCount: 0,
+        },
+      ];
+
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([briefing]) }) };
+      });
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return {
+          leftJoin: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockResolvedValue(items),
+            }),
+          }),
+        };
+      });
+      vi.spyOn(service, 'getReadItemIds').mockResolvedValueOnce(['item-1']);
+
+      const result = await service.getBriefingById('user-1', 'briefing-1');
+
+      expect(result).toEqual({
+        briefing,
+        items,
+        readItemIds: ['item-1'],
+      });
+    });
+
+    it('returns null when briefing does not exist or belongs to different user', async () => {
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }) };
+      });
+
+      const result = await service.getBriefingById('user-1', 'briefing-1');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getBriefingHistory', () => {
+    it('returns metadata list ordered by date desc', async () => {
+      const rows = [
+        {
+          id: 'briefing-2',
+          briefingDate: new Date('2026-05-12T00:00:00.000Z'),
+          briefingShape: 'filtered_brief',
+          threadCount: 4,
+          workstreamCount: 2,
+          generatedAt: new Date('2026-05-12T04:00:00.000Z'),
+        },
+        {
+          id: 'briefing-1',
+          briefingDate: new Date('2026-05-11T00:00:00.000Z'),
+          briefingShape: 'filtered_brief',
+          threadCount: 3,
+          workstreamCount: 2,
+          generatedAt: new Date('2026-05-11T04:00:00.000Z'),
+        },
+      ];
+
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return {
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue(rows),
+          }),
+        };
+      });
+
+      const result = await service.getBriefingHistory('user-1', 7);
+
+      expect(result).toEqual(rows);
+    });
+
+    it('returns empty array when no history exists', async () => {
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return {
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue([]),
+          }),
+        };
+      });
+
+      const result = await service.getBriefingHistory('user-1', 7);
+
+      expect(result).toEqual([]);
+    });
+  });
+
   describe('getReadItemIds', () => {
     it('should return read item IDs for a given briefing', async () => {
       mockSelectFrom.mockImplementationOnce(() => {

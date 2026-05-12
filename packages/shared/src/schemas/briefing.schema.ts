@@ -50,3 +50,26 @@ export const markItemReadResponseSchema = z.object({
 });
 
 export type MarkItemReadResponse = z.infer<typeof markItemReadResponseSchema>;
+
+export const briefingHistoryQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(30).default(7),
+});
+
+export type BriefingHistoryQuery = z.infer<typeof briefingHistoryQuerySchema>;
+
+export const briefingHistoryItemSchema = z.object({
+  id: z.string().uuid(),
+  briefingDate: z.string(),
+  briefingShape: briefingShapeSchema,
+  threadCount: z.number().int(),
+  workstreamCount: z.number().int(),
+  generatedAt: z.string(),
+});
+
+export type BriefingHistoryItem = z.infer<typeof briefingHistoryItemSchema>;
+
+export const briefingHistoryResponseSchema = z.object({
+  briefings: z.array(briefingHistoryItemSchema),
+});
+
+export type BriefingHistoryResponse = z.infer<typeof briefingHistoryResponseSchema>;

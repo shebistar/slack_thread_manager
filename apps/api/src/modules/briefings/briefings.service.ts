@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq, and, inArray, sql, gt } from 'drizzle-orm';
+import { eq, and, inArray, sql, gt, gte, desc } from 'drizzle-orm';
 import {
   briefings,
   briefingItems,
@@ -358,6 +358,71 @@ export class BriefingsService {
       : await this.getReadItemIds(userId, briefing.id);
 
     return { briefing, items, readItemIds };
+  }
+
+  async getBriefingById(userId: string, briefingId: string) {
+    const [briefing] = await this.db
+      .select()
+      .from(briefings)
+      .where(
+        and(
+          eq(briefings.id, briefingId),
+          eq(briefings.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (!briefing) return null;
+
+    const items = await this.db
+      .select({
+        id: briefingItems.id,
+        briefingId: briefingItems.briefingId,
+        threadId: briefingItems.threadId,
+        headline: briefingItems.headline,
+        summaryText: briefingItems.summaryText,
+        workstreamName: briefingItems.workstreamName,
+        sourceThreadUrl: briefingItems.sourceThreadUrl,
+        itemType: briefingItems.itemType,
+        sortOrder: briefingItems.sortOrder,
+        latestActivityAt: slackThreads.updatedAt,
+        messageCount: slackThreads.messageCount,
+        participantCount: sql<number>`coalesce(array_length(${slackThreads.participantIds}, 1), 0)`,
+      })
+      .from(briefingItems)
+      .leftJoin(slackThreads, eq(slackThreads.id, briefingItems.threadId))
+      .where(eq(briefingItems.briefingId, briefing.id))
+      .orderBy(sql`${briefingItems.sortOrder} ASC`);
+
+    const readItemIds = briefing.briefingShape === 'executive_scan'
+      ? []
+      : await this.getReadItemIds(userId, briefing.id);
+
+    return { briefing, items, readItemIds };
+  }
+
+  async getBriefingHistory(userId: string, days: number) {
+    const startDate = new Date();
+    startDate.setUTCHours(0, 0, 0, 0);
+    startDate.setUTCDate(startDate.getUTCDate() - days);
+
+    return this.db
+      .select({
+        id: briefings.id,
+        briefingDate: briefings.briefingDate,
+        briefingShape: briefings.briefingShape,
+        threadCount: briefings.threadCount,
+        workstreamCount: briefings.workstreamCount,
+        generatedAt: briefings.generatedAt,
+      })
+      .from(briefings)
+      .where(
+        and(
+          eq(briefings.userId, userId),
+          gte(briefings.briefingDate, startDate),
+        ),
+      )
+      .orderBy(desc(briefings.briefingDate), desc(briefings.generatedAt));
   }
 
   async markItemAsRead(

@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
@@ -45,6 +45,63 @@ export class BriefingsController {
       data: {
         briefingItemId: result.briefingItemId,
         readAt: result.readAt.toISOString(),
+      },
+    };
+  }
+
+  @Get('history')
+  async getBriefingHistory(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('days', new ParseIntPipe({ optional: true })) days?: number,
+  ) {
+    const userId = await this.briefingsService.resolveUserIdFromAuth(user.sub, user.email);
+    if (!userId) {
+      throw new NotFoundException('User not found');
+    }
+
+    const effectiveDays = Math.min(30, Math.max(1, days ?? 7));
+    const briefings = await this.briefingsService.getBriefingHistory(userId, effectiveDays);
+
+    return {
+      data: {
+        briefings: briefings.map((briefing) => ({
+          ...briefing,
+          briefingShape: briefing.briefingShape.toUpperCase(),
+          briefingDate: briefing.briefingDate.toISOString(),
+          generatedAt: briefing.generatedAt.toISOString(),
+        })),
+      },
+    };
+  }
+
+  @Get(':id')
+  async getBriefingById(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const userId = await this.briefingsService.resolveUserIdFromAuth(user.sub, user.email);
+    if (!userId) {
+      throw new NotFoundException('User not found');
+    }
+
+    const result = await this.briefingsService.getBriefingById(userId, id);
+    if (!result) {
+      throw new NotFoundException('Briefing not found');
+    }
+
+    return {
+      data: {
+        briefing: {
+          ...result.briefing,
+          briefingShape: result.briefing.briefingShape.toUpperCase(),
+          briefingDate: result.briefing.briefingDate.toISOString(),
+          generatedAt: result.briefing.generatedAt.toISOString(),
+        },
+        items: result.items.map((item) => ({
+          ...item,
+          itemType: item.itemType.toUpperCase(),
+        })),
+        readItemIds: result.readItemIds,
       },
     };
   }
