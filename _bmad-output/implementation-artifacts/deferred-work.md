@@ -27,7 +27,7 @@ Items that need dedicated implementation scope.
 
 Items that naturally fit into Epic 6 stories.
 
-- [ ] **[B2]** pgvector HNSW index not created — verify and include in Story 6.2 (semantic search) [`packages/db/src/schema/`] *(from: Epic 3, Story 3.5)*
+- [x] **[B2]** ~~pgvector HNSW index not created~~ — **RESOLVED in Story 6.2**: `idx_thread_embeddings_hnsw` confirmed present in `packages/db/src/schema/embeddings.ts` (lines 18–21) and migration `packages/db/src/migrations/0010_skinny_raider.sql` (line 11). Uses `USING hnsw (embedding vector_cosine_ops)` with default `m=16` / `ef_construction=64`, adequate for MVP scale (~100–1000 threads). `VectorSearchService` uses `<=>` operator directly (never `1 - <=>`) to preserve index usage. *(from: Epic 3, Story 3.5; resolved: Story 6.2)*
 
 ---
 
@@ -118,6 +118,9 @@ Formally accepted as not-now. Each item has a documented trigger condition for w
 - ~~Blocklist filter returns empty results when no blocklist entries~~ — **RESOLVED**: Pass-through `AnonymizationResult[]` for all threads.
 - ~~Correlation processor crash breaks entire pipeline~~ — **RESOLVED**: Wrapped in try-catch, non-blocking.
 - ~~LLM entity detection called for all threads regardless~~ — **RESOLVED**: Conditional skip when zero flagged.
+- ~~`pnpm install --frozen-lockfile` failed in `deploy.sh` due lockfile drift~~ — **RESOLVED (2026-05-12)**: Regenerated `pnpm-lock.yaml` after `packages/db/package.json` dependency move.
+- ~~`drizzle-kit migrate` fails with opaque `undefined` in some environments~~ — **RESOLVED (2026-05-12)**: Added raw migration fallback runner (`packages/db/scripts/migrate-raw.js`) and hooked it into `deploy/deploy.sh`.
+- ~~Backfill logic was added by editing an existing migration (0017)~~ — **RESOLVED (2026-05-12)**: Restored 0017 and created additive migration 0018 for approved-row backfill.
 - ~~No roster user setup in E2E test~~ — **RESOLVED**: Added Step 3 to `test-pipeline.sh`.
 - ~~OpenShift route timeout too short~~ — **RESOLVED**: 300s annotation.
 
@@ -129,3 +132,8 @@ Formally accepted as not-now. Each item has a documented trigger condition for w
 ### Resolved from: code review of story-3.6 (2026-05-09)
 
 - ~~Admin pipeline endpoint chains 4 heavy operations synchronously~~ — **PARTIALLY RESOLVED**: Correlation try-catch, LLM conditional, 300s route timeout. Full async deferred (tracked as **[B1]**).
+
+## Deferred from: code review of 6-1-full-text-search-infrastructure.md (2026-05-12)
+
+- `approveAllClean` can overcount approvals under concurrent callers because row-count from guarded `status='pending'` update is not checked before incrementing `approvedCount` (`apps/api/src/modules/admin/staging/staging.service.ts`).
+- `classified_topics.thread_id` is non-unique, so duplicate `threadId` hits are possible in FTS results unless future schema/query constraints are introduced (`packages/db/src/schema/topics.ts`).

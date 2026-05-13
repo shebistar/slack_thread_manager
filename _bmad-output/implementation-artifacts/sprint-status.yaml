@@ -1,5 +1,5 @@
 # generated: 2026-05-06
-# last_updated: 2026-05-12T18:51:00+02:00
+# last_updated: 2026-05-12T20:09:00+02:00
 # project: slack_thread_manager
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-05-12T18:51:00+02:00
+last_updated: 2026-05-13T09:05:00+02:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -94,9 +94,9 @@ development_status:
 
   # Epic 6: Search & Discovery
   epic-6: in-progress
-  6-1-full-text-search-infrastructure: review
-  6-2-semantic-search-with-pgvector: ready-for-dev
-  6-3-search-api-and-query-processing: backlog
+  6-1-full-text-search-infrastructure: done
+  6-2-semantic-search-with-pgvector: review
+  6-3-search-api-and-query-processing: ready-for-dev
   6-4-search-frontend-interface: backlog
   epic-6-retrospective: optional
 
@@ -116,3 +116,13 @@ development_status:
   8-3-backfill-briefing-generation-for-new-consultants: backlog
   8-4-backfill-section-frontend-display: backlog
   epic-8-retrospective: optional
+
+  # Epic 9: UX Modernization & Visual Consistency
+  epic-9: backlog
+  9-1-design-system-token-alignment: backlog
+  9-2-adaptive-role-based-layout-shell: backlog
+  9-3-briefing-card-visual-state-system: backlog
+  9-4-search-experience-visual-refresh: backlog
+  9-5-global-navigation-header-and-information-architecture-polish: backlog
+  9-6-responsive-accessibility-and-ux-regression-hardening: backlog
+  epic-9-retrospective: optional
