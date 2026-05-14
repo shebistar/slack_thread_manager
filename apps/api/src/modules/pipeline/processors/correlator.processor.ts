@@ -124,8 +124,8 @@ export class CorrelatorProcessor {
       JOIN slack_threads st1 ON te1.thread_id = st1.id
       JOIN slack_threads st2 ON te2.thread_id = st2.id
       WHERE st1.channel_id != st2.channel_id
-        AND te1.thread_id = ANY(${threadIds})
-        AND te2.thread_id = ANY(${threadIds})
+        AND te1.thread_id = ANY(${threadIds}::uuid[])
+        AND te2.thread_id = ANY(${threadIds}::uuid[])
         AND (1 - (te1.embedding <=> te2.embedding)) >= ${threshold}
     `);
 

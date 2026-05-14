@@ -12,6 +12,9 @@ export const llmConfigSchema = z.object({
   EMBEDDING_DIMENSIONS: z.coerce.number().optional().default(768),
   CORRELATION_SIMILARITY_THRESHOLD: z.coerce.number().min(0).max(1).optional().default(0.7),
   ORPHANED_ACTION_THRESHOLD_DAYS: z.coerce.number().int().min(1).max(30).optional().default(2),
+  SEMANTIC_SEARCH_SIMILARITY_THRESHOLD: z.coerce.number().min(0).max(1).optional(),
+  SEARCH_FTS_WEIGHT: z.coerce.number().min(0).max(1).optional().default(0.4),
+  SEARCH_SEMANTIC_WEIGHT: z.coerce.number().min(0).max(1).optional().default(0.6),
 });
 
 export type LlmConfig = z.infer<typeof llmConfigSchema>;

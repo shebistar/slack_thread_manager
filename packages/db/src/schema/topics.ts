@@ -1,7 +1,13 @@
-import { index, jsonb, pgEnum, pgTable, real, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { customType, index, jsonb, pgEnum, pgTable, real, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { slackThreads } from './threads.js';
 import { workstreams } from './workstreams.js';
+
+const tsvector = customType<{ data: string }>({
+  dataType() {
+    return 'tsvector';
+  },
+});
 
 export const classifiedTopics = pgTable(
   'classified_topics',
@@ -18,10 +24,12 @@ export const classifiedTopics = pgTable(
     promptVersion: text('prompt_version').notNull(),
     technicalSummary: jsonb('technical_summary'),
     plainSummary: jsonb('plain_summary'),
+    searchVector: tsvector('search_vector'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('idx_classified_topics_thread_id').on(table.threadId),
+    index('idx_classified_topics_search_vector').using('gin', table.searchVector),
   ],
 );
 

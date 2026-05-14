@@ -5,6 +5,9 @@ import { ClassifierProcessor } from './processors/classifier.processor.js';
 import { SummarizerProcessor } from './processors/summarizer.processor.js';
 import { EmbedderProcessor } from './processors/embedder.processor.js';
 import { CorrelatorProcessor } from './processors/correlator.processor.js';
+import { BlocklistFilterProcessor } from './anonymization/blocklist-filter.processor.js';
+import { LlmEntityDetectorProcessor } from './anonymization/llm-entity-detector.processor.js';
+import { StagingQueueService } from './anonymization/staging-queue.service.js';
 import { PipelineStateService } from './pipeline-state.service.js';
 import { PipelineRunService } from './pipeline-run.service.js';
 import { LlmService } from './llm/llm.service.js';
@@ -32,6 +35,9 @@ describe('PipelineService', () => {
   let mockSummarizer: Record<string, ReturnType<typeof vi.fn>>;
   let mockEmbedder: Record<string, ReturnType<typeof vi.fn>>;
   let mockCorrelator: Record<string, ReturnType<typeof vi.fn>>;
+  let mockBlocklistFilter: Record<string, ReturnType<typeof vi.fn>>;
+  let mockLlmEntityDetector: Record<string, ReturnType<typeof vi.fn>>;
+  let mockStagingQueue: Record<string, ReturnType<typeof vi.fn>>;
   let mockStateService: Record<string, ReturnType<typeof vi.fn>>;
   let mockRunService: Record<string, ReturnType<typeof vi.fn>>;
   let mockLlmService: Record<string, ReturnType<typeof vi.fn>>;
@@ -68,6 +74,18 @@ describe('PipelineService', () => {
 
     mockCorrelator = {
       runBatchCorrelation: vi.fn().mockResolvedValue({ created: 4, updated: 0, pairsEvaluated: 2 }),
+    };
+
+    mockBlocklistFilter = {
+      runFilter: vi.fn().mockResolvedValue({ threadsScanned: 2, threadsWithMatches: 1, totalMatches: 3, results: [] }),
+    };
+
+    mockLlmEntityDetector = {
+      runDetection: vi.fn().mockResolvedValue({ threadsProcessed: 2, entitiesDetected: 1, results: [] }),
+    };
+
+    mockStagingQueue = {
+      stageResults: vi.fn().mockResolvedValue({ threadsStaged: 2, threadsFailed: 0, batchId: 'batch-uuid' }),
     };
 
     mockStateService = {
@@ -121,6 +139,9 @@ describe('PipelineService', () => {
         { provide: SummarizerProcessor, useValue: mockSummarizer },
         { provide: EmbedderProcessor, useValue: mockEmbedder },
         { provide: CorrelatorProcessor, useValue: mockCorrelator },
+        { provide: BlocklistFilterProcessor, useValue: mockBlocklistFilter },
+        { provide: LlmEntityDetectorProcessor, useValue: mockLlmEntityDetector },
+        { provide: StagingQueueService, useValue: mockStagingQueue },
         { provide: PipelineStateService, useValue: mockStateService },
         { provide: PipelineRunService, useValue: mockRunService },
         { provide: LlmService, useValue: mockLlmService },
@@ -389,6 +410,77 @@ describe('PipelineService', () => {
       const result = await service.runCorrelation();
 
       expect(result).toEqual({ created: 0, updated: 0, pairsEvaluated: 0 });
+    });
+  });
+
+  describe('runBlocklistFilter', () => {
+    it('delegates to BlocklistFilterProcessor.runFilter() and returns result', async () => {
+      const result = await service.runBlocklistFilter();
+
+      expect(mockBlocklistFilter.runFilter).toHaveBeenCalledOnce();
+      expect(result).toEqual({ threadsScanned: 2, threadsWithMatches: 1, totalMatches: 3, results: [] });
+    });
+
+    it('returns zeros when no matches found', async () => {
+      mockBlocklistFilter.runFilter.mockResolvedValue({
+        threadsScanned: 5,
+        threadsWithMatches: 0,
+        totalMatches: 0,
+        results: [],
+      });
+
+      const result = await service.runBlocklistFilter();
+
+      expect(result.threadsWithMatches).toBe(0);
+      expect(result.totalMatches).toBe(0);
+    });
+  });
+
+  describe('runLlmEntityDetection', () => {
+    it('8.13: delegates to LlmEntityDetectorProcessor.runDetection() and returns result', async () => {
+      const mockInput = [{ threadId: 'thread-1', originalContent: {}, anonymizedContent: {}, flags: [] }] as never[];
+
+      const result = await service.runLlmEntityDetection(mockInput);
+
+      expect(mockLlmEntityDetector.runDetection).toHaveBeenCalledOnce();
+      expect(mockLlmEntityDetector.runDetection).toHaveBeenCalledWith(mockInput);
+      expect(result).toEqual({ threadsProcessed: 2, entitiesDetected: 1, results: [] });
+    });
+
+    it('returns empty result when called with empty array', async () => {
+      mockLlmEntityDetector.runDetection.mockResolvedValue({
+        threadsProcessed: 0,
+        entitiesDetected: 0,
+        results: [],
+      });
+
+      const result = await service.runLlmEntityDetection([]);
+
+      expect(result).toEqual({ threadsProcessed: 0, entitiesDetected: 0, results: [] });
+    });
+  });
+
+  describe('runStaging', () => {
+    it('delegates to StagingQueueService.stageResults() and returns result', async () => {
+      const mockInput = [{ threadId: 'thread-1', originalContent: {}, anonymizedContent: {}, flags: [] }] as never[];
+
+      const result = await service.runStaging(mockInput);
+
+      expect(mockStagingQueue.stageResults).toHaveBeenCalledOnce();
+      expect(mockStagingQueue.stageResults).toHaveBeenCalledWith(mockInput);
+      expect(result).toEqual({ threadsStaged: 2, threadsFailed: 0, batchId: 'batch-uuid' });
+    });
+
+    it('returns empty result when called with empty array', async () => {
+      mockStagingQueue.stageResults.mockResolvedValue({
+        threadsStaged: 0,
+        threadsFailed: 0,
+        batchId: null,
+      });
+
+      const result = await service.runStaging([]);
+
+      expect(result).toEqual({ threadsStaged: 0, threadsFailed: 0, batchId: null });
     });
   });
 

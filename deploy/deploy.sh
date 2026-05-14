@@ -61,13 +61,39 @@ echo "--- Running database migrations ---"
 LOCAL_PG_PORT=15432
 oc port-forward svc/stm-postgres "${LOCAL_PG_PORT}:5432" &
 PF_PID=$!
-sleep 3
+
+# Wait for the local forwarded port to accept connections.
+for _ in {1..20}; do
+  if (echo >"/dev/tcp/127.0.0.1/${LOCAL_PG_PORT}") >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
 
 MIGRATE_URL="postgresql://stm_dev:stm_dev_password@localhost:${LOCAL_PG_PORT}/slack_thread_manager"
-if DATABASE_URL="${MIGRATE_URL}" pnpm --filter @slack-thread-manager/db migrate; then
+if DATABASE_URL="${MIGRATE_URL}" pnpm --filter @slack-thread-manager/db exec drizzle-kit migrate; then
   echo "--- Migrations applied successfully ---"
 else
-  echo "WARNING: Migration failed — check database connectivity and retry manually"
+  echo "WARN: drizzle-kit migrate failed — attempting raw migration fallback..."
+  if DATABASE_URL="${MIGRATE_URL}" node "${REPO_ROOT}/packages/db/scripts/migrate-raw.js"; then
+    echo "--- Raw migration fallback applied successfully ---"
+  else
+    echo "ERROR: migration fallback also failed — check database connectivity and retry manually"
+    echo ""
+    echo "  IMPORTANT: Do NOT use 'drizzle-kit push' as a fallback."
+    echo "  It compares the entire database and can DROP tables not in the Drizzle"
+    echo "  schema (e.g. Keycloak tables sharing the same database)."
+    echo ""
+    echo "  To debug:"
+    echo "    oc port-forward svc/stm-postgres 15432:5432"
+    echo "    DATABASE_URL=postgresql://stm_dev:stm_dev_password@localhost:15432/slack_thread_manager \\"
+    echo "      pnpm --filter @slack-thread-manager/db exec drizzle-kit migrate"
+    echo "    DATABASE_URL=postgresql://stm_dev:stm_dev_password@localhost:15432/slack_thread_manager \\"
+    echo "      node packages/db/scripts/migrate-raw.js"
+    kill "${PF_PID}" 2>/dev/null || true
+    wait "${PF_PID}" 2>/dev/null || true
+    exit 1
+  fi
 fi
 
 kill "${PF_PID}" 2>/dev/null || true

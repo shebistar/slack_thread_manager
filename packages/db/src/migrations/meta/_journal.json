@@ -92,6 +92,48 @@
       "when": 1778358784943,
       "tag": "0012_silent_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1778362419633,
+      "tag": "0013_bouncy_sage",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1778406988763,
+      "tag": "0014_shallow_magma",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1778490341047,
+      "tag": "0015_handy_nitro",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1778566450839,
+      "tag": "0016_nebulous_chamber",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1778604783150,
+      "tag": "0017_awesome_steel_serpent",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1778609971874,
+      "tag": "0018_sweet_clearance",
+      "breakpoints": true
     }
   ]
 }

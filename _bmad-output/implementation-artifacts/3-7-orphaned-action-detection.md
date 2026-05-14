@@ -538,10 +538,10 @@ Claude Opus 4 (Cursor Agent)
 - Schema validation: `orphaned_actions` table created with all 8 columns (id, thread_id, action_text, assigned_to, detected_at, status, resolved_at, created_at). Correct NOT NULL constraints on required fields.
 - Enum validation: `orphaned_action_status` enum created with values `orphaned`, `resolved`, `dismissed`.
 - Idempotency validation: First INSERT returns row, second INSERT with same (thread_id, action_text) returns nothing (ON CONFLICT DO NOTHING) — confirmed idempotent.
-- Full pipeline test via `POST /api/admin/pipeline/run` deferred to OpenShift deployment (same Node.js v20 vs v22 constraint as Story 3.5/3.6 — API server cannot start locally).
+- Full pipeline test via `POST /api/admin/pipeline/run` deferred to OpenShift deployment (was blocked by Node.js v20 vs v22 constraint — now resolved with Node.js v24 upgrade).
 
 **Gaps Discovered:**
-- API server cannot start locally (Node.js v20 vs required >=22). Pre-existing constraint. Orphaned action detection validated via DB queries + unit tests. Full end-to-end pipeline test will be validated in OpenShift.
+- API server previously could not start locally (Node.js v20 vs required >=22). **Resolved** with Node.js v24 upgrade + tsx loader. Orphaned action detection validated via DB queries + unit tests. Full end-to-end pipeline test will be validated in OpenShift.
 - `countWorkdays` uses server timezone for Date operations. For production accuracy, should use a configurable project timezone. Acceptable for V1 since batch runs on a single server.
 
 **Change Log:**

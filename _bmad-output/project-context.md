@@ -22,7 +22,7 @@ _Critical rules and patterns that AI agents MUST follow when implementing code i
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | Monorepo | Turborepo + pnpm | pnpm 10.33.4, turbo ^2.8 |
-| Runtime | Node.js | >=22.0.0 |
+| Runtime | Node.js | >=24.0.0 |
 | Backend framework | NestJS | ^11.0.0 |
 | Language | TypeScript | ^5.7.0 |
 | Backend test runner | Vitest + @nestjs/testing | ^3.2.0 |
@@ -233,17 +233,28 @@ All environment variables are validated on startup via Zod in `apps/api/src/conf
 
 ## Known Deferred Work (Forward Dependencies)
 
+> Full triaged inventory: `_bmad-output/implementation-artifacts/deferred-work.md` (last triaged: 2026-05-12)
+
 | Item | Deferred to | Status |
 |------|-------------|--------|
 | ~~`pipelineState` → pgEnum~~ | ~~Story 3.2~~ | done (migration 0006) |
 | ~~`pipeline_runs` table for persistent batch tracking~~ | ~~Story 3.2~~ | done (migration 0006) |
-| E2E / integration tests | After stable UI | pending |
-| Swagger / OpenAPI decorators | Epic 3+ | pending |
 | ~~Gemini Pro fallback~~ | ~~Story 3.1~~ | done (v0.5.0) |
-| pgvector HNSW index | Story 3.5 | pending |
-| `embed()` fallback to Gemini (primary-only by design) | When embedding pipeline is production-critical | pending |
-| Batch fallback counter concurrency safety | When horizontal scaling is needed | pending |
-| CPU model auth header (`CPU_MODEL_API_KEY`) | When Ollama is exposed to non-localhost | pending |
-| Gemini safety block distinction (blocked vs. failed) | When prompt safety monitoring is added | pending |
+| ~~PII logged in roster service~~ | ~~Deferred triage~~ | done (2026-05-12) |
+| ~~`createDb('')` silent crash~~ | ~~Deferred triage~~ | done (2026-05-12) |
+| ~~Pipeline endpoint no timeout~~ | ~~Deferred triage~~ | done (2026-05-12, stage envelopes + 240s timeout) |
+| ~~`tsx` in devDependencies~~ | ~~Deferred triage~~ | done (2026-05-12) |
+| ~~Missing role claim silent default~~ | ~~Deferred triage~~ | done (2026-05-12, console.warn) |
+| ~~`startRun()` no error guard~~ | ~~Deferred triage~~ | done (2026-05-12) |
+| ~~`useWorkstreams()` error swallowed~~ | ~~Deferred triage~~ | done (2026-05-12) |
+| E2E / integration tests | After stable UI | deprioritized |
+| Swagger / OpenAPI decorators | When API is externally consumed | deprioritized |
+| pgvector HNSW index | Story 6.2 | pending |
+| LLM prompt injection hardening | Dedicated story | pending (CREATE STORY) |
+| Route-level tests for briefing layouts | Dedicated story | pending (CREATE STORY) |
+| `embed()` fallback to Gemini (primary-only by design) | When embedding pipeline is production-critical | deprioritized |
+| Batch fallback counter concurrency safety | When horizontal scaling is needed | deprioritized |
+| CPU model auth header (`CPU_MODEL_API_KEY`) | When Ollama is exposed to non-localhost | deprioritized |
+| Gemini safety block distinction (blocked vs. failed) | When prompt safety monitoring is added | deprioritized |
 
-Do NOT implement these early even if they seem like obvious improvements — they have deliberate ordering.
+Do NOT implement deprioritized items early — they have deliberate ordering and documented trigger conditions in `deferred-work.md`.

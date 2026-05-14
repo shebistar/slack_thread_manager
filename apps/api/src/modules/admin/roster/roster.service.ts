@@ -52,7 +52,7 @@ export class RosterService {
   }
 
   async create(dto: CreateRosterMember): Promise<RosterMember> {
-    this.logger.log('Creating roster member');
+    this.logger.log('Creating roster member', { displayName: dto.displayName });
     const { workstreamIds, ...userFields } = dto;
 
     await this.validateWorkstreamIds(workstreamIds);
@@ -88,7 +88,7 @@ export class RosterService {
   }
 
   async update(id: string, dto: UpdateRosterMember): Promise<RosterMember> {
-    this.logger.log('Updating roster member');
+    this.logger.log('Updating roster member', { id });
     const { workstreamIds, ...updateFields } = dto;
 
     if (workstreamIds !== undefined) {
@@ -137,7 +137,7 @@ export class RosterService {
   }
 
   async remove(id: string): Promise<void> {
-    this.logger.log('Removing roster member');
+    this.logger.log('Removing roster member', { id });
 
     await this.db.transaction(async (tx) => {
       await tx.delete(userWorkstreams).where(eq(userWorkstreams.userId, id));

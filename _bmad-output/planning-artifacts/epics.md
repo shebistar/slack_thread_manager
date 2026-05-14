@@ -100,7 +100,7 @@ NFR22: The batch ingestion pipeline must be idempotent — re-running a batch mu
 - Idempotent ingestion: natural dedup key (slack_team_id + channel_id + thread_ts) with upsert strategy and per-channel watermark cursor
 - Transactional boundaries defined per operation type (single thread ingestion, classification+summarization, embedding, staging, approval, briefing generation)
 - Docker Compose for local development (PostgreSQL + pgvector + app)
-- Multi-stage Dockerfile for OpenShift production deployment (Node.js 22 build → Node.js 22 slim runtime)
+- Multi-stage Dockerfile for OpenShift production deployment (Node.js 24 build → Node.js 24 slim runtime)
 - CI/CD pipeline: turbo build → turbo test → container image push to OpenShift registry
 - Health check endpoint (`/api/health`) for OpenShift readiness/liveness probes
 - Structured JSON logging via NestJS Logger for OpenShift log aggregation
@@ -1041,6 +1041,106 @@ So that I understand this is historical context separate from today's activity.
 **And** after the backfill section, a separator and "Today's Briefing" header introduces the current day's content
 **And** the backfill section respects the same read/unread tracking as regular briefing items (UX-DR12)
 **And** on the user's second visit (or next day's briefing), the backfill section is gone — replaced by normal daily content
+
+## Epic 9: UX Modernization & Visual Consistency
+
+The application adopts the visual and interaction language from `ux-design-directions.html` so all major surfaces (Briefing, Search, Help, Admin shell) feel cohesive, role-aware, and production-polished under a single Red Hat design system implementation.
+
+### Story 9.1: Design System Token Alignment
+
+As a **developer**,
+I want the app theme and component primitives aligned to the design direction tokens,
+So that every screen uses the same palette, typography, spacing, and state colors.
+
+**Acceptance Criteria:**
+
+**Given** the app uses Tailwind + shared UI primitives
+**When** the design token alignment is implemented
+**Then** the Red Hat color tokens from `ux-design-directions.html` are represented as reusable CSS variables/Tailwind tokens (including red, blue, teal, yellow, gray scale)
+**And** typography is standardized to Red Hat Display/Text/Mono roles (headings, body, metadata/code)
+**And** semantic state tokens exist for `normal`, `selected`, `read`, `unread`, `gone-quiet`, `flagged`, `partial-match`, and `ai-assisted`
+**And** spacing, radius, and border conventions are applied consistently across Briefing/Search/Help/Admin pages
+**And** existing screens remain functional with no route-level regressions
+
+### Story 9.2: Adaptive Role-Based Layout Shell
+
+As a **team member**,
+I want briefing layouts to adapt by role and briefing type,
+So that I get the right information density and interaction model for my workflow.
+
+**Acceptance Criteria:**
+
+**Given** a user opens the daily briefing
+**When** their role and briefing shape are resolved
+**Then** Executive Scan uses the Dashboard-style layout (Direction 2)
+**And** Filtered Brief uses the News Feed-style layout (Direction 1)
+**And** Intelligence Report uses the Split Panel layout (Direction 6)
+**And** layout switching preserves shared shell elements (header, nav, date/meta framing, consistent paddings)
+**And** role-specific layout assignment is deterministic and covered by unit/integration tests
+
+### Story 9.3: Briefing Card Visual State System
+
+As a **team member**,
+I want card states to be visually clear and consistent,
+So that I can scan priority and confidence quickly without re-reading.
+
+**Acceptance Criteria:**
+
+**Given** briefing cards render across supported layouts
+**When** cards are displayed
+**Then** card variants include visual treatments for unread/read, gone-quiet, newly surfaced, and partial-match states
+**And** gone-quiet styling uses yellow-30/yellow-10 treatment consistent with design directions
+**And** source links ("View in Slack →") are consistently placed and styled in every card variant
+**And** workstream identity cues (badge/accent) remain visible in all states
+**And** hover/focus/selected interactions meet keyboard accessibility expectations
+
+### Story 9.4: Search Experience Visual Refresh
+
+As a **team member**,
+I want the Search page to match the new visual system,
+So that search feels integrated with the briefing experience.
+
+**Acceptance Criteria:**
+
+**Given** a user navigates to Search
+**When** they submit a natural language query
+**Then** results render in refreshed cards matching the shared token system and spacing scale
+**And** loading uses skeletons aligned to result-card geometry from the design directions
+**And** empty, error, and low-confidence states use clear informational styling with actionable guidance
+**And** result metadata (workstream, relevance, matchType, deep-link) has a consistent visual hierarchy
+**And** repeated queries use cached results without visual jank
+
+### Story 9.5: Global Navigation, Header, and Information Architecture Polish
+
+As a **user**,
+I want a consistent top-level navigation and page framing,
+So that moving between Briefing/Search/Help/Admin feels predictable and fast.
+
+**Acceptance Criteria:**
+
+**Given** a user navigates between major routes
+**When** pages render
+**Then** the top navigation/header follows a single canonical pattern (active tabs, title, contextual metadata)
+**And** page intro regions (title, subtitle, status badges) use shared layout primitives
+**And** route transitions preserve current context indicators (selected nav state, role context, app version badge where applicable)
+**And** responsive behavior keeps primary actions visible on laptop and tablet breakpoints
+**And** Help page visuals are aligned with the new system while continuing to read changelog/version from the single source of truth
+
+### Story 9.6: Responsive, Accessibility, and UX Regression Hardening
+
+As a **product owner**,
+I want UX enhancements to be stable across devices and assistive usage,
+So that the redesign improves usability without introducing regressions.
+
+**Acceptance Criteria:**
+
+**Given** all Epic 9 UI updates are implemented
+**When** responsiveness and accessibility validation runs
+**Then** key pages are verified at desktop, tablet, and narrow laptop widths with no critical overflow or clipping
+**And** keyboard-only navigation supports all primary flows (briefing scan, search, help navigation, admin entry points)
+**And** color contrast for text, badges, and state indicators meets WCAG AA for normal UI text
+**And** automated frontend tests and manual visual checklist cover at least Briefing/Search/Help routes
+**And** any intentional UX trade-offs or deferred polish are recorded in `deferred-work.md`
 
 ## Implementation Notes
 

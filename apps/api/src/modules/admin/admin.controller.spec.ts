@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { AdminController } from './admin.controller.js';
 import { ROLES_KEY } from '../auth/decorators/roles.decorator.js';
 import { LlmService } from '../pipeline/llm/llm.service.js';
 import { CpuModelProvider } from '../pipeline/llm/providers/cpu-model.provider.js';
 import { GeminiProvider } from '../pipeline/llm/providers/gemini.provider.js';
 import { PipelineService } from '../pipeline/pipeline.service.js';
+import { BriefingsService } from '../briefings/briefings.service.js';
 
 describe('AdminController', () => {
   let controller: AdminController;
@@ -16,6 +18,15 @@ describe('AdminController', () => {
     runSummarization: vi.fn().mockResolvedValue({ processed: 0, failed: 0, pendingRetry: 0 }),
     runEmbedding: vi.fn().mockResolvedValue({ processed: 0, failed: 0, pendingRetry: 0 }),
     runCorrelation: vi.fn().mockResolvedValue({ created: 0, updated: 0, pairsEvaluated: 0 }),
+    runBlocklistFilter: vi.fn().mockResolvedValue({ threadsScanned: 0, threadsWithMatches: 0, totalMatches: 0, results: [] }),
+    runLlmEntityDetection: vi.fn().mockResolvedValue({ threadsProcessed: 0, entitiesDetected: 0, results: [] }),
+    runStaging: vi.fn().mockResolvedValue({ threadsStaged: 0, threadsFailed: 0, batchId: null }),
+  };
+  const mockBriefingsService = {
+    generateBriefingsForAllUsers: vi.fn().mockResolvedValue({ usersProcessed: 0, briefingsGenerated: 0, itemsGenerated: 0 }),
+  };
+  const mockConfigService = {
+    get: vi.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
   };
 
   beforeEach(async () => {
@@ -26,6 +37,8 @@ describe('AdminController', () => {
         { provide: CpuModelProvider, useValue: mockCpuProvider },
         { provide: GeminiProvider, useValue: mockGeminiProvider },
         { provide: PipelineService, useValue: mockPipelineService },
+        { provide: BriefingsService, useValue: mockBriefingsService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -50,13 +63,184 @@ describe('AdminController', () => {
     expect(result.data.status).toBe('ok');
   });
 
-  it('runs full pipeline and returns correlation result', async () => {
+  it('runs full pipeline and returns correlation result wrapped in stage envelope', async () => {
     mockPipelineService.runCorrelation.mockResolvedValue({ created: 4, updated: 0, pairsEvaluated: 2 });
 
     const result = await controller.runPipeline();
 
     expect(result.data).toHaveProperty('correlation');
-    expect(result.data.correlation).toEqual({ created: 4, updated: 0, pairsEvaluated: 2 });
+    expect(result.data.correlation).toMatchObject({ status: 'ok', result: { created: 4, updated: 0, pairsEvaluated: 2 } });
+    expect(result.data.correlation).toHaveProperty('durationMs');
     expect(mockPipelineService.runCorrelation).toHaveBeenCalledOnce();
+  });
+
+  it('runs full pipeline and returns blocklistFilter result wrapped in stage envelope', async () => {
+    vi.clearAllMocks();
+    mockPipelineService.runBlocklistFilter.mockResolvedValue({
+      threadsScanned: 3,
+      threadsWithMatches: 1,
+      totalMatches: 2,
+      results: [],
+    });
+    mockPipelineService.runLlmEntityDetection.mockResolvedValue({
+      threadsProcessed: 0,
+      entitiesDetected: 0,
+      results: [],
+    });
+
+    const result = await controller.runPipeline();
+
+    expect(result.data).toHaveProperty('blocklistFilter');
+    expect(result.data.blocklistFilter).toMatchObject({
+      status: 'ok',
+      result: { threadsScanned: 3, threadsWithMatches: 1, totalMatches: 2, results: [] },
+    });
+    expect(mockPipelineService.runBlocklistFilter).toHaveBeenCalledOnce();
+  });
+
+  it('pipeline/run response includes entityDetection stage with LLM results', async () => {
+    vi.clearAllMocks();
+    mockPipelineService.runBlocklistFilter.mockResolvedValue({
+      threadsScanned: 2,
+      threadsWithMatches: 1,
+      totalMatches: 1,
+      results: [
+        { threadId: 'thread-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }] },
+        { threadId: 'thread-2', flags: [] },
+      ],
+    });
+    mockPipelineService.runLlmEntityDetection.mockResolvedValue({
+      threadsProcessed: 1,
+      entitiesDetected: 2,
+      results: [{ threadId: 'thread-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }, { source: 'LLM', term: 'Entity' }] }],
+    });
+    mockPipelineService.runStaging.mockResolvedValue({ threadsStaged: 2, threadsFailed: 0, batchId: 'batch-1' });
+
+    const result = await controller.runPipeline();
+
+    expect(result.data).toHaveProperty('entityDetection');
+    expect(result.data.entityDetection).toMatchObject({ status: 'ok' });
+    const edResult = (result.data.entityDetection as { result: { threadsProcessed: number; entitiesDetected: number } }).result;
+    expect(edResult.threadsProcessed).toBe(1);
+    expect(edResult.entitiesDetected).toBe(2);
+    expect(mockPipelineService.runLlmEntityDetection).toHaveBeenCalledWith(
+      [
+        { threadId: 'thread-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }] },
+        { threadId: 'thread-2', flags: [] },
+      ],
+    );
+  });
+
+  it('pipeline/run response includes staging stage result', async () => {
+    vi.clearAllMocks();
+    mockPipelineService.runBlocklistFilter.mockResolvedValue({
+      threadsScanned: 1, threadsWithMatches: 0, totalMatches: 0, results: [],
+    });
+    mockPipelineService.runLlmEntityDetection.mockResolvedValue({
+      threadsProcessed: 0, entitiesDetected: 0, results: [],
+    });
+    mockPipelineService.runStaging.mockResolvedValue({
+      threadsStaged: 3, threadsFailed: 0, batchId: 'batch-uuid',
+    });
+
+    const result = await controller.runPipeline();
+
+    expect(result.data).toHaveProperty('staging');
+    expect(result.data.staging).toMatchObject({
+      status: 'ok',
+      result: { threadsStaged: 3, threadsFailed: 0, batchId: 'batch-uuid' },
+    });
+    expect(mockPipelineService.runStaging).toHaveBeenCalledOnce();
+  });
+
+  it('staging merge logic: unflagged + LLM-enhanced flagged threads combined correctly', async () => {
+    vi.clearAllMocks();
+    mockPipelineService.runBlocklistFilter.mockResolvedValue({
+      threadsScanned: 3,
+      threadsWithMatches: 1,
+      totalMatches: 1,
+      results: [
+        { threadId: 'flagged-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }] },
+        { threadId: 'clean-1', flags: [] },
+        { threadId: 'clean-2', flags: [] },
+      ],
+    });
+    mockPipelineService.runLlmEntityDetection.mockResolvedValue({
+      threadsProcessed: 1,
+      entitiesDetected: 1,
+      results: [{ threadId: 'flagged-1', flags: [{ source: 'BLOCKLIST', term: 'Acme' }, { source: 'LLM', term: 'Bob' }] }],
+    });
+    mockPipelineService.runStaging.mockResolvedValue({
+      threadsStaged: 3, threadsFailed: 0, batchId: 'batch-uuid',
+    });
+
+    await controller.runPipeline();
+
+    const stagingCall = mockPipelineService.runStaging.mock.calls[0][0];
+    expect(stagingCall).toHaveLength(3);
+
+    const threadIds = stagingCall.map((r: { threadId: string }) => r.threadId).sort();
+    expect(threadIds).toEqual(['clean-1', 'clean-2', 'flagged-1']);
+
+    const flaggedResult = stagingCall.find((r: { threadId: string }) => r.threadId === 'flagged-1');
+    expect(flaggedResult.flags).toHaveLength(2);
+    expect(flaggedResult.flags[1].source).toBe('LLM');
+  });
+
+  it('pipeline/run response includes _meta with timing info', async () => {
+    const result = await controller.runPipeline();
+
+    expect(result.data).toHaveProperty('_meta');
+    expect(result.data._meta).toHaveProperty('totalDurationMs');
+    expect(result.data._meta).toHaveProperty('timedOut');
+    expect(result.data._meta.timedOut).toBe(false);
+  });
+
+  it('pipeline/run stage failure is isolated and does not block other stages', async () => {
+    vi.clearAllMocks();
+    mockPipelineService.runClassification.mockRejectedValue(new Error('DB connection lost'));
+    mockPipelineService.runBlocklistFilter.mockResolvedValue({
+      threadsScanned: 0, threadsWithMatches: 0, totalMatches: 0, results: [],
+    });
+
+    const result = await controller.runPipeline();
+
+    expect(result.data.classification).toMatchObject({ status: 'error', error: 'DB connection lost' });
+    expect(result.data.summarization).toMatchObject({ status: 'ok' });
+  });
+
+  it('entityDetection is skipped when no blocklist flags detected', async () => {
+    vi.clearAllMocks();
+    mockPipelineService.runBlocklistFilter.mockResolvedValue({
+      threadsScanned: 2, threadsWithMatches: 0, totalMatches: 0,
+      results: [{ threadId: 't1', flags: [] }, { threadId: 't2', flags: [] }],
+    });
+
+    const result = await controller.runPipeline();
+
+    expect(result.data.entityDetection).toMatchObject({ status: 'skipped', reason: 'no blocklist flags detected' });
+    expect(mockPipelineService.runLlmEntityDetection).not.toHaveBeenCalled();
+  });
+
+  it('generates briefings on demand via admin endpoint', async () => {
+    mockBriefingsService.generateBriefingsForAllUsers.mockResolvedValue({
+      usersProcessed: 3,
+      briefingsGenerated: 3,
+      itemsGenerated: 12,
+    });
+
+    const result = await controller.generateBriefings();
+
+    expect(result.data).toEqual({
+      usersProcessed: 3,
+      briefingsGenerated: 3,
+      itemsGenerated: 12,
+    });
+    expect(mockBriefingsService.generateBriefingsForAllUsers).toHaveBeenCalledOnce();
+  });
+
+  it('has @Roles("ADMIN") metadata on generateBriefings', () => {
+    const roles = Reflect.getMetadata(ROLES_KEY, AdminController.prototype.generateBriefings);
+    expect(roles).toEqual(['ADMIN']);
   });
 });

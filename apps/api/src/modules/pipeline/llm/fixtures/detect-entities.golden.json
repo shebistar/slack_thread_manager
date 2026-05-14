@@ -1,0 +1,32 @@
+[
+  {
+    "entity_text": "Globex Industries",
+    "entity_type": "company_name",
+    "confidence": 0.92,
+    "suggested_replacement": "[COMPANY]"
+  },
+  {
+    "entity_text": "Bob Johnson",
+    "entity_type": "person_name",
+    "confidence": 0.85,
+    "suggested_replacement": "[PERSON]"
+  },
+  {
+    "entity_text": "https://portal.globex.net/admin",
+    "entity_type": "url",
+    "confidence": 0.95,
+    "suggested_replacement": "[URL_REDACTED]"
+  },
+  {
+    "entity_text": "CUST-9281-PRD",
+    "entity_type": "account_id",
+    "confidence": 0.88,
+    "suggested_replacement": "[ACCOUNT_ID]"
+  },
+  {
+    "entity_text": "db-prod-globex-02.internal",
+    "entity_type": "infrastructure",
+    "confidence": 0.91,
+    "suggested_replacement": "[HOST_REDACTED]"
+  }
+]

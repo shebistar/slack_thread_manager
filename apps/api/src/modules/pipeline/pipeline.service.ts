@@ -5,6 +5,7 @@ import {
   users,
   workstreams,
 } from '@slack-thread-manager/db';
+import type { AnonymizationResult } from '@slack-thread-manager/shared';
 import { DATABASE_TOKEN } from '../../database/database.module.js';
 import type { Database } from '@slack-thread-manager/db';
 import { LlmPendingRetryError } from './llm/llm-provider.interface.js';
@@ -18,6 +19,10 @@ import {
 } from './processors/summarizer.processor.js';
 import { EmbedderProcessor } from './processors/embedder.processor.js';
 import { CorrelatorProcessor, type CorrelationRunResult } from './processors/correlator.processor.js';
+import { BlocklistFilterProcessor, type BlocklistFilterResult } from './anonymization/blocklist-filter.processor.js';
+import { LlmEntityDetectorProcessor, type LlmEntityDetectionResult } from './anonymization/llm-entity-detector.processor.js';
+import { StagingQueueService } from './anonymization/staging-queue.service.js';
+import type { StagingResult } from '@slack-thread-manager/shared';
 
 export interface PipelineRunResult {
   processed: number;
@@ -28,6 +33,9 @@ export interface PipelineRunResult {
 export type ClassificationRunResult = PipelineRunResult;
 export type EmbeddingRunResult = PipelineRunResult;
 export type { CorrelationRunResult };
+export type { BlocklistFilterResult };
+export type { LlmEntityDetectionResult };
+export type { StagingResult };
 
 @Injectable()
 export class PipelineService {
@@ -42,6 +50,12 @@ export class PipelineService {
     private readonly embedderProcessor: EmbedderProcessor,
     @Inject(CorrelatorProcessor)
     private readonly correlatorProcessor: CorrelatorProcessor,
+    @Inject(BlocklistFilterProcessor)
+    private readonly blocklistFilterProcessor: BlocklistFilterProcessor,
+    @Inject(LlmEntityDetectorProcessor)
+    private readonly llmEntityDetectorProcessor: LlmEntityDetectorProcessor,
+    @Inject(StagingQueueService)
+    private readonly stagingQueueService: StagingQueueService,
     @Inject(PipelineStateService)
     private readonly pipelineStateService: PipelineStateService,
     @Inject(PipelineRunService)
@@ -60,7 +74,14 @@ export class PipelineService {
       return { processed: 0, failed: 0, pendingRetry: 0 };
     }
 
-    const run = await this.pipelineRunService.startRun();
+    let run: { id: string };
+    try {
+      run = await this.pipelineRunService.startRun();
+    } catch (err) {
+      this.logger.error('Failed to start classification run', err instanceof Error ? err.stack : err);
+      return { processed: 0, failed: threads.length, pendingRetry: 0 };
+    }
+
     this.llmService.resetBatchCounters();
 
     const workstreamRows = await this.db
@@ -282,6 +303,19 @@ export class PipelineService {
     return this.correlatorProcessor.runBatchCorrelation();
   }
 
+  async runBlocklistFilter(): Promise<BlocklistFilterResult> {
+    return this.blocklistFilterProcessor.runFilter();
+  }
+
+  async runLlmEntityDetection(
+    blocklistResults: AnonymizationResult[],
+  ): Promise<LlmEntityDetectionResult> {
+    return this.llmEntityDetectorProcessor.runDetection(blocklistResults);
+  }
+
+  async runStaging(results: AnonymizationResult[]): Promise<StagingResult> {
+    return this.stagingQueueService.stageResults(results);
+  }
 
   private buildParticipantRoster(
     participantIds: string[],

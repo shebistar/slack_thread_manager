@@ -338,88 +338,34 @@ function ChangelogSection() {
       </h2>
 
       <div className="space-y-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-base font-medium text-[--color-gray-95]">
-              v0.4.0
-            </h3>
-            <Badge variant="secondary">Current</Badge>
-            <span className="text-xs text-[--color-gray-50]">2026-05-08</span>
-          </div>
-          <p className="text-sm text-[--color-gray-70] mb-2">
-            Knowledge transformation pipeline — LLM-powered classification, summarization, and semantic embeddings.
-          </p>
-          <ul className="list-disc pl-5 text-sm text-[--color-gray-70] space-y-1">
-            <li>Multi-provider LLM abstraction layer with CPU-primary / Gemini-fallback routing and batch telemetry</li>
-            <li>Pipeline state machine: <code>ingested → classified → summarized → embedded → failed / pending_retry</code> with per-item error isolation</li>
-            <li>Thread classification: assigns primary topic, secondary topics, workstream, and confidence score via LLM</li>
-            <li>Dual-mode summarization: technical summary (for engineers) and plain-language summary (for non-technical stakeholders)</li>
-            <li>Vector embeddings stored in <code>thread_embeddings</code> with pgvector HNSW index for cosine similarity search</li>
-            <li>Idempotent upsert — re-running any pipeline stage is safe and will overwrite the previous result</li>
-            <li>Batch run tracking via <code>pipeline_runs</code> table with per-run stats (processed, failed, fallback count)</li>
-          </ul>
-        </div>
+        {__APP_CHANGELOG__.map((release) => (
+          <div key={release.version}>
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-base font-medium text-[--color-gray-95]">
+                v{release.version}
+              </h3>
+              {release.version === __APP_VERSION__ ? (
+                <Badge variant="secondary">Current</Badge>
+              ) : null}
+              <span className="text-xs text-[--color-gray-50]">{release.date}</span>
+            </div>
 
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-base font-medium text-[--color-gray-95]">
-              v0.3.0
-            </h3>
-            <span className="text-xs text-[--color-gray-50]">2026-05-08</span>
+            {release.sections.map((section) => (
+              <div key={`${release.version}-${section.title}`} className="mb-3">
+                <h4 className="text-sm font-medium text-[--color-gray-95] mb-1">
+                  {section.title}
+                </h4>
+                <ul className="list-disc pl-5 text-sm text-[--color-gray-70] space-y-1">
+                  {section.items.map((item, itemIdx) => (
+                    <li key={`${release.version}-${section.title}-${itemIdx}`}>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-          <p className="text-sm text-[--color-gray-70] mb-2">
-            Thread ingestion, manual import, and general-purpose channels.
-          </p>
-          <ul className="list-disc pl-5 text-sm text-[--color-gray-70] space-y-1">
-            <li>Thread ingestion service with idempotent upsert and per-thread transaction isolation</li>
-            <li>Database tables for slack_threads and thread_messages with cascade delete</li>
-            <li>Import History tab with paste-text mode (copy from Slack UI) and JSON file upload</li>
-            <li>Slack message parser for copy-paste format detection</li>
-            <li>Channels no longer require a workstream — can be general-purpose</li>
-            <li>Automatic database migrations in OpenShift deploy script</li>
-          </ul>
-        </div>
-
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-base font-medium text-[--color-gray-95]">
-              v0.2.0
-            </h3>
-            <span className="text-xs text-[--color-gray-50]">2026-05-07</span>
-          </div>
-          <p className="text-sm text-[--color-gray-70] mb-2">
-            Slack API integration foundation.
-          </p>
-          <ul className="list-disc pl-5 text-sm text-[--color-gray-70] space-y-1">
-            <li>Slack API client with bot token authentication and rate-limit handling</li>
-            <li>Channel history and thread reply retrieval via Slack SDK</li>
-            <li>Exponential backoff with jitter for robust retries</li>
-            <li>Graceful degradation when Slack token is not configured</li>
-          </ul>
-        </div>
-
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-base font-medium text-[--color-gray-95]">
-              v0.1.0
-            </h3>
-            <span className="text-xs text-[--color-gray-50]">2026-05-07</span>
-          </div>
-          <p className="text-sm text-[--color-gray-70] mb-2">
-            Initial foundation release — project infrastructure, authentication,
-            and admin tooling.
-          </p>
-          <ul className="list-disc pl-5 text-sm text-[--color-gray-70] space-y-1">
-            <li>Monorepo scaffold with Turborepo, NestJS API, and React/Vite frontend</li>
-            <li>PostgreSQL 17 with Drizzle ORM, migrations, and seed data</li>
-            <li>Keycloak OIDC authentication with corporate SSO</li>
-            <li>Role-based access control with route guards (6 roles)</li>
-            <li>Dashboard shell with responsive navigation</li>
-            <li>Team roster management (CRUD with workstream assignments)</li>
-            <li>Channel configuration (Slack channel monitoring and workstream mapping)</li>
-            <li>Help page with documentation and changelog</li>
-          </ul>
-        </div>
+        ))}
       </div>
     </section>
   );

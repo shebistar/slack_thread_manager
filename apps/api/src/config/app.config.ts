@@ -10,6 +10,7 @@ const baseSchema = z.object({
   SLACK_BOT_TOKEN: z.string().startsWith('xoxb-').optional(),
   SLACK_TEAM_ID: z.string().optional(),
   INGESTION_CRON_SCHEDULE: z.string().default('0 */4 * * *'),
+  BRIEFING_CRON_SCHEDULE: z.string().default('0 4 * * *'),
 });
 
 export const envSchema = baseSchema.merge(llmConfigSchema);

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "dev": "nest start --watch",
+    "dev": "NODE_OPTIONS=\"--import tsx\" nest start --watch",
     "start": "node dist/main",
     "start:prod": "node dist/main",
     "lint": "eslint src/",
@@ -37,9 +37,10 @@
     "@swc/cli": "^0.6.0",
     "@swc/core": "^1.10.0",
     "@types/express": "^5.0.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.0.0",
     "@types/passport": "^1.0.17",
     "@types/passport-jwt": "^4.0.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.0",
     "unplugin-swc": "^1.5.9",
     "vitest": "^3.2.0"

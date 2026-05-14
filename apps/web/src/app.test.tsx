@@ -28,6 +28,19 @@ vi.mock('./auth/keycloak.js', () => ({
   },
 }));
 
+vi.mock('./hooks/use-briefings.js', () => ({
+  useTodayBriefing: () => ({
+    data: null,
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+  useMarkItemRead: () => ({
+    mutate: () => {},
+    isPending: false,
+  }),
+}));
+
 import keycloak from './auth/keycloak.js';
 import { AuthProvider } from './auth/index.js';
 import App from './app.js';

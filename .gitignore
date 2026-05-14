@@ -28,6 +28,15 @@ Thumbs.db
 coverage/
 test-data/
 
+# Build info
+*.tsbuildinfo
+
+# TanStack Router generated
+.tanstack/
+
+# Deploy secrets
+deploy/jwt
+
 # Misc
 *.log
 npm-debug.log*
