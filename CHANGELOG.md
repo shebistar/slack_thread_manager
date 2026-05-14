@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.3] - 2026-05-12
+
+### Fixed
+
+- **Deploy build lockfile mismatch:** Synced `pnpm-lock.yaml` with `packages/db/package.json` after moving `tsx` into runtime dependencies, which unblocked container builds using `pnpm install --frozen-lockfile` in `deploy/deploy.sh`.
+- **Migration replay resilience in OpenShift deploys:** Added a deterministic raw migration fallback (`packages/db/scripts/migrate-raw.js`) and wired it into `deploy/deploy.sh` when `drizzle-kit migrate` fails unexpectedly.
+- **Migration safety for AC7 backfill rollout:** Moved approved-row backfill logic to a new follow-up migration (`0018_sweet_clearance.sql`) to avoid mutating an already-released migration and to keep migration ordering consistent across environments.
+
+### Changed
+
+- **Deployment diagnostics:** `deploy/deploy.sh` now prints targeted fallback debugging commands for both `drizzle-kit migrate` and the raw migration runner when migration bootstrap fails.
+
 ## [0.8.2] - 2026-05-11
 
 ### Fixed

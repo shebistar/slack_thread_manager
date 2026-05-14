@@ -127,6 +127,13 @@
       "when": 1778604783150,
       "tag": "0017_awesome_steel_serpent",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1778609971874,
+      "tag": "0018_sweet_clearance",
+      "breakpoints": true
     }
   ]
 }

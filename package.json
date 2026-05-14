@@ -1,6 +1,6 @@
 {
   "name": "slack-thread-manager",
-  "version": "0.4.0",
+  "version": "0.8.3",
   "private": true,
   "scripts": {
     "build": "turbo run build",
