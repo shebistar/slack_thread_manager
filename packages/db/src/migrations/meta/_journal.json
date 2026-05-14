@@ -134,6 +134,13 @@
       "when": 1778609971874,
       "tag": "0018_sweet_clearance",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1778781864847,
+      "tag": "0019_tired_caretaker",
+      "breakpoints": true
     }
   ]
 }
