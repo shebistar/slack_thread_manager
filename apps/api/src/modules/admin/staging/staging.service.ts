@@ -156,7 +156,7 @@ export class StagingService {
         .where(eq(stagingQueue.id, stagingId));
 
       if (action === 'approve') {
-        await tx
+        const approvedThreads = await tx
           .update(slackThreads)
           .set({
             pipelineState: 'approved' as PipelineStateValue,
@@ -167,10 +167,18 @@ export class StagingService {
               eq(slackThreads.id, item.threadId),
               eq(slackThreads.pipelineState, 'staged'),
             ),
-          );
+          )
+          .returning({ id: slackThreads.id });
 
-        const anonymizedContent = item.anonymizedContent as StagingQueueItem['anonymizedContent'];
-        await this.ftsService.refreshSearchVector(tx, item.threadId, anonymizedContent);
+        if (approvedThreads.length > 0) {
+          const anonymizedContent = item.anonymizedContent as StagingQueueItem['anonymizedContent'];
+          await this.ftsService.refreshSearchVector(tx, item.threadId, anonymizedContent);
+        } else {
+          this.logger.warn('Skipping FTS refresh because thread was not in staged state', {
+            stagingId,
+            threadId: item.threadId,
+          });
+        }
       }
 
       const remainingPending = await this.countPendingInBatch(tx, item.batchId);
@@ -240,7 +248,7 @@ export class StagingService {
               ),
             );
 
-          await tx
+          const approvedThreads = await tx
             .update(slackThreads)
             .set({
               pipelineState: 'approved' as PipelineStateValue,
@@ -251,10 +259,18 @@ export class StagingService {
                 eq(slackThreads.id, item.threadId),
                 eq(slackThreads.pipelineState, 'staged'),
               ),
-            );
+            )
+            .returning({ id: slackThreads.id });
 
-          const anonymizedContent = item.anonymizedContent as StagingQueueItem['anonymizedContent'];
-          await this.ftsService.refreshSearchVector(tx, item.threadId, anonymizedContent);
+          if (approvedThreads.length > 0) {
+            const anonymizedContent = item.anonymizedContent as StagingQueueItem['anonymizedContent'];
+            await this.ftsService.refreshSearchVector(tx, item.threadId, anonymizedContent);
+          } else {
+            this.logger.warn('Skipping bulk FTS refresh because thread was not in staged state', {
+              stagingId: item.id,
+              threadId: item.threadId,
+            });
+          }
         });
         approvedCount++;
       } catch (err) {

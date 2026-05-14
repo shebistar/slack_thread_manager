@@ -38,6 +38,8 @@ const mockStagingRow = {
  */
 function buildMockDb() {
   const resolveQueue: unknown[] = [];
+  const updateWhereQueue: unknown[] = [];
+  const updateReturningQueue: unknown[] = [];
 
   function dequeue() {
     return resolveQueue.shift() ?? [];
@@ -68,8 +70,22 @@ function buildMockDb() {
       const val = dequeue();
       return Promise.resolve(val);
     }),
-    update: vi.fn().mockReturnThis(),
-    set: vi.fn().mockReturnThis(),
+    update: vi.fn(() => {
+      const updateChain: Record<string, unknown> = {};
+      updateChain.set = vi.fn(() => updateChain);
+      updateChain.where = vi.fn(() => {
+        const val = updateWhereQueue.shift();
+        const whereResult = Promise.resolve(val) as Promise<unknown> & {
+          returning?: ReturnType<typeof vi.fn>;
+        };
+        whereResult.returning = vi.fn(() => {
+          const returningVal = updateReturningQueue.shift();
+          return Promise.resolve(returningVal);
+        });
+        return whereResult;
+      });
+      return updateChain;
+    }),
   };
 
   chain.transaction = vi.fn(async (fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock));
@@ -79,7 +95,17 @@ function buildMockDb() {
     resolveQueue.push(...values);
   }
 
-  return { dbMock: chain, txMock, enqueue };
+  function enqueueUpdateWhere(...values: unknown[]) {
+    updateWhereQueue.length = 0;
+    updateWhereQueue.push(...values);
+  }
+
+  function enqueueUpdateReturning(...values: unknown[]) {
+    updateReturningQueue.length = 0;
+    updateReturningQueue.push(...values);
+  }
+
+  return { dbMock: chain, txMock, enqueue, enqueueUpdateWhere, enqueueUpdateReturning };
 }
 
 const mockFtsService = {
@@ -91,12 +117,16 @@ describe('StagingService', () => {
   let dbMock: ReturnType<typeof buildMockDb>['dbMock'];
   let txMock: ReturnType<typeof buildMockDb>['txMock'];
   let enqueue: ReturnType<typeof buildMockDb>['enqueue'];
+  let enqueueUpdateWhere: ReturnType<typeof buildMockDb>['enqueueUpdateWhere'];
+  let enqueueUpdateReturning: ReturnType<typeof buildMockDb>['enqueueUpdateReturning'];
 
   beforeEach(async () => {
     const mocks = buildMockDb();
     dbMock = mocks.dbMock;
     txMock = mocks.txMock;
     enqueue = mocks.enqueue;
+    enqueueUpdateWhere = mocks.enqueueUpdateWhere;
+    enqueueUpdateReturning = mocks.enqueueUpdateReturning;
     mockFtsService.refreshSearchVector.mockClear();
 
     const module = await Test.createTestingModule({
@@ -196,9 +226,9 @@ describe('StagingService', () => {
     it('approves item and transitions thread to approved', async () => {
       txMock.where
         .mockResolvedValueOnce([mockStagingRow])
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce([{ cnt: 0 }]);
+      enqueueUpdateWhere(undefined, undefined);
+      enqueueUpdateReturning([{ id: mockThreadId }]);
 
       const result = await service.reviewItem(mockStagingId, 'approve', mockReviewerId);
 
@@ -211,10 +241,21 @@ describe('StagingService', () => {
       );
     });
 
+    it('skips FTS refresh when thread is not in staged state', async () => {
+      txMock.where
+        .mockResolvedValueOnce([mockStagingRow])
+        .mockResolvedValueOnce([{ cnt: 0 }]);
+      enqueueUpdateWhere(undefined, undefined);
+      enqueueUpdateReturning([]);
+
+      await service.reviewItem(mockStagingId, 'approve', mockReviewerId);
+
+      expect(mockFtsService.refreshSearchVector).not.toHaveBeenCalled();
+    });
+
     it('rejects item without transitioning thread state', async () => {
       txMock.where
         .mockResolvedValueOnce([mockStagingRow])
-        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce([{ cnt: 2 }]);
 
       const result = await service.reviewItem(mockStagingId, 'reject', mockReviewerId);
@@ -253,6 +294,8 @@ describe('StagingService', () => {
         [cleanItem],    // select clean items .where()
         [{ cnt: 0 }],  // remaining pending .where()
       );
+      enqueueUpdateWhere(undefined, undefined);
+      enqueueUpdateReturning([{ id: mockThreadId }]);
 
       const result = await service.approveAllClean({}, mockReviewerId);
 
@@ -277,6 +320,8 @@ describe('StagingService', () => {
         [{ threadId: mockThreadId }],     // workstream thread lookup
         [{ cnt: 1 }],                     // remaining pending
       );
+      enqueueUpdateWhere(undefined, undefined);
+      enqueueUpdateReturning([{ id: mockThreadId }]);
 
       const result = await service.approveAllClean(
         { workstreamId: mockWorkstreamId },

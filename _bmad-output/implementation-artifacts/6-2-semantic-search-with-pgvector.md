@@ -3,7 +3,7 @@
 **Story ID:** 6.2
 **Story Key:** `6-2-semantic-search-with-pgvector`
 **Epic:** 6 — Search & Discovery
-**Status:** review
+**Status:** done
 
 ---
 

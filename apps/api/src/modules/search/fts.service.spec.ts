@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { FtsService, buildFtsDocument } from './fts.service.js';
 import { DATABASE_TOKEN } from '../../database/database.module.js';
 import type { StagingQueueItem } from '@slack-thread-manager/shared';
+import type { Database } from '@slack-thread-manager/db';
 
 const mockAnonymizedContent: StagingQueueItem['anonymizedContent'] = {
   technicalSummary: {
@@ -72,6 +73,21 @@ describe('buildFtsDocument', () => {
     const doc = buildFtsDocument(content);
     expect(doc).toBe('decision action');
   });
+
+  it('ignores malformed summary objects without throwing', () => {
+    const content = {
+      technicalSummary: null,
+      plainSummary: {
+        headline: 'Fallback headline',
+        body: 'Fallback body',
+        key_decisions: [],
+        action_items: [],
+      },
+    } as unknown as StagingQueueItem['anonymizedContent'];
+
+    const doc = buildFtsDocument(content);
+    expect(doc).toBe('Fallback headline Fallback body');
+  });
 });
 
 function buildMockDb() {
@@ -84,6 +100,29 @@ function buildMockDb() {
   chain.limit = vi.fn(() => Promise.resolve([]));
 
   return chain;
+}
+
+function flattenSqlChunks(value: unknown): string {
+  if (!value || typeof value !== 'object') {
+    return '';
+  }
+
+  const chunks = (value as { queryChunks?: unknown[] }).queryChunks;
+  if (!Array.isArray(chunks)) {
+    return '';
+  }
+
+  return chunks
+    .map((chunk) => {
+      if (typeof chunk === 'string') {
+        return chunk;
+      }
+      if (chunk && typeof chunk === 'object' && 'value' in chunk) {
+        return String((chunk as { value: unknown }).value);
+      }
+      return flattenSqlChunks(chunk);
+    })
+    .join(' ');
 }
 
 describe('FtsService', () => {
@@ -140,6 +179,37 @@ describe('FtsService', () => {
       expect(dbMock.limit).toHaveBeenCalledWith(5);
     });
 
+    it('normalizes invalid limits to safe defaults', async () => {
+      (dbMock.limit as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      await service.search('test query', { limit: -100 });
+      await service.search('test query', { limit: 0 });
+      await service.search('test query', { limit: 1000 });
+      await service.search('test query', { limit: Number.NaN });
+
+      expect(dbMock.limit).toHaveBeenNthCalledWith(1, 1);
+      expect(dbMock.limit).toHaveBeenNthCalledWith(2, 1);
+      expect(dbMock.limit).toHaveBeenNthCalledWith(3, 100);
+      expect(dbMock.limit).toHaveBeenNthCalledWith(4, 20);
+    });
+
+    it('builds SQL with websearch_to_tsquery and approved-state filter', async () => {
+      (dbMock.limit as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+
+      await service.search('pipeline terms');
+
+      const whereArg = (dbMock.where as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+      const orderByArg = (dbMock.orderBy as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+      const whereSql = flattenSqlChunks(whereArg);
+      const orderBySql = flattenSqlChunks(orderByArg);
+
+      expect(whereSql).toContain('websearch_to_tsquery');
+      expect(whereSql).toContain('approved');
+      expect(whereSql).toContain('@@');
+      expect(orderBySql).toContain('websearch_to_tsquery');
+      expect(orderBySql).toContain('pipeline terms');
+    });
+
     it('returns ranked results in correct shape', async () => {
       const mockResults = [
         { threadId: 'tid-1', classifiedTopicId: 'ct-1', rank: 0.95 },
@@ -176,7 +246,7 @@ describe('FtsService', () => {
       expect(txMock.where).toHaveBeenCalled();
     });
 
-    it('skips update when anonymized content produces empty document', async () => {
+    it('clears search_vector when anonymized content produces empty document', async () => {
       const txMock = {
         update: vi.fn().mockReturnThis(),
         set: vi.fn().mockReturnThis(),
@@ -194,7 +264,9 @@ describe('FtsService', () => {
         emptyContent,
       );
 
-      expect(txMock.update).not.toHaveBeenCalled();
+      expect(txMock.update).toHaveBeenCalled();
+      expect(txMock.set).toHaveBeenCalled();
+      expect(txMock.where).toHaveBeenCalled();
     });
   });
 });

@@ -18,6 +18,9 @@ interface SummaryShape {
   action_items: string[];
 }
 
+const DEFAULT_SEARCH_LIMIT = 20;
+const MAX_SEARCH_LIMIT = 100;
+
 /**
  * Concatenates anonymized summary fields into a single plaintext document
  * suitable for PostgreSQL `to_tsvector()`.
@@ -31,14 +34,42 @@ export function buildFtsDocument(
 ): string {
   const parts: string[] = [];
 
-  for (const summary of [anonymizedContent.technicalSummary, anonymizedContent.plainSummary] as SummaryShape[]) {
-    if (summary.headline) parts.push(summary.headline);
-    if (summary.body) parts.push(summary.body);
-    if (summary.key_decisions?.length) parts.push(summary.key_decisions.join(' '));
-    if (summary.action_items?.length) parts.push(summary.action_items.join(' '));
+  const summaries = [anonymizedContent.technicalSummary, anonymizedContent.plainSummary];
+  for (const summary of summaries) {
+    if (!summary || typeof summary !== 'object') {
+      continue;
+    }
+
+    const typedSummary = summary as Partial<SummaryShape>;
+    if (typeof typedSummary.headline === 'string' && typedSummary.headline) {
+      parts.push(typedSummary.headline);
+    }
+    if (typeof typedSummary.body === 'string' && typedSummary.body) {
+      parts.push(typedSummary.body);
+    }
+    if (Array.isArray(typedSummary.key_decisions) && typedSummary.key_decisions.length) {
+      parts.push(typedSummary.key_decisions.join(' '));
+    }
+    if (Array.isArray(typedSummary.action_items) && typedSummary.action_items.length) {
+      parts.push(typedSummary.action_items.join(' '));
+    }
   }
 
   return parts.join(' ');
+}
+
+function normalizeLimit(limit: number | undefined): number {
+  if (!Number.isFinite(limit)) {
+    return DEFAULT_SEARCH_LIMIT;
+  }
+  const normalized = Math.floor(limit as number);
+  if (normalized < 1) {
+    return 1;
+  }
+  if (normalized > MAX_SEARCH_LIMIT) {
+    return MAX_SEARCH_LIMIT;
+  }
+  return normalized;
 }
 
 @Injectable()
@@ -53,7 +84,7 @@ export class FtsService {
       return [];
     }
 
-    const limit = options?.limit ?? 20;
+    const limit = normalizeLimit(options?.limit);
 
     const results = await this.db
       .select({
@@ -72,7 +103,7 @@ export class FtsService {
       .orderBy(sql`ts_rank_cd(${classifiedTopics.searchVector}, websearch_to_tsquery('english', ${trimmed})) DESC`)
       .limit(limit);
 
-    this.logger.debug('FTS search executed', { query: trimmed, resultCount: results.length });
+    this.logger.debug('FTS search executed', { queryLength: trimmed.length, resultCount: results.length });
 
     return results;
   }
@@ -88,16 +119,19 @@ export class FtsService {
     anonymizedContent: StagingQueueItem['anonymizedContent'],
   ): Promise<void> {
     const document = buildFtsDocument(anonymizedContent);
-    if (!document.trim()) {
-      this.logger.warn('Empty FTS document for thread, skipping search_vector update', { threadId });
-      return;
-    }
+    const trimmedDocument = document.trim();
 
     await tx
       .update(classifiedTopics)
       .set({
-        searchVector: sql`to_tsvector('english', ${document})`,
+        searchVector: trimmedDocument
+          ? sql`to_tsvector('english', ${trimmedDocument})`
+          : sql`NULL`,
       })
       .where(eq(classifiedTopics.threadId, threadId));
+
+    if (!trimmedDocument) {
+      this.logger.warn('Empty FTS document for thread, cleared search_vector', { threadId });
+    }
   }
 }
