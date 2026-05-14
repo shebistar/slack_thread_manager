@@ -129,19 +129,8 @@ describe('SearchPage', () => {
     expect(skeletons.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders result cards when data is available (AC 3)', () => {
-    mockUseSearch.mockReturnValue({
-      data: fullResponse,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: vi.fn(),
-    });
-
-    // Need to trigger submittedQuery
-    const { rerender } = render(<SearchPage />);
-    // Since submittedQuery starts empty and useSearch is called with '', data won't show
-    // We need to re-mock for the submitted state:
+  it('renders result cards when data is available (AC 3)', async () => {
+    const user = userEvent.setup();
     mockUseSearch.mockImplementation((q: string) => ({
       data: q ? fullResponse : undefined,
       isLoading: false,
@@ -149,8 +138,14 @@ describe('SearchPage', () => {
       error: null,
       refetch: vi.fn(),
     }));
-    rerender(<SearchPage />);
-    // submittedQuery is still '' until form is submitted. We'll test via submit flow.
+
+    render(<SearchPage />);
+    const input = screen.getByRole('textbox', { name: /search project discussions/i });
+    await user.type(input, 'api design');
+    await user.click(screen.getByRole('button', { name: /^search$/i }));
+
+    expect(screen.getByText('API Design Discussion')).toBeInTheDocument();
+    expect(screen.getByText('Database Migration Plan')).toBeInTheDocument();
   });
 
   it('renders results after form submission', async () => {
@@ -227,7 +222,7 @@ describe('SearchPage', () => {
     await user.click(screen.getByRole('button', { name: /^search$/i }));
 
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
-    expect(screen.getByText('Network failure')).toBeInTheDocument();
+    expect(screen.getByText("We couldn't complete your search. Please try again.")).toBeInTheDocument();
 
     const retryBtn = screen.getByRole('button', { name: /retry/i });
     expect(retryBtn).toBeInTheDocument();

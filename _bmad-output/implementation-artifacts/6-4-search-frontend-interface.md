@@ -3,7 +3,7 @@
 **Story ID:** 6.4
 **Story Key:** `6-4-search-frontend-interface`
 **Epic:** 6 — Search & Discovery
-**Status:** review
+**Status:** done
 
 ---
 
@@ -95,6 +95,12 @@ So that I can ask questions and get oriented to the right Slack threads quickly.
     - Empty state appears for no-match queries.
     - Search history persists across page reloads.
   - [x] Document in Completion Notes.
+
+### Review Findings
+
+- [x] [Review][Patch] Error UI leaks raw backend error payload instead of a fully user-friendly message [apps/web/src/routes/search.tsx:142]
+- [x] [Review][Patch] Search hook enable guard does not trim whitespace; defensive behavior diverges from story guidance [apps/web/src/hooks/use-search.ts:13]
+- [x] [Review][Patch] Route test `renders result cards when data is available (AC 3)` has no assertion and can pass vacuously [apps/web/src/routes/-search.test.tsx:132]
 
 ---
 
@@ -356,6 +362,11 @@ None — clean implementation with no debugging needed.
 | NEW | `apps/web/src/components/search/search-result-card.test.tsx` |
 | NEW | `apps/web/src/routes/-search.test.tsx` |
 | MODIFIED | `apps/web/src/routes/search.tsx` |
+| MODIFIED | `apps/web/src/hooks/use-search.ts` |
+| MODIFIED | `apps/web/src/routes/-search.test.tsx` |
+| MODIFIED | `apps/web/src/routes/help.tsx` |
+| MODIFIED | `apps/web/vite.config.ts` |
+| MODIFIED | `apps/web/src/vite-env.d.ts` |
 | MODIFIED | `_bmad-output/implementation-artifacts/6-4-search-frontend-interface.md` |
 | MODIFIED | `_bmad-output/implementation-artifacts/sprint-status.yaml` |
 
@@ -366,6 +377,7 @@ None — clean implementation with no debugging needed.
 | Date | Change |
 |------|--------|
 | 2026-05-14 | Implemented full search frontend: hook, result card, page route with history, metadata, loading/error/empty states. 33 new tests, 183 total green. E2E validated against running API. |
+| 2026-05-14 | Code review fixes applied — error UI no longer leaks raw backend payload, search hook trims whitespace before enable guard, vacuous AC 3 test replaced with real submit+assert flow. Help page refactored to read changelog from `CHANGELOG.md` via Vite compile-time injection instead of hardcoded entries. |
 
 ---
 

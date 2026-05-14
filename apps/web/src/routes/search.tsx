@@ -139,8 +139,13 @@ function SearchPage() {
           <div className="rounded-md border border-[--color-brand-red] bg-white px-4 py-6 text-center">
             <p className="text-lg text-[--color-gray-95]">Something went wrong</p>
             <p className="mt-2 text-sm text-[--color-gray-50]">
-              {error instanceof Error ? error.message : 'An unexpected error occurred.'}
+              We couldn't complete your search. Please try again.
             </p>
+            {error instanceof Error && (
+              <p className="mt-2 text-xs text-[--color-gray-50]">
+                If this keeps happening, contact support.
+              </p>
+            )}
             <button
               type="button"
               onClick={() => void refetch()}

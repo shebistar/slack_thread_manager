@@ -8,9 +8,11 @@ export const searchKeys = {
 };
 
 export function useSearch(query: string) {
+  const normalizedQuery = query.trim();
+
   return useQuery({
     queryKey: searchKeys.byQuery(query),
-    enabled: !!query,
+    enabled: normalizedQuery.length > 0,
     queryFn: () =>
       api
         .post<{ data: SearchResponse }>('/search', { query })
