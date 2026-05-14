@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-05-14T14:35:00+02:00
+last_updated: 2026-05-14T16:27:00+02:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -97,7 +97,7 @@ development_status:
   6-1-full-text-search-infrastructure: done
   6-2-semantic-search-with-pgvector: done
   6-3-search-api-and-query-processing: done
-  6-4-search-frontend-interface: review
+  6-4-search-frontend-interface: done
   epic-6-retrospective: optional
 
   # Epic 7: Silence Detection & Monitoring
