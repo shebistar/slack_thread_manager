@@ -1,6 +1,6 @@
 # Story 7.1: Silence Detection Engine
 
-Status: review
+Status: done
 
 ## Story
 
@@ -85,6 +85,16 @@ so that silence signals are available for PM briefings and the monitoring dashbo
     - [x] non-qualifying threads are ignored.
     - [x] after adding new activity to a flagged thread (through the same ingestion path), alert transitions to `resolved`.
   - [x] Record "E2E validation" details and discovered gaps in story completion notes.
+
+### Review Findings
+
+- [x] [Review][Patch] Fix incorrect `silenceDays` update fallback in existing active alerts [apps/api/src/modules/silence/silence.service.ts:136]
+- [x] [Review][Patch] Trigger silence detection after ingestion batch completion to satisfy AC1 timing [apps/api/src/modules/ingestion/polling.job.ts:154]
+- [x] [Review][Patch] Resolve alerts directly from update-detection flow to satisfy AC3 re-ingest behavior [apps/api/src/modules/ingestion/ingestion.service.ts:188]
+- [x] [Review][Patch] Add DB-level protection for single active alert per thread (partial unique index + atomic upsert) [packages/db/src/schema/silence-alerts.ts:15]
+- [x] [Review][Patch] Make cron/workday time calculations explicitly timezone-safe per story constraints [apps/api/src/modules/silence/silence.job.ts:11]
+- [x] [Review][Patch] Harden timestamp parsing for invalid/empty Slack ts values before date math [apps/api/src/modules/silence/silence.service.ts:235]
+- [x] [Review][Patch] Remove unused `isNull` import to keep service lint-clean [apps/api/src/modules/silence/silence.service.ts:2]
 
 ## Dev Notes
 
@@ -229,16 +239,19 @@ Claude Opus 4.1 (Cursor Agent)
 - Candidate selection: inner-joins `slack_threads` with `classified_topics` to get topic/workstream context. Filters by `messageCount >= 3 OR array_length(participantIds) >= 2`.
 - Resolution: dual-path — (a) `resolveAlertsForThreads(threadIds)` callable by ingestion on re-activity, (b) internal sweep during each detection run comparing thread `lastActivityAt` against threshold.
 - Ingestion integration: chose the "alternate" approach (resolution during detection run) as primary path to avoid modifying `ingestion.service.ts` and `polling.job.ts`. The `resolveAlertsForThreads()` public API is available for future direct integration.
-- Tests: 13 unit tests in `silence.service.spec.ts`, 4 in `silence.job.spec.ts`. All 443 tests pass (43 files).
+- Tests: 19 unit tests in `silence.service.spec.ts`, 4 in `silence.job.spec.ts`, and updated ingestion/polling specs for review follow-ups. All 445 tests pass (43 files).
 - E2E validation: Ran against local PostgreSQL with 4 test threads: (A) old+active→alert created, (B) recent+active→no alert, (C) old+inactive→no alert, (D) old+2participants→alert created. Resolution verified by updating Thread A's `latestReplyTs` and re-running detection. Idempotency confirmed (no duplicate alerts). ALL TESTS PASSED.
 - No gaps discovered during E2E validation. All pipeline paths work identically for imported data.
+- Code review follow-ups applied: ingestion-triggered silence detection, direct alert resolution from update-detection flow, UTC-safe cron/day math, resilient timestamp parsing, and DB-level uniqueness + atomic active-alert upsert.
 
 ### File List
 
 - packages/db/src/schema/silence-alerts.ts (NEW)
 - packages/db/src/schema/index.ts (UPDATE — added silence-alerts export)
 - packages/db/src/migrations/0019_tired_caretaker.sql (NEW, generated)
+- packages/db/src/migrations/0020_low_crusher_hogan.sql (NEW, generated)
 - packages/db/src/migrations/meta/0019_snapshot.json (NEW, generated)
+- packages/db/src/migrations/meta/0020_snapshot.json (NEW, generated)
 - packages/db/src/migrations/meta/_journal.json (UPDATE, generated)
 - apps/api/src/modules/silence/silence.module.ts (NEW)
 - apps/api/src/modules/silence/silence.service.ts (NEW)
@@ -246,6 +259,11 @@ Claude Opus 4.1 (Cursor Agent)
 - apps/api/src/modules/silence/silence.job.ts (NEW)
 - apps/api/src/modules/silence/silence.job.spec.ts (NEW)
 - apps/api/src/app.module.ts (UPDATE — added SilenceModule import)
+- apps/api/src/modules/ingestion/ingestion.module.ts (UPDATE — imports SilenceModule)
+- apps/api/src/modules/ingestion/ingestion.service.ts (UPDATE — resolves alerts on update detection)
+- apps/api/src/modules/ingestion/ingestion.service.spec.ts (UPDATE)
+- apps/api/src/modules/ingestion/polling.job.ts (UPDATE — runs silence detection after batch)
+- apps/api/src/modules/ingestion/polling.job.spec.ts (UPDATE)
 - _bmad-output/implementation-artifacts/7-1-silence-detection-engine.md (UPDATE)
 - _bmad-output/implementation-artifacts/sprint-status.yaml (UPDATE)
 
@@ -253,3 +271,4 @@ Claude Opus 4.1 (Cursor Agent)
 
 - 2026-05-14: Created Story 7.1 with comprehensive implementation context and ready-for-dev status.
 - 2026-05-14: Implemented silence detection engine — schema, service, job, tests, E2E validation. Status: review.
+- 2026-05-14: Applied code-review patches and promoted story status to done.
