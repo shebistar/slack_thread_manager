@@ -2,7 +2,10 @@
 #
 # End-to-end smoke test for Slack Thread Manager on OpenShift.
 # Full chain: oc login → Keycloak auth → health → channels → import → pipeline
-#             → staging → briefings → UI verification.
+#             → staging → briefings → search → UI verification.
+#
+# Coverage: Epics 1-6 (foundation, ingestion, pipeline, anonymization,
+#           briefings, search & discovery).
 #
 # Usage:
 #   ./deploy/test-pipeline.sh
@@ -64,6 +67,30 @@ api_post() {
     -H "$(auth_header)" \
     -H "Content-Type: application/json" \
     -d "$body" \
+    "${BASE_URL}${path}" 2>&1) || true
+  echo "$response"
+}
+
+api_put() {
+  local path="$1"
+  local body="${2:-{}}"
+  local response
+  response=$(curl -skf -w "\n%{http_code}" \
+    -X PUT \
+    -H "$(auth_header)" \
+    -H "Content-Type: application/json" \
+    -d "$body" \
+    "${BASE_URL}${path}" 2>&1) || true
+  echo "$response"
+}
+
+api_delete() {
+  local path="$1"
+  local response
+  response=$(curl -skf -w "\n%{http_code}" \
+    -X DELETE \
+    -H "$(auth_header)" \
+    -H "Content-Type: application/json" \
     "${BASE_URL}${path}" 2>&1) || true
   echo "$response"
 }
@@ -179,6 +206,48 @@ else
 fi
 
 echo ""
+
+# ─── Step 2b: Silence Threshold Admin Endpoints ────────────────────────────────
+
+echo "─── Step 2b: Silence Threshold Endpoints ───"
+
+response=$(api_get "/admin/silence/thresholds")
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" ]]; then
+  log_pass "GET /admin/silence/thresholds → 200"
+  global_days=$(echo "$body" | jq -r '.data.global.thresholdDays // empty' 2>/dev/null)
+  if [[ -n "$global_days" ]]; then
+    put_body="{\"thresholdDays\": ${global_days}}"
+    response=$(api_put "/admin/silence/thresholds/global" "$put_body")
+    status=$(extract_status "$response")
+    if [[ "$status" == "200" ]]; then
+      log_pass "PUT /admin/silence/thresholds/global → 200"
+    else
+      log_fail "PUT /admin/silence/thresholds/global → $status"
+    fi
+  else
+    log_fail "Threshold payload missing data.global.thresholdDays"
+  fi
+
+  existing_override_id=$(echo "$body" | jq -r '.data.overrides[0].workstreamId // empty' 2>/dev/null)
+  if [[ -n "$existing_override_id" ]]; then
+    existing_override_days=$(echo "$body" | jq -r '.data.overrides[0].thresholdDays // 3' 2>/dev/null)
+    put_override_body="{\"workstreamId\":\"${existing_override_id}\",\"thresholdDays\":${existing_override_days}}"
+    response=$(api_put "/admin/silence/thresholds/workstream" "$put_override_body")
+    status=$(extract_status "$response")
+    if [[ "$status" == "200" ]]; then
+      log_pass "PUT /admin/silence/thresholds/workstream (existing override) → 200"
+    else
+      log_fail "PUT /admin/silence/thresholds/workstream (existing override) → $status"
+    fi
+  else
+    log_info "No existing override found; will validate workstream upsert/delete after roster workstream discovery."
+  fi
+else
+  log_fail "GET /admin/silence/thresholds → $status"
+fi
 
 # ─── Step 3: Ensure Roster User Exists ────────────────────────────────────────
 
@@ -389,6 +458,58 @@ fi
 
 echo ""
 
+# ─── Step 7b: Silence Override Delete Endpoint ─────────────────────────────────
+
+echo "─── Step 7b: Silence Override Delete Endpoint ───"
+
+thresholds_response=$(api_get "/admin/silence/thresholds")
+thresholds_status=$(extract_status "$thresholds_response")
+thresholds_body=$(extract_body "$thresholds_response")
+
+if [[ "$thresholds_status" == "200" ]]; then
+  global_days=$(echo "$thresholds_body" | jq -r '.data.global.thresholdDays // 3' 2>/dev/null)
+  candidate_workstream_id=$(echo "$thresholds_body" | jq -r '.data.overrides[0].workstreamId // empty' 2>/dev/null)
+
+  if [[ -z "$candidate_workstream_id" ]]; then
+    ws_response=$(api_get "/admin/roster/workstreams")
+    ws_status=$(extract_status "$ws_response")
+    ws_body=$(extract_body "$ws_response")
+    if [[ "$ws_status" == "200" ]]; then
+      candidate_workstream_id=$(echo "$ws_body" | jq -r '.data[0].id // empty' 2>/dev/null)
+    fi
+  fi
+
+  if [[ -n "$candidate_workstream_id" ]]; then
+    temp_days=$((global_days + 1))
+    if (( temp_days > 30 )); then
+      temp_days=30
+    fi
+
+    create_body="{\"workstreamId\":\"${candidate_workstream_id}\",\"thresholdDays\":${temp_days}}"
+    create_response=$(api_put "/admin/silence/thresholds/workstream" "$create_body")
+    create_status=$(extract_status "$create_response")
+    if [[ "$create_status" == "200" ]]; then
+      log_pass "PUT /admin/silence/thresholds/workstream (temp override) → 200"
+
+      delete_response=$(api_delete "/admin/silence/thresholds/workstream/${candidate_workstream_id}")
+      delete_status=$(extract_status "$delete_response")
+      if [[ "$delete_status" == "204" ]]; then
+        log_pass "DELETE /admin/silence/thresholds/workstream/:id → 204"
+      else
+        log_fail "DELETE /admin/silence/thresholds/workstream/:id → $delete_status"
+      fi
+    else
+      log_fail "PUT /admin/silence/thresholds/workstream (temp override) → $create_status"
+    fi
+  else
+    log_skip "DELETE /admin/silence/thresholds/workstream/:id (no workstream id available)"
+  fi
+else
+  log_fail "GET /admin/silence/thresholds → $thresholds_status"
+fi
+
+echo ""
+
 # ─── Step 8: Approve Staged Threads ─────────────────────────────────────────────
 
 echo "─── Step 8: Approve Staged Threads (staging gate) ───"
@@ -516,9 +637,120 @@ fi
 
 echo ""
 
-# ─── Step 11: UI Verification Summary ───────────────────────────────────────────
+# ─── Step 11: Search API (Epic 6) ────────────────────────────────────────────────
 
-echo "─── Step 11: UI Verification ───"
+echo "─── Step 11: Search API (Epic 6 — Search & Discovery) ───"
+
+search_body='{"query": "Keycloak authentication"}'
+
+response=$(curl -skf -w "\n%{http_code}" \
+  -X POST \
+  -H "$(auth_header)" \
+  -H "Content-Type: application/json" \
+  -d "$search_body" \
+  "${BASE_URL}/search" 2>&1) || true
+
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" ]]; then
+  log_pass "POST /search → 200"
+
+  result_count=$(echo "$body" | jq '.data.results | length' 2>/dev/null || echo "0")
+  search_time=$(echo "$body" | jq '.data.meta.searchTimeMs' 2>/dev/null || echo "?")
+  returned_query=$(echo "$body" | jq -r '.data.meta.query' 2>/dev/null || echo "")
+
+  log_info "Results: $result_count, Search time: ${search_time}ms"
+
+  if echo "$body" | jq -e '.data.results' > /dev/null 2>&1; then
+    log_pass "Response has 'data.results' array"
+  else
+    log_fail "Response missing 'data.results' — expected { data: { results: [], meta: {} } }"
+  fi
+
+  if echo "$body" | jq -e '.data.meta.total != null and .data.meta.query != null and .data.meta.searchTimeMs != null' > /dev/null 2>&1; then
+    log_pass "Response meta has total, query, searchTimeMs"
+  else
+    log_fail "Response meta incomplete — expected total, query, searchTimeMs"
+  fi
+
+  if [[ "$result_count" -gt 0 ]]; then
+    log_pass "Search returned results for 'Keycloak authentication'"
+
+    first_headline=$(echo "$body" | jq -r '.data.results[0].threadHeadline' 2>/dev/null || echo "")
+    first_match=$(echo "$body" | jq -r '.data.results[0].matchType' 2>/dev/null || echo "")
+    first_score=$(echo "$body" | jq '.data.results[0].relevanceScore' 2>/dev/null || echo "0")
+    log_info "Top result: [$first_match] $first_headline (score: $first_score)"
+
+    if echo "$body" | jq -e '.data.results[0] | has("threadId", "threadHeadline", "relevanceScore", "matchType")' > /dev/null 2>&1; then
+      log_pass "Result item has required fields (threadId, threadHeadline, relevanceScore, matchType)"
+    else
+      log_fail "Result item missing required fields"
+    fi
+  else
+    log_info "No results for keyword search (threads may not be approved yet — not a failure)"
+  fi
+else
+  log_fail "POST /search → $status (expected 200)"
+  if [[ "$VERBOSE" == "true" ]]; then
+    log_info "Response: $(extract_body "$response")"
+  fi
+fi
+
+echo ""
+
+search_empty_body='{"query": "xyznonexistentquerythatmatchesnothing99"}'
+
+response=$(curl -skf -w "\n%{http_code}" \
+  -X POST \
+  -H "$(auth_header)" \
+  -H "Content-Type: application/json" \
+  -d "$search_empty_body" \
+  "${BASE_URL}/search" 2>&1) || true
+
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" ]]; then
+  log_pass "POST /search (no-match query) → 200"
+  empty_count=$(echo "$body" | jq '.data.results | length' 2>/dev/null || echo "-1")
+
+  if [[ "$empty_count" == "0" ]]; then
+    log_pass "No-match query returns empty results array"
+
+    if echo "$body" | jq -e '.data.suggestions | length > 0' > /dev/null 2>&1; then
+      log_pass "No-match response includes suggestions"
+    else
+      log_info "No suggestions in empty response (optional)"
+    fi
+  else
+    log_info "No-match query returned $empty_count results (unexpected but not fatal)"
+  fi
+else
+  log_fail "POST /search (no-match query) → $status"
+fi
+
+echo ""
+
+anon_response=$(curl -sk -w "\n%{http_code}" \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"query": "test"}' \
+  "${BASE_URL}/search" 2>&1) || true
+
+anon_status=$(extract_status "$anon_response")
+
+if [[ "$anon_status" == "401" ]]; then
+  log_pass "POST /search (anonymous) → 401 Unauthorized"
+else
+  log_fail "POST /search (anonymous) → $anon_status (expected 401)"
+fi
+
+echo ""
+
+# ─── Step 12: UI Verification Summary ───────────────────────────────────────────
+
+echo "─── Step 12: UI Verification ───"
 
 response=$(curl -sk -o /dev/null -w "%{http_code}" "$WEB_URL" 2>&1) || true
 
@@ -530,19 +762,26 @@ fi
 
 echo ""
 echo "  ┌────────────────────────────────────────────────────────┐"
-echo "  │  Open in browser to verify briefing display:          │"
+echo "  │  Open in browser to verify:                           │"
 echo "  │                                                        │"
 echo "  │  ${WEB_URL}/briefings                                  │"
+echo "  │  ${WEB_URL}/search                                     │"
 echo "  │                                                        │"
 echo "  │  Login: ${KC_USER} / ${KC_PASS}                        │"
 echo "  │                                                        │"
-echo "  │  Verify:                                               │"
+echo "  │  Briefings:                                            │"
 echo "  │   • Briefing cards render with headlines & summaries   │"
 echo "  │   • Role-based layout matches user role                │"
 echo "  │   • Freshness timestamp shows today's date             │"
 echo "  │   • Workstream filter works (Feed layout)              │"
 echo "  │   • Slack deep links point to correct threads          │"
 echo "  │   • Item type badges display (cross_workstream, etc.)  │"
+echo "  │                                                        │"
+echo "  │  Search:                                               │"
+echo "  │   • Search input accepts query and returns results     │"
+echo "  │   • Result cards show headline, summary, match type    │"
+echo "  │   • Empty query shows helpful empty state              │"
+echo "  │   • Search works against imported test data            │"
 echo "  └────────────────────────────────────────────────────────┘"
 
 echo ""
