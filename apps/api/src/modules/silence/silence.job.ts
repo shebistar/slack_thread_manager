@@ -8,7 +8,7 @@ export class SilenceJob {
 
   constructor(private readonly silenceService: SilenceService) {}
 
-  @Cron('30 */4 * * *', { name: 'silence-detection' })
+  @Cron('30 */4 * * *', { name: 'silence-detection', timeZone: 'UTC' })
   async handleSilenceDetectionCron(): Promise<void> {
     this.logger.log('Scheduled silence detection starting');
 

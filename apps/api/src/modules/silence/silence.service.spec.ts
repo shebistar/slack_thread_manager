@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
+import { NotFoundException } from '@nestjs/common';
 import { DATABASE_TOKEN } from '../../database/database.module.js';
 import { SilenceService } from './silence.service.js';
 
@@ -29,6 +31,12 @@ describe('SilenceService', () => {
     select: ReturnType<typeof vi.fn>;
     insert: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    query: {
+      silenceThresholds: {
+        findFirst: ReturnType<typeof vi.fn>;
+      };
+    };
   };
 
   let selectChain: {
@@ -56,8 +64,16 @@ describe('SilenceService', () => {
 
     mockDb = {
       select: vi.fn().mockReturnValue(selectChain),
+      query: {
+        silenceThresholds: {
+          findFirst: vi.fn().mockResolvedValue({ thresholdDays: 3, id: 'global-threshold' }),
+        },
+      },
       insert: vi.fn().mockReturnValue({
         values: vi.fn().mockReturnValue({
+          onConflictDoNothing: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([{ id: 'alert-1' }]),
+          }),
           onConflictDoUpdate: vi.fn().mockReturnValue({
             returning: vi.fn().mockResolvedValue([{ id: 'alert-1' }]),
           }),
@@ -71,12 +87,24 @@ describe('SilenceService', () => {
           }),
         }),
       }),
+      delete: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+      }),
     };
 
     const module = await Test.createTestingModule({
       providers: [
         SilenceService,
         { provide: DATABASE_TOKEN, useValue: mockDb },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: vi.fn().mockImplementation((key: string, fallback?: string) => {
+              if (key === 'PROJECT_TIMEZONE') return 'Europe/Berlin';
+              return fallback;
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -86,12 +114,17 @@ describe('SilenceService', () => {
   describe('deriveLastActivityAt', () => {
     it('should use latestReplyTs when available', () => {
       const result = service.deriveLastActivityAt('1700100000.000000', '1700000000.000000');
-      expect(result.getTime()).toBe(1700100000000);
+      expect(result?.getTime()).toBe(1700100000000);
     });
 
     it('should fall back to threadTs when latestReplyTs is null', () => {
       const result = service.deriveLastActivityAt(null, '1700000000.000000');
-      expect(result.getTime()).toBe(1700000000000);
+      expect(result?.getTime()).toBe(1700000000000);
+    });
+
+    it('should return null when both timestamps are invalid', () => {
+      const result = service.deriveLastActivityAt('', 'not-a-timestamp');
+      expect(result).toBeNull();
     });
   });
 
@@ -140,6 +173,18 @@ describe('SilenceService', () => {
       const to = new Date('2025-05-05T17:00:00Z');
       expect(service.countWorkdays(from, to)).toBe(0);
     });
+
+    it('should count exactly 1 workday from Friday evening to Monday morning (AC2: not flagged)', () => {
+      const from = new Date('2025-05-09T17:00:00Z'); // Friday
+      const to = new Date('2025-05-12T09:00:00Z'); // Monday
+      expect(service.countWorkdays(from, to)).toBe(1);
+    });
+
+    it('should count exactly 4 workdays from Friday to Thursday (AC3: flagged at threshold 3)', () => {
+      const from = new Date('2025-05-09T17:00:00Z'); // Friday
+      const to = new Date('2025-05-15T09:00:00Z'); // Thursday
+      expect(service.countWorkdays(from, to)).toBe(4);
+    });
   });
 
   describe('findSilenceCandidates', () => {
@@ -178,9 +223,6 @@ describe('SilenceService', () => {
 
   describe('upsertActiveAlert', () => {
     it('should create a new alert when none exists for the thread', async () => {
-      // First select (check existing) returns empty
-      fromChain.where.mockResolvedValueOnce([]);
-
       const candidate = {
         threadId: 'thread-1',
         lastActivityAt: new Date('2025-04-01T00:00:00Z'),
@@ -190,15 +232,15 @@ describe('SilenceService', () => {
         workstreamId: 'ws-1',
       };
 
-      // Mock the select chain for the existence check
-      const limitMock = vi.fn().mockResolvedValue([]);
-      const whereMock = vi.fn().mockReturnValue({ limit: limitMock });
-      const fromMock = vi.fn().mockReturnValue({ where: whereMock });
-      mockDb.select.mockReturnValue({ from: fromMock });
+      const mockReturning = vi.fn().mockResolvedValue([{ id: 'new-alert-id' }]);
+      const mockOnConflictDoNothing = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockValues = vi.fn().mockReturnValue({ onConflictDoNothing: mockOnConflictDoNothing });
+      mockDb.insert.mockReturnValue({ values: mockValues });
 
       const created = await service.upsertActiveAlert(candidate);
       expect(created).toBe(true);
       expect(mockDb.insert).toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
     });
 
     it('should update existing alert and return false', async () => {
@@ -211,13 +253,13 @@ describe('SilenceService', () => {
         workstreamId: 'ws-1',
       };
 
-      // Mock the select chain for the existence check — returns existing alert
-      const limitMock = vi.fn().mockResolvedValue([{ id: 'existing-alert-1' }]);
-      const whereMock = vi.fn().mockReturnValue({ limit: limitMock });
-      const fromMock = vi.fn().mockReturnValue({ where: whereMock });
-      mockDb.select.mockReturnValue({ from: fromMock });
+      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockOnConflictDoNothing = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockValues = vi.fn().mockReturnValue({ onConflictDoNothing: mockOnConflictDoNothing });
+      mockDb.insert.mockReturnValue({ values: mockValues });
 
-      const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
+      const mockUpdateReturning = vi.fn().mockResolvedValue([{ id: 'existing-alert-1' }]);
+      const mockUpdateWhere = vi.fn().mockReturnValue({ returning: mockUpdateReturning });
       const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
       mockDb.update.mockReturnValue({ set: mockUpdateSet });
 
@@ -269,6 +311,104 @@ describe('SilenceService', () => {
       expect(summary).toHaveProperty('alertsResolved');
       expect(summary).toHaveProperty('durationMs');
       expect(summary.durationMs).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('resolveThresholdDays', () => {
+    it('should prefer workstream-specific threshold over global default', async () => {
+      mockDb.query.silenceThresholds.findFirst
+        .mockResolvedValueOnce({ thresholdDays: 5 })
+        .mockResolvedValueOnce({ thresholdDays: 3 });
+
+      const threshold = await service['resolveThresholdDays']('ws-1');
+      expect(threshold).toBe(5);
+    });
+
+    it('should fall back to global threshold when workstream threshold missing', async () => {
+      mockDb.query.silenceThresholds.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ thresholdDays: 4 });
+
+      const threshold = await service['resolveThresholdDays']('ws-missing');
+      expect(threshold).toBe(4);
+    });
+
+    it('should fall back to constant 3 when DB has no thresholds', async () => {
+      mockDb.query.silenceThresholds.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+
+      const threshold = await service['resolveThresholdDays']('ws-none');
+      expect(threshold).toBe(3);
+    });
+  });
+
+  describe('threshold CRUD methods', () => {
+    it('returns global + overrides in threshold configuration', async () => {
+      const rows = [
+        {
+          id: '2d07c9f3-82d0-4efd-9227-a8cf9cb46de7',
+          workstreamId: null,
+          thresholdDays: 3,
+          updatedAt: new Date('2026-05-15T07:00:00.000Z'),
+          workstreamName: null,
+        },
+        {
+          id: '3ca91ceb-b793-422f-bcfd-a5b398fe0ce4',
+          workstreamId: 'a1f6d0bc-5699-4dc9-8138-949ab1d44a10',
+          thresholdDays: 5,
+          updatedAt: new Date('2026-05-15T07:00:00.000Z'),
+          workstreamName: 'Infrastructure',
+        },
+      ];
+      const orderBy = vi.fn().mockResolvedValue(rows);
+      const leftJoin = vi.fn().mockReturnValue({ orderBy });
+      const from = vi.fn().mockReturnValue({ leftJoin });
+      mockDb.select.mockReturnValueOnce({ from });
+
+      const result = await service.getThresholdConfiguration();
+
+      expect(result.global.thresholdDays).toBe(3);
+      expect(result.overrides).toHaveLength(1);
+      expect(result.overrides[0]?.workstreamName).toBe('Infrastructure');
+    });
+
+    it('updates global threshold value', async () => {
+      const updatedAt = new Date('2026-05-15T07:00:00.000Z');
+      const updateWhere = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([
+          {
+            id: '2d07c9f3-82d0-4efd-9227-a8cf9cb46de7',
+            workstreamId: null,
+            thresholdDays: 2,
+            updatedAt,
+          },
+        ]),
+      });
+      const updateSet = vi.fn().mockReturnValue({ where: updateWhere });
+      mockDb.update.mockReturnValueOnce({ set: updateSet });
+
+      const result = await service.updateGlobalThreshold(2);
+      expect(result.thresholdDays).toBe(2);
+    });
+
+    it('throws NotFoundException when workstream override targets unknown workstream', async () => {
+      const selectWhere = vi.fn().mockResolvedValue([]);
+      const selectFrom = vi.fn().mockReturnValue({ where: selectWhere });
+      mockDb.select.mockReturnValueOnce({ from: selectFrom });
+
+      await expect(
+        service.upsertWorkstreamThreshold('missing-workstream', 5),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('removes workstream threshold override without throwing when missing', async () => {
+      const deleteWhere = vi.fn().mockResolvedValue([]);
+      mockDb.delete.mockReturnValueOnce({ where: deleteWhere });
+
+      await expect(
+        service.removeWorkstreamThreshold('a1f6d0bc-5699-4dc9-8138-949ab1d44a10'),
+      ).resolves.toBeUndefined();
     });
   });
 });

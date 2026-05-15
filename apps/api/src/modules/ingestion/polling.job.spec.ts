@@ -5,6 +5,7 @@ import { DATABASE_TOKEN } from '../../database/database.module.js';
 import { PollingJob } from './polling.job.js';
 import { IngestionService } from './ingestion.service.js';
 import { SlackClientService } from '../slack/slack-client.service.js';
+import { SilenceService } from '../silence/silence.service.js';
 
 function createMockChannels(overrides: Partial<{ lastPolledTs: Date | null }>[] = [{}]) {
   return overrides.map((o, i) => ({
@@ -25,6 +26,7 @@ describe('PollingJob', () => {
     detectUpdatedThreads: ReturnType<typeof vi.fn>;
   };
   let mockSlackClient: { isConfigured: ReturnType<typeof vi.fn> };
+  let mockSilenceService: { runDetection: ReturnType<typeof vi.fn> };
   let mockDb: {
     query: { slackChannels: { findMany: ReturnType<typeof vi.fn> } };
     update: ReturnType<typeof vi.fn>;
@@ -35,11 +37,14 @@ describe('PollingJob', () => {
   beforeEach(async () => {
     mockIngestionService = {
       ingestChannel: vi.fn().mockResolvedValue({ threadsFound: 2, threadsStored: 2, errors: 0 }),
-      detectUpdatedThreads: vi.fn().mockResolvedValue({ threadsChecked: 0, threadsUpdated: 0, errors: 0 }),
+      detectUpdatedThreads: vi.fn().mockResolvedValue({ threadsChecked: 0, threadsUpdated: 0, errors: 0, updatedThreadIds: [] }),
     };
 
     mockSlackClient = {
       isConfigured: vi.fn().mockReturnValue(true),
+    };
+    mockSilenceService = {
+      runDetection: vi.fn().mockResolvedValue({ threadsScanned: 0, alertsCreated: 0, alertsResolved: 0, durationMs: 1 }),
     };
 
     mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
@@ -59,6 +64,7 @@ describe('PollingJob', () => {
         { provide: DATABASE_TOKEN, useValue: mockDb },
         { provide: IngestionService, useValue: mockIngestionService },
         { provide: SlackClientService, useValue: mockSlackClient },
+        { provide: SilenceService, useValue: mockSilenceService },
         { provide: SchedulerRegistry, useValue: { getCronJob: vi.fn(), deleteCronJob: vi.fn(), addCronJob: vi.fn() } },
       ],
     }).compile();
@@ -199,6 +205,11 @@ describe('PollingJob', () => {
       expect(pollingJob.getLastBatchStatus()).toBe('success');
       // Watermark was still advanced
       expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    it('should trigger silence detection after batch polling', async () => {
+      await pollingJob.handlePollingCron();
+      expect(mockSilenceService.runDetection).toHaveBeenCalledOnce();
     });
   });
 

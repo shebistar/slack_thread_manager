@@ -7,6 +7,7 @@ import { slackChannels, slackThreads, threadMessages } from '@slack-thread-manag
 import { SlackClientService } from '../slack/slack-client.service.js';
 import type { SlackMessage } from '../slack/slack-client.service.js';
 import type { IngestionSummary } from '@slack-thread-manager/shared';
+import { SilenceService } from '../silence/silence.service.js';
 
 @Injectable()
 export class IngestionService {
@@ -17,6 +18,7 @@ export class IngestionService {
     @Inject(DATABASE_TOKEN) private readonly db: Database,
     private readonly slackClient: SlackClientService,
     private readonly configService: ConfigService,
+    private readonly silenceService: SilenceService,
   ) {
     this.slackTeamId = this.configService.get<string>('SLACK_TEAM_ID', '');
   }
@@ -188,7 +190,7 @@ export class IngestionService {
   async detectUpdatedThreads(
     internalChannelId: string,
     slackChannelId: string,
-  ): Promise<{ threadsChecked: number; threadsUpdated: number; errors: number }> {
+  ): Promise<{ threadsChecked: number; threadsUpdated: number; errors: number; updatedThreadIds: string[] }> {
     const storedThreads = await this.db.query.slackThreads.findMany({
       where: eq(slackThreads.channelId, internalChannelId),
       columns: { id: true, threadTs: true, latestReplyTs: true },
@@ -197,6 +199,7 @@ export class IngestionService {
     let threadsChecked = 0;
     let threadsUpdated = 0;
     let errors = 0;
+    const updatedThreadIds: string[] = [];
 
     for (const thread of storedThreads) {
       try {
@@ -219,6 +222,7 @@ export class IngestionService {
         await this.ingestThread(internalChannelId, slackChannelId, rootMessage);
         threadsChecked++;
         threadsUpdated++;
+        updatedThreadIds.push(thread.id);
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         this.logger.error('Update check failed for thread', { threadTs: thread.threadTs, error: msg });
@@ -226,8 +230,15 @@ export class IngestionService {
       }
     }
 
+    try {
+      await this.silenceService.resolveAlertsForThreads(updatedThreadIds);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Silence alert resolution failed after update detection', { channelId: slackChannelId, error: msg });
+    }
+
     this.logger.log('Update detection complete', { channelId: slackChannelId, threadsChecked, threadsUpdated, errors });
-    return { threadsChecked, threadsUpdated, errors };
+    return { threadsChecked, threadsUpdated, errors, updatedThreadIds };
   }
 
   private async fetchAllReplies(

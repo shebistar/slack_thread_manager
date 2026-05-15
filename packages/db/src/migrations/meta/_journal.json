@@ -141,6 +141,20 @@
       "when": 1778781864847,
       "tag": "0019_tired_caretaker",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1778786712899,
+      "tag": "0020_low_crusher_hogan",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1778829594617,
+      "tag": "0021_soft_colossus",
+      "breakpoints": true
     }
   ]
 }

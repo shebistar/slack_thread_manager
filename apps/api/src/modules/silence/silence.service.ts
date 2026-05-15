@@ -1,10 +1,22 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { DATABASE_TOKEN } from '../../database/database.module.js';
 import type { Database } from '@slack-thread-manager/db';
-import { silenceAlerts, slackThreads, classifiedTopics, workstreams } from '@slack-thread-manager/db';
+import {
+  silenceAlerts,
+  silenceThresholds,
+  slackThreads,
+  classifiedTopics,
+  workstreams,
+} from '@slack-thread-manager/db';
+import type {
+  SilenceThresholdListResponse,
+  SilenceThresholdResponse,
+} from '@slack-thread-manager/shared';
 
 const DEFAULT_SILENCE_THRESHOLD_WORKDAYS = 3;
+const MAX_THRESHOLD_DAYS = 30;
 const MIN_MESSAGE_COUNT = 3;
 const MIN_PARTICIPANT_COUNT = 2;
 
@@ -27,10 +39,175 @@ interface SilenceCandidate {
 @Injectable()
 export class SilenceService {
   private readonly logger = new Logger(SilenceService.name);
+  private readonly projectTimezone: string;
+  private readonly zonedDateFormatter: Intl.DateTimeFormat;
 
   constructor(
     @Inject(DATABASE_TOKEN) private readonly db: Database,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.projectTimezone = this.configService.get<string>('PROJECT_TIMEZONE', 'Europe/Berlin');
+    this.zonedDateFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: this.projectTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  }
+
+  async getThresholdConfiguration(): Promise<SilenceThresholdListResponse> {
+    await this.ensureGlobalThresholdExists();
+
+    const rows = await this.db
+      .select({
+        id: silenceThresholds.id,
+        workstreamId: silenceThresholds.workstreamId,
+        thresholdDays: silenceThresholds.thresholdDays,
+        updatedAt: silenceThresholds.updatedAt,
+        workstreamName: workstreams.name,
+      })
+      .from(silenceThresholds)
+      .leftJoin(workstreams, eq(workstreams.id, silenceThresholds.workstreamId))
+      .orderBy(workstreams.name);
+
+    const global = rows.find((row) => row.workstreamId === null);
+    if (!global) {
+      throw new Error('Global threshold row is missing after bootstrap');
+    }
+
+    return {
+      global: this.toThresholdResponse(global),
+      overrides: rows
+        .filter((row) => row.workstreamId !== null)
+        .map((row) => this.toThresholdResponse(row)),
+    };
+  }
+
+  async updateGlobalThreshold(thresholdDays: number): Promise<SilenceThresholdResponse> {
+    await this.ensureGlobalThresholdExists();
+
+    const [updated] = await this.db
+      .update(silenceThresholds)
+      .set({
+        thresholdDays,
+        updatedAt: sql`now()`,
+      })
+      .where(isNull(silenceThresholds.workstreamId))
+      .returning({
+        id: silenceThresholds.id,
+        workstreamId: silenceThresholds.workstreamId,
+        thresholdDays: silenceThresholds.thresholdDays,
+        updatedAt: silenceThresholds.updatedAt,
+      });
+
+    if (!updated) {
+      throw new Error('Failed to update global threshold');
+    }
+
+    return this.toThresholdResponse(updated);
+  }
+
+  async upsertWorkstreamThreshold(
+    workstreamId: string,
+    thresholdDays: number,
+  ): Promise<SilenceThresholdResponse> {
+    const [workstream] = await this.db
+      .select({
+        id: workstreams.id,
+        name: workstreams.name,
+      })
+      .from(workstreams)
+      .where(eq(workstreams.id, workstreamId));
+
+    if (!workstream) {
+      throw new NotFoundException(`Workstream ${workstreamId} not found`);
+    }
+
+    const [updated] = await this.db
+      .update(silenceThresholds)
+      .set({
+        thresholdDays,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(silenceThresholds.workstreamId, workstreamId))
+      .returning({
+        id: silenceThresholds.id,
+        workstreamId: silenceThresholds.workstreamId,
+        thresholdDays: silenceThresholds.thresholdDays,
+        updatedAt: silenceThresholds.updatedAt,
+      });
+
+    if (updated) {
+      return this.toThresholdResponse({
+        ...updated,
+        workstreamName: workstream.name,
+      });
+    }
+
+    let inserted:
+      | {
+          id: string;
+          workstreamId: string | null;
+          thresholdDays: number;
+          updatedAt: Date;
+        }
+      | undefined;
+    try {
+      [inserted] = await this.db
+        .insert(silenceThresholds)
+        .values({
+          workstreamId,
+          thresholdDays,
+        })
+        .returning({
+          id: silenceThresholds.id,
+          workstreamId: silenceThresholds.workstreamId,
+          thresholdDays: silenceThresholds.thresholdDays,
+          updatedAt: silenceThresholds.updatedAt,
+        });
+    } catch (error: unknown) {
+      const errorCode = (error as { code?: string })?.code;
+      if (errorCode !== '23505') {
+        throw error;
+      }
+      // Another request inserted concurrently; retry update for deterministic behavior.
+      const [concurrentUpdated] = await this.db
+        .update(silenceThresholds)
+        .set({
+          thresholdDays,
+          updatedAt: sql`now()`,
+        })
+        .where(eq(silenceThresholds.workstreamId, workstreamId))
+        .returning({
+          id: silenceThresholds.id,
+          workstreamId: silenceThresholds.workstreamId,
+          thresholdDays: silenceThresholds.thresholdDays,
+          updatedAt: silenceThresholds.updatedAt,
+        });
+      if (!concurrentUpdated) {
+        throw new Error(`Failed to upsert threshold for workstream ${workstreamId}`);
+      }
+      return this.toThresholdResponse({
+        ...concurrentUpdated,
+        workstreamName: workstream.name,
+      });
+    }
+
+    if (!inserted) {
+      throw new Error(`Failed to upsert threshold for workstream ${workstreamId}`);
+    }
+
+    return this.toThresholdResponse({
+      ...inserted,
+      workstreamName: workstream.name,
+    });
+  }
+
+  async removeWorkstreamThreshold(workstreamId: string): Promise<void> {
+    await this.db
+      .delete(silenceThresholds)
+      .where(eq(silenceThresholds.workstreamId, workstreamId));
+  }
 
   async runDetection(): Promise<DetectionSummary> {
     const startTime = Date.now();
@@ -44,6 +221,7 @@ export class SilenceService {
     this.logger.log('Silence detection started');
 
     try {
+      await this.ensureGlobalThresholdExists();
       const candidates = await this.findSilenceCandidates();
       summary.threadsScanned = candidates.length;
 
@@ -73,7 +251,8 @@ export class SilenceService {
   }
 
   async findSilenceCandidates(): Promise<SilenceCandidate[]> {
-    const thresholdDate = this.getThresholdDate(DEFAULT_SILENCE_THRESHOLD_WORKDAYS);
+    const now = new Date();
+    const thresholdCache = new Map<string, number>();
 
     const rows = await this.db
       .select({
@@ -95,12 +274,17 @@ export class SilenceService {
 
     for (const row of rows) {
       const lastActivityAt = this.deriveLastActivityAt(row.latestReplyTs, row.threadTs);
-      if (lastActivityAt > thresholdDate) {
+      if (!lastActivityAt) {
+        this.logger.warn('Skipping silence candidate with invalid timestamp', {
+          threadId: row.threadId,
+          latestReplyTs: row.latestReplyTs,
+          threadTs: row.threadTs,
+        });
         continue;
       }
-
-      const silenceDays = this.countWorkdays(lastActivityAt, new Date());
-      if (silenceDays < DEFAULT_SILENCE_THRESHOLD_WORKDAYS) {
+      const silenceDays = this.countWorkdays(lastActivityAt, now);
+      const thresholdDays = await this.resolveThresholdDays(row.workstreamId, thresholdCache);
+      if (silenceDays < thresholdDays) {
         continue;
       }
 
@@ -118,44 +302,46 @@ export class SilenceService {
   }
 
   async upsertActiveAlert(candidate: SilenceCandidate): Promise<boolean> {
-    const existing = await this.db
-      .select({ id: silenceAlerts.id })
-      .from(silenceAlerts)
+    const now = new Date();
+    const silenceDays = this.countWorkdays(candidate.lastActivityAt, now);
+
+    const [inserted] = await this.db
+      .insert(silenceAlerts)
+      .values({
+        threadId: candidate.threadId,
+        workstreamId: candidate.workstreamId,
+        topicName: candidate.topicName,
+        lastActivityAt: candidate.lastActivityAt,
+        silenceDays,
+        participantCount: candidate.participantCount,
+        status: 'active',
+      })
+      .onConflictDoNothing()
+      .returning({ id: silenceAlerts.id });
+
+    if (inserted) {
+      return true;
+    }
+
+    const [updated] = await this.db
+      .update(silenceAlerts)
+      .set({
+        silenceDays,
+        lastActivityAt: candidate.lastActivityAt,
+        updatedAt: sql`now()`,
+      })
       .where(
         and(
           eq(silenceAlerts.threadId, candidate.threadId),
           eq(silenceAlerts.status, 'active'),
         ),
       )
-      .limit(1);
+      .returning({ id: silenceAlerts.id });
 
-    if (existing.length > 0) {
-      await this.db
-        .update(silenceAlerts)
-        .set({
-          silenceDays: candidate.messageCount > 0
-            ? this.countWorkdays(candidate.lastActivityAt, new Date())
-            : candidate.messageCount,
-          lastActivityAt: candidate.lastActivityAt,
-          updatedAt: sql`now()`,
-        })
-        .where(eq(silenceAlerts.id, existing[0]!.id));
-      return false;
+    if (!updated) {
+      this.logger.warn('Alert update missed; likely resolved concurrently', { threadId: candidate.threadId });
     }
-
-    const silenceDays = this.countWorkdays(candidate.lastActivityAt, new Date());
-
-    await this.db.insert(silenceAlerts).values({
-      threadId: candidate.threadId,
-      workstreamId: candidate.workstreamId,
-      topicName: candidate.topicName,
-      lastActivityAt: candidate.lastActivityAt,
-      silenceDays,
-      participantCount: candidate.participantCount,
-      status: 'active',
-    });
-
-    return true;
+    return false;
   }
 
   async resolveAlertsForThreads(threadIds: string[]): Promise<number> {
@@ -183,12 +369,11 @@ export class SilenceService {
   }
 
   private async resolveAlertsForActiveThreads(): Promise<number> {
-    const thresholdDate = this.getThresholdDate(DEFAULT_SILENCE_THRESHOLD_WORKDAYS);
-
     const activeAlerts = await this.db
       .select({
         alertId: silenceAlerts.id,
         threadId: silenceAlerts.threadId,
+        lastActivityAt: silenceAlerts.lastActivityAt,
       })
       .from(silenceAlerts)
       .where(eq(silenceAlerts.status, 'active'));
@@ -211,10 +396,22 @@ export class SilenceService {
 
     for (const alert of activeAlerts) {
       const thread = threadMap.get(alert.threadId);
-      if (!thread) continue;
+      if (!thread) {
+        toResolve.push(alert.alertId);
+        continue;
+      }
 
       const lastActivity = this.deriveLastActivityAt(thread.latestReplyTs, thread.threadTs);
-      if (lastActivity > thresholdDate) {
+      if (!lastActivity) {
+        this.logger.warn('Unable to resolve alert due to invalid thread timestamp', {
+          alertId: alert.alertId,
+          threadId: alert.threadId,
+        });
+        continue;
+      }
+      // Keep existing alerts non-retroactive to threshold reconfiguration:
+      // resolve only when thread activity has progressed since the alert snapshot.
+      if (lastActivity > alert.lastActivityAt) {
         toResolve.push(alert.alertId);
       }
     }
@@ -232,49 +429,167 @@ export class SilenceService {
     return toResolve.length;
   }
 
-  deriveLastActivityAt(latestReplyTs: string | null, threadTs: string): Date {
-    const ts = latestReplyTs ?? threadTs;
-    const seconds = parseFloat(ts);
-    return new Date(seconds * 1000);
+  deriveLastActivityAt(latestReplyTs: string | null, threadTs: string): Date | null {
+    const latestReplyDate = this.parseSlackTimestamp(latestReplyTs);
+    if (latestReplyDate) {
+      return latestReplyDate;
+    }
+
+    return this.parseSlackTimestamp(threadTs);
   }
 
   countWorkdays(from: Date, to: Date): number {
-    const start = new Date(from);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(to);
-    end.setHours(0, 0, 0, 0);
+    const start = this.startOfZonedDay(from);
+    const end = this.startOfZonedDay(to);
 
     if (end <= start) return 0;
 
     let count = 0;
     const current = new Date(start);
-    current.setDate(current.getDate() + 1);
+    current.setUTCDate(current.getUTCDate() + 1);
 
     while (current <= end) {
-      const day = current.getDay();
+      const day = current.getUTCDay();
       if (day !== 0 && day !== 6) {
         count++;
       }
-      current.setDate(current.getDate() + 1);
+      current.setUTCDate(current.getUTCDate() + 1);
     }
 
     return count;
   }
 
-  private getThresholdDate(workdays: number): Date {
-    const now = new Date();
-    const result = new Date(now);
-    let remaining = workdays;
+  private async resolveThresholdDays(
+    workstreamId: string | null,
+    cache = new Map<string, number>(),
+  ): Promise<number> {
+    const cacheKey = workstreamId ?? '__global__';
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
-    while (remaining > 0) {
-      result.setDate(result.getDate() - 1);
-      const day = result.getDay();
-      if (day !== 0 && day !== 6) {
-        remaining--;
+    if (workstreamId) {
+      const workstreamThreshold = await this.db.query.silenceThresholds.findFirst({
+        where: eq(silenceThresholds.workstreamId, workstreamId),
+        columns: { thresholdDays: true },
+      });
+      if (workstreamThreshold) {
+        const resolved = this.normalizeThresholdDays(workstreamThreshold.thresholdDays, workstreamId);
+        cache.set(cacheKey, resolved);
+        return resolved;
       }
     }
 
-    result.setHours(0, 0, 0, 0);
-    return result;
+    const globalThreshold = await this.db.query.silenceThresholds.findFirst({
+      where: isNull(silenceThresholds.workstreamId),
+      columns: { thresholdDays: true },
+    });
+    if (globalThreshold) {
+      const resolved = this.normalizeThresholdDays(globalThreshold.thresholdDays, workstreamId);
+      cache.set(cacheKey, resolved);
+      return resolved;
+    }
+
+    this.logger.warn('No silence threshold found; using fallback default', {
+      fallbackThresholdDays: DEFAULT_SILENCE_THRESHOLD_WORKDAYS,
+      workstreamId,
+    });
+    cache.set(cacheKey, DEFAULT_SILENCE_THRESHOLD_WORKDAYS);
+    return DEFAULT_SILENCE_THRESHOLD_WORKDAYS;
+  }
+
+  private async ensureGlobalThresholdExists(): Promise<void> {
+    const existing = await this.db.query.silenceThresholds.findFirst({
+      where: isNull(silenceThresholds.workstreamId),
+      columns: { id: true },
+    });
+    if (existing) {
+      return;
+    }
+
+    try {
+      await this.db.insert(silenceThresholds).values({
+        workstreamId: null,
+        thresholdDays: DEFAULT_SILENCE_THRESHOLD_WORKDAYS,
+      });
+      this.logger.log('Created default global silence threshold', {
+        thresholdDays: DEFAULT_SILENCE_THRESHOLD_WORKDAYS,
+      });
+    } catch (error: unknown) {
+      const errorCode = (error as { code?: string })?.code;
+      if (errorCode === '23505') {
+        this.logger.warn('Global silence threshold bootstrap skipped due to concurrent insert');
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private parseSlackTimestamp(value: string | null): Date | null {
+    if (!value || !value.trim()) {
+      return null;
+    }
+
+    const seconds = Number.parseFloat(value);
+    if (!Number.isFinite(seconds)) {
+      return null;
+    }
+
+    const date = new Date(seconds * 1000);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    return date;
+  }
+
+  private startOfZonedDay(date: Date): Date {
+    const { year, month, day } = this.getZonedDateParts(date);
+    return new Date(Date.UTC(year, month - 1, day));
+  }
+
+  private getZonedDateParts(date: Date): { year: number; month: number; day: number } {
+    const parts = this.zonedDateFormatter.formatToParts(date);
+    const yearPart = parts.find((part) => part.type === 'year')?.value;
+    const monthPart = parts.find((part) => part.type === 'month')?.value;
+    const dayPart = parts.find((part) => part.type === 'day')?.value;
+
+    if (!yearPart || !monthPart || !dayPart) {
+      throw new Error('Unable to derive timezone-aware date parts');
+    }
+
+    return {
+      year: Number.parseInt(yearPart, 10),
+      month: Number.parseInt(monthPart, 10),
+      day: Number.parseInt(dayPart, 10),
+    };
+  }
+
+  private normalizeThresholdDays(value: number, workstreamId: string | null): number {
+    if (value < 1 || value > MAX_THRESHOLD_DAYS) {
+      this.logger.warn('Threshold outside expected range; using fallback default', {
+        thresholdDays: value,
+        workstreamId,
+      });
+      return DEFAULT_SILENCE_THRESHOLD_WORKDAYS;
+    }
+    return value;
+  }
+
+  private toThresholdResponse(row: {
+    id: string;
+    workstreamId: string | null;
+    thresholdDays: number;
+    updatedAt: Date;
+    workstreamName?: string | null;
+  }): SilenceThresholdResponse {
+    return {
+      id: row.id,
+      workstreamId: row.workstreamId,
+      workstreamName: row.workstreamName ?? null,
+      thresholdDays: row.thresholdDays,
+      updatedAt: row.updatedAt.toISOString(),
+    };
   }
 }

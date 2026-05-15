@@ -1,5 +1,5 @@
-import { index, integer, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { relations, sql } from 'drizzle-orm';
 import { slackThreads } from './threads.js';
 import { workstreams } from './workstreams.js';
 
@@ -28,6 +28,7 @@ export const silenceAlerts = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    uniqueIndex('uq_silence_alerts_active_thread').on(table.threadId).where(sql`${table.status} = 'active'`),
     index('idx_silence_alerts_status').on(table.status),
     index('idx_silence_alerts_workstream_id').on(table.workstreamId),
     index('idx_silence_alerts_detected_at').on(table.detectedAt),
