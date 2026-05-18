@@ -1,16 +1,18 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { DATABASE_TOKEN } from '../../database/database.module.js';
 import type { Database } from '@slack-thread-manager/db';
 import {
   silenceAlerts,
   silenceThresholds,
   slackThreads,
+  slackChannels,
   classifiedTopics,
   workstreams,
 } from '@slack-thread-manager/db';
 import type {
+  SilenceAlertListResponse,
   SilenceThresholdListResponse,
   SilenceThresholdResponse,
 } from '@slack-thread-manager/shared';
@@ -207,6 +209,78 @@ export class SilenceService {
     await this.db
       .delete(silenceThresholds)
       .where(eq(silenceThresholds.workstreamId, workstreamId));
+  }
+
+  async getActiveAlerts(): Promise<SilenceAlertListResponse> {
+    const slackTeamId = this.configService.get<string>('SLACK_TEAM_ID');
+
+    const rows = await this.db
+      .select({
+        id: silenceAlerts.id,
+        threadId: silenceAlerts.threadId,
+        workstreamId: silenceAlerts.workstreamId,
+        topicName: silenceAlerts.topicName,
+        lastActivityAt: silenceAlerts.lastActivityAt,
+        silenceDays: silenceAlerts.silenceDays,
+        participantCount: silenceAlerts.participantCount,
+        status: silenceAlerts.status,
+        detectedAt: silenceAlerts.detectedAt,
+        workstreamName: workstreams.name,
+        channelSlackId: slackChannels.slackChannelId,
+        threadTs: slackThreads.threadTs,
+      })
+      .from(silenceAlerts)
+      .innerJoin(slackThreads, eq(slackThreads.id, silenceAlerts.threadId))
+      .innerJoin(slackChannels, eq(slackChannels.id, slackThreads.channelId))
+      .leftJoin(workstreams, eq(workstreams.id, silenceAlerts.workstreamId))
+      .where(eq(silenceAlerts.status, 'active'))
+      .orderBy(desc(silenceAlerts.silenceDays));
+
+    return {
+      alerts: rows.map((row) => ({
+        id: row.id,
+        threadId: row.threadId,
+        workstreamId: row.workstreamId,
+        workstreamName: row.workstreamName ?? null,
+        topicName: row.topicName,
+        lastActivityAt: row.lastActivityAt.toISOString(),
+        silenceDays: row.silenceDays,
+        participantCount: row.participantCount,
+        status: row.status,
+        detectedAt: row.detectedAt.toISOString(),
+        sourceThreadUrl: this.buildSlackPermalink(slackTeamId, row.channelSlackId, row.threadTs),
+      })),
+    };
+  }
+
+  async dismissAlert(alertId: string): Promise<void> {
+    const [updated] = await this.db
+      .update(silenceAlerts)
+      .set({
+        status: 'dismissed',
+        updatedAt: sql`now()`,
+      })
+      .where(
+        and(
+          eq(silenceAlerts.id, alertId),
+          eq(silenceAlerts.status, 'active'),
+        ),
+      )
+      .returning({ id: silenceAlerts.id });
+
+    if (!updated) {
+      throw new NotFoundException(`Active silence alert ${alertId} not found`);
+    }
+  }
+
+  private buildSlackPermalink(
+    teamId: string | undefined,
+    channelSlackId: string,
+    threadTs: string,
+  ): string | null {
+    if (!teamId) return null;
+    const tsForUrl = threadTs.replace('.', '');
+    return `https://app.slack.com/client/${teamId}/${channelSlackId}/thread/${channelSlackId}-${tsForUrl}`;
   }
 
   async runDetection(): Promise<DetectionSummary> {

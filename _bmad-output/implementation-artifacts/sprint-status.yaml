@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-05-15T14:05:00+02:00
+last_updated: 2026-05-18T09:25:00+02:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -105,7 +105,7 @@ development_status:
   7-1-silence-detection-engine: done
   7-2-workday-aware-threshold-logic: done
   7-3-admin-silence-threshold-configuration: done
-  7-4-silence-monitor-dashboard-component: backlog
+  7-4-silence-monitor-dashboard-component: review
   7-5-gone-quiet-badges-on-briefing-cards: backlog
   epic-7-retrospective: optional
 

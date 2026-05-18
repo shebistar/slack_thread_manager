@@ -4,8 +4,8 @@
 # Full chain: oc login → Keycloak auth → health → channels → import → pipeline
 #             → staging → briefings → search → UI verification.
 #
-# Coverage: Epics 1-6 (foundation, ingestion, pipeline, anonymization,
-#           briefings, search & discovery).
+# Coverage: Epics 1-7 (foundation, ingestion, pipeline, anonymization,
+#           briefings, search & discovery, silence detection & monitoring).
 #
 # Usage:
 #   ./deploy/test-pipeline.sh
@@ -91,6 +91,19 @@ api_delete() {
     -X DELETE \
     -H "$(auth_header)" \
     -H "Content-Type: application/json" \
+    "${BASE_URL}${path}" 2>&1) || true
+  echo "$response"
+}
+
+api_patch() {
+  local path="$1"
+  local body="${2:-{}}"
+  local response
+  response=$(curl -skf -w "\n%{http_code}" \
+    -X PATCH \
+    -H "$(auth_header)" \
+    -H "Content-Type: application/json" \
+    -d "$body" \
     "${BASE_URL}${path}" 2>&1) || true
   echo "$response"
 }
@@ -506,6 +519,64 @@ if [[ "$thresholds_status" == "200" ]]; then
   fi
 else
   log_fail "GET /admin/silence/thresholds → $thresholds_status"
+fi
+
+echo ""
+
+# ─── Step 7c: Silence Alert Endpoints ──────────────────────────────────────────
+
+echo "─── Step 7c: Silence Alert Endpoints ───"
+
+response=$(api_get "/silence/alerts")
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" ]]; then
+  log_pass "GET /silence/alerts → 200"
+
+  if echo "$body" | jq -e '.data.alerts' > /dev/null 2>&1; then
+    log_pass "Response has data.alerts array"
+    alert_count=$(echo "$body" | jq '.data.alerts | length' 2>/dev/null || echo "0")
+    log_info "Active silence alerts: $alert_count"
+
+    if [[ "$alert_count" -gt 0 ]]; then
+      first_alert_id=$(echo "$body" | jq -r '.data.alerts[0].id' 2>/dev/null)
+      first_topic=$(echo "$body" | jq -r '.data.alerts[0].topicName' 2>/dev/null)
+      log_info "First alert: [$first_alert_id] $first_topic"
+
+      dismiss_response=$(api_patch "/silence/alerts/${first_alert_id}/dismiss" "{}")
+      dismiss_status=$(extract_status "$dismiss_response")
+      dismiss_body=$(extract_body "$dismiss_response")
+
+      if [[ "$dismiss_status" == "200" ]]; then
+        log_pass "PATCH /silence/alerts/:id/dismiss → 200"
+
+        dismissed_status=$(echo "$dismiss_body" | jq -r '.data.status' 2>/dev/null)
+        if [[ "$dismissed_status" == "dismissed" ]]; then
+          log_pass "Alert status returned as 'dismissed'"
+        else
+          log_fail "Expected status 'dismissed', got '$dismissed_status'"
+        fi
+
+        verify_response=$(api_get "/silence/alerts")
+        verify_body=$(extract_body "$verify_response")
+        still_present=$(echo "$verify_body" | jq --arg id "$first_alert_id" '[.data.alerts[] | select(.id == $id)] | length' 2>/dev/null || echo "1")
+        if [[ "$still_present" == "0" ]]; then
+          log_pass "Dismissed alert no longer in active alerts list"
+        else
+          log_fail "Dismissed alert still present in active alerts list"
+        fi
+      else
+        log_fail "PATCH /silence/alerts/:id/dismiss → $dismiss_status"
+      fi
+    else
+      log_info "No active alerts to dismiss (silence detection may not have run)"
+    fi
+  else
+    log_fail "Response missing data.alerts array"
+  fi
+else
+  log_fail "GET /silence/alerts → $status"
 fi
 
 echo ""

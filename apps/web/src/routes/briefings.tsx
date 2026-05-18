@@ -8,6 +8,7 @@ import { BriefingCard } from '@/components/briefing-card/briefing-card.js';
 import { WorkstreamFilter } from '@/components/workstream-filter/workstream-filter.js';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card.js';
 import { Skeleton } from '@/components/ui/skeleton.js';
+import { SilenceMonitor } from '@/components/silence-monitor/silence-monitor.js';
 import type { UserRole } from '@slack-thread-manager/shared';
 
 export const Route = createFileRoute('/briefings')({
@@ -544,11 +545,6 @@ function DashboardPanels({ data }: { data: BriefingWithItems }) {
     [items],
   );
 
-  const quietItems = useMemo(
-    () => items.filter((i) => i.itemType === 'gone_quiet'),
-    [items],
-  );
-
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6 mt-6">
       <div className="space-y-6">
@@ -611,31 +607,7 @@ function DashboardPanels({ data }: { data: BriefingWithItems }) {
 
       <div className="space-y-6">
         <section aria-labelledby="silence-monitor-heading">
-          <Card>
-            <div className="bg-[--color-yellow-10] border-b border-[--color-gray-20] px-4 py-3">
-              <h2 id="silence-monitor-heading" className="text-[13px] font-medium text-[--color-gray-95]">Silence Monitor</h2>
-            </div>
-            <CardContent className="p-4">
-              {quietItems.length === 0 ? (
-                <p className="text-sm text-[--color-gray-50]">No silent threads detected</p>
-              ) : (
-                <div className="space-y-2">
-                  {quietItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-[--color-yellow-10] border-l-[3px] border-l-[--color-yellow-30] rounded-r-md p-3"
-                    >
-                      <h4 className="text-[13px] font-medium text-[--color-gray-95]">{item.headline}</h4>
-                      <p className="text-xs text-[--color-gray-50] mt-1">
-                        {item.participantCount != null && `${item.participantCount} participants`}
-                        {item.latestActivityAt && ` · Last activity ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(item.latestActivityAt))}`}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <SilenceMonitor />
         </section>
       </div>
     </div>

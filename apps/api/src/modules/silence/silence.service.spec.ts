@@ -101,6 +101,7 @@ describe('SilenceService', () => {
           useValue: {
             get: vi.fn().mockImplementation((key: string, fallback?: string) => {
               if (key === 'PROJECT_TIMEZONE') return 'Europe/Berlin';
+              if (key === 'SLACK_TEAM_ID') return 'T-MOCK-TEAM';
               return fallback;
             }),
           },
@@ -409,6 +410,138 @@ describe('SilenceService', () => {
       await expect(
         service.removeWorkstreamThreshold('a1f6d0bc-5699-4dc9-8138-949ab1d44a10'),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('getActiveAlerts', () => {
+    it('should return alerts joined with workstream names and Slack URLs', async () => {
+      const rows = [
+        {
+          id: 'alert-1',
+          threadId: 'thread-1',
+          workstreamId: 'ws-1',
+          topicName: 'Firewall migration',
+          lastActivityAt: new Date('2026-05-10T10:00:00.000Z'),
+          silenceDays: 5,
+          participantCount: 3,
+          status: 'active' as const,
+          detectedAt: new Date('2026-05-15T07:30:00.000Z'),
+          workstreamName: 'Infrastructure',
+          channelSlackId: 'C456',
+          threadTs: '1234567890.000000',
+        },
+      ];
+
+      const orderBy = vi.fn().mockResolvedValue(rows);
+      const where = vi.fn().mockReturnValue({ orderBy });
+      const leftJoin = vi.fn().mockReturnValue({ where });
+      const innerJoin2 = vi.fn().mockReturnValue({ leftJoin });
+      const innerJoin1 = vi.fn().mockReturnValue({ innerJoin: innerJoin2 });
+      const from = vi.fn().mockReturnValue({ innerJoin: innerJoin1 });
+      mockDb.select.mockReturnValueOnce({ from });
+
+      const result = await service.getActiveAlerts();
+
+      expect(result.alerts).toHaveLength(1);
+      expect(result.alerts[0]!.topicName).toBe('Firewall migration');
+      expect(result.alerts[0]!.workstreamName).toBe('Infrastructure');
+      expect(result.alerts[0]!.silenceDays).toBe(5);
+      expect(result.alerts[0]!.sourceThreadUrl).toContain('T-MOCK-TEAM');
+      expect(result.alerts[0]!.sourceThreadUrl).toContain('C456');
+    });
+
+    it('should return empty alerts when no active alerts exist', async () => {
+      const orderBy = vi.fn().mockResolvedValue([]);
+      const where = vi.fn().mockReturnValue({ orderBy });
+      const leftJoin = vi.fn().mockReturnValue({ where });
+      const innerJoin2 = vi.fn().mockReturnValue({ leftJoin });
+      const innerJoin1 = vi.fn().mockReturnValue({ innerJoin: innerJoin2 });
+      const from = vi.fn().mockReturnValue({ innerJoin: innerJoin1 });
+      mockDb.select.mockReturnValueOnce({ from });
+
+      const result = await service.getActiveAlerts();
+
+      expect(result.alerts).toHaveLength(0);
+    });
+
+    it('should return null sourceThreadUrl when SLACK_TEAM_ID is absent', async () => {
+      const moduleNoTeam = await Test.createTestingModule({
+        providers: [
+          SilenceService,
+          { provide: DATABASE_TOKEN, useValue: mockDb },
+          {
+            provide: ConfigService,
+            useValue: {
+              get: vi.fn().mockImplementation((key: string, fallback?: string) => {
+                if (key === 'PROJECT_TIMEZONE') return 'Europe/Berlin';
+                if (key === 'SLACK_TEAM_ID') return undefined;
+                return fallback;
+              }),
+            },
+          },
+        ],
+      }).compile();
+
+      const serviceNoTeam = moduleNoTeam.get(SilenceService);
+
+      const rows = [
+        {
+          id: 'alert-1',
+          threadId: 'thread-1',
+          workstreamId: null,
+          topicName: 'Test topic',
+          lastActivityAt: new Date('2026-05-10T10:00:00.000Z'),
+          silenceDays: 3,
+          participantCount: 2,
+          status: 'active' as const,
+          detectedAt: new Date('2026-05-15T07:30:00.000Z'),
+          workstreamName: null,
+          channelSlackId: 'C789',
+          threadTs: '1234567890.000000',
+        },
+      ];
+
+      const orderBy = vi.fn().mockResolvedValue(rows);
+      const where = vi.fn().mockReturnValue({ orderBy });
+      const leftJoin = vi.fn().mockReturnValue({ where });
+      const innerJoin2 = vi.fn().mockReturnValue({ leftJoin });
+      const innerJoin1 = vi.fn().mockReturnValue({ innerJoin: innerJoin2 });
+      const from = vi.fn().mockReturnValue({ innerJoin: innerJoin1 });
+      mockDb.select.mockReturnValueOnce({ from });
+
+      const result = await serviceNoTeam.getActiveAlerts();
+
+      expect(result.alerts[0]!.sourceThreadUrl).toBeNull();
+    });
+  });
+
+  describe('dismissAlert', () => {
+    it('should transition alert status to dismissed', async () => {
+      const mockReturning = vi.fn().mockResolvedValue([{ id: 'alert-1' }]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      mockDb.update.mockReturnValueOnce({ set: mockSet });
+
+      await expect(service.dismissAlert('alert-1')).resolves.toBeUndefined();
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException for non-existent alert ID', async () => {
+      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      mockDb.update.mockReturnValueOnce({ set: mockSet });
+
+      await expect(service.dismissAlert('non-existent-id')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('should throw NotFoundException for already-dismissed alert', async () => {
+      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      mockDb.update.mockReturnValueOnce({ set: mockSet });
+
+      await expect(service.dismissAlert('dismissed-alert-id')).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });
