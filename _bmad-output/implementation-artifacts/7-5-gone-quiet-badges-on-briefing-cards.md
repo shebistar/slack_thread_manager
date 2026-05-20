@@ -1,6 +1,6 @@
 # Story 7.5: Gone Quiet Badges on Briefing Cards
 
-Status: review
+Status: done
 
 ## Story
 

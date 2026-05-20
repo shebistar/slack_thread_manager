@@ -25,8 +25,8 @@ NC='\033[0m'
 pass=0
 fail=0
 
-check_pass() { echo -e "  ${GREEN}✓${NC} $1"; ((pass++)); }
-check_fail() { echo -e "  ${RED}✗${NC} $1"; ((fail++)); }
+check_pass() { echo -e "  ${GREEN}✓${NC} $1"; pass=$((pass + 1)); }
+check_fail() { echo -e "  ${RED}✗${NC} $1"; fail=$((fail + 1)); }
 
 echo ""
 echo "═══════════════════════════════════════════════════════════"

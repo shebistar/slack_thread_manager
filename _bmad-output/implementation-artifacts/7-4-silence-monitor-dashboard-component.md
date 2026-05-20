@@ -1,6 +1,6 @@
 # Story 7.4: Silence Monitor Dashboard Component
 
-Status: review
+Status: done
 
 ## Story
 

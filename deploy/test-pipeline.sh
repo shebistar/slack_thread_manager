@@ -39,9 +39,9 @@ pass=0
 fail=0
 skip=0
 
-log_pass() { echo -e "  ${GREEN}✓${NC} $1"; ((pass++)); }
-log_fail() { echo -e "  ${RED}✗${NC} $1"; ((fail++)); }
-log_skip() { echo -e "  ${YELLOW}⊘${NC} $1 (skipped)"; ((skip++)); }
+log_pass() { echo -e "  ${GREEN}✓${NC} $1"; pass=$((pass + 1)); }
+log_fail() { echo -e "  ${RED}✗${NC} $1"; fail=$((fail + 1)); }
+log_skip() { echo -e "  ${YELLOW}⊘${NC} $1 (skipped)"; skip=$((skip + 1)); }
 log_info() { echo -e "  → $1"; }
 
 auth_header() {

@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-05-20
+
+### Added
+
+- **Silence Detection & Monitoring — Epic 7:** PMs can spot topics that were actively discussed and then went quiet, surfacing potential project risks before they become crises.
+- **Silence Detection Engine (Story 7.1):** `SilenceService` and `SilenceJob` that identify threads where last activity exceeds a configurable silence threshold and the thread had prior active discussion (minimum 3 messages or 2 participants). Alerts stored in `silence_alerts` table with `active`/`resolved`/`dismissed` states. Partial unique index ensures one active alert per thread. Alerts auto-resolve when thread receives new activity via ingestion update detection. Cron schedule offset 30 minutes from ingestion polling.
+- **Workday-Aware Threshold Logic (Story 7.2):** Silence thresholds count only Monday–Friday workdays, preventing false positives from weekend gaps. `PROJECT_TIMEZONE` env var (default `Europe/Berlin`) with IANA timezone validation. `Intl.DateTimeFormat`-based date math avoids UTC/host-timezone ambiguity. `silence_thresholds` table with per-workstream overrides and a single global default row.
+- **Admin Silence Threshold Configuration (Story 7.3):** Admin CRUD for silence thresholds — `GET /admin/silence/thresholds`, `PUT` global/workstream, `DELETE` workstream override. Zod validation (1–30 days). "Silence" tab in Admin panel with editable threshold table. Threshold changes take effect on next detection run (not retroactive).
+- **Silence Monitor Dashboard Component (Story 7.4):** Dedicated `SilenceMonitor` panel on the Dashboard layout with `yellow-10` background, per-item `yellow-30` left border accent. Each item shows topic name, days silent, participant count, workstream label, and "View in Slack →" deep-link. Dismiss action transitions alert to `dismissed` status with optimistic UI update. Empty state with green check icon. `GET /silence/alerts` and `PATCH /silence/alerts/:id/dismiss` endpoints (non-admin, any authenticated user).
+- **Gone Quiet Badges on Briefing Cards (Story 7.5):** `BriefingCard` extended with `silenceDays` prop for live "Quiet for N days" badge. `FeedLayout` and `SplitPanelLayout` wire `useSilenceAlerts()` to thread alert data into every card. Sort priority fixed: `gone_quiet` items now sort above standard but below cross-workstream and orphaned-action items.
+
+### Changed
+
+- **Deploy Scripts Fixed:** `((pass++))` arithmetic in `pre-deploy-check.sh` and `test-pipeline.sh` replaced with `pass=$((pass + 1))` to prevent silent script termination under `set -e` when the counter starts at zero.
+- **Smoke Test Coverage:** `test-pipeline.sh` extended with Steps 2b (silence threshold CRUD), 7b (silence override delete), and 7c (silence alert list + dismiss). `api_patch` helper added.
+
+### Infrastructure
+
+- Database migrations 0019 (silence_alerts table), 0020 (partial unique index on active alerts), 0021 (silence_thresholds table with global default bootstrap).
+- `SilenceModule` registered in `AppModule` with `SilenceService`, `SilenceJob`, `SilenceThresholdController`, `SilenceAlertController`.
+- `PROJECT_TIMEZONE` optional env var added to `app.config.ts` (default: `Europe/Berlin`).
+- Shared schemas: `silence.schema.ts` with threshold and alert response/request types.
+- Test counts: 473 API tests (45 files) + 202 Web tests (21 files) = 675 total.
+
+## [0.9.0] - 2026-05-14
+
+### Added
+
+- **Search & Discovery — Epic 6:** Team members can ask natural language questions across the entire thread corpus and get sourced answers linked to original Slack threads, regardless of which channel the discussion happened in.
+- **Full-Text Search Infrastructure (Story 6.1):** `tsvector` column on `classified_topics` populated from headline + anonymized summary text. GIN index for fast lookup. `FtsService` with `ts_rank` relevance scoring. Search restricted to `APPROVED` pipeline state threads only (FR28 enforcement).
+- **Semantic Search with pgvector (Story 6.2):** Query embedding via the same LLM model used for thread embeddings. Cosine similarity search with configurable threshold (default 0.7). `VectorSearchService` merged with FTS results via `HybridSearchService` using configurable weights (`SEARCH_FTS_WEIGHT`, `SEARCH_SEMANTIC_WEIGHT`).
+- **Search API & Query Processing (Story 6.3):** `POST /api/search` with parallel FTS + semantic search, merged ranking, role-appropriate summaries. Response includes `results`, `meta` (total, query, searchTimeMs), and `suggestions` for empty results. Authentication required.
+- **Search Frontend Interface (Story 6.4):** Search page with prominent input, result cards (headline, summary, workstream badge, "View in Slack →" deep-link, relevance indicator), loading skeletons, empty state with query refinement suggestions, and search history (last 5 queries).
+
+### Changed
+
+- **Smoke Test Coverage:** `test-pipeline.sh` Step 11 added for search API — keyword query, empty query, anonymous 401 check, and result shape validation.
+
+### Infrastructure
+
+- Database migration 0017 adds `tsvector` column + GIN index on `classified_topics`. Migration 0018 backfills `search_document` for existing approved rows.
+- `SearchModule` with `FtsService`, `VectorSearchService`, `HybridSearchService`, `SearchService`.
+- Config vars: `SEMANTIC_SEARCH_SIMILARITY_THRESHOLD`, `SEARCH_FTS_WEIGHT`, `SEARCH_SEMANTIC_WEIGHT`.
+- Shared schemas: `search.schema.ts`.
+- pgvector HNSW index verified operational (deferred item [B2] from Epic 3 resolved).
+
 ## [0.8.3] - 2026-05-12
 
 ### Fixed
