@@ -2,7 +2,10 @@
 #
 # End-to-end smoke test for Slack Thread Manager on OpenShift.
 # Full chain: oc login → Keycloak auth → health → channels → import → pipeline
-#             → staging → briefings → UI verification.
+#             → staging → briefings → search → UI verification.
+#
+# Coverage: Epics 1-7 (foundation, ingestion, pipeline, anonymization,
+#           briefings, search & discovery, silence detection & monitoring).
 #
 # Usage:
 #   ./deploy/test-pipeline.sh
@@ -36,9 +39,9 @@ pass=0
 fail=0
 skip=0
 
-log_pass() { echo -e "  ${GREEN}✓${NC} $1"; ((pass++)); }
-log_fail() { echo -e "  ${RED}✗${NC} $1"; ((fail++)); }
-log_skip() { echo -e "  ${YELLOW}⊘${NC} $1 (skipped)"; ((skip++)); }
+log_pass() { echo -e "  ${GREEN}✓${NC} $1"; pass=$((pass + 1)); }
+log_fail() { echo -e "  ${RED}✗${NC} $1"; fail=$((fail + 1)); }
+log_skip() { echo -e "  ${YELLOW}⊘${NC} $1 (skipped)"; skip=$((skip + 1)); }
 log_info() { echo -e "  → $1"; }
 
 auth_header() {
@@ -48,23 +51,65 @@ auth_header() {
 api_get() {
   local path="$1"
   local response
-  response=$(curl -skf -w "\n%{http_code}" \
+  response=$(curl -sk -w "\n%{http_code}" \
     -H "$(auth_header)" \
     -H "Content-Type: application/json" \
-    "${BASE_URL}${path}" 2>&1) || true
+    "${BASE_URL}${path}" 2>/dev/null) || true
   echo "$response"
 }
 
 api_post() {
   local path="$1"
-  local body="${2:-{}}"
+  local body="$2"
+  [[ -z "$body" ]] && body='{}'
   local response
-  response=$(curl -skf -w "\n%{http_code}" \
+  response=$(curl -sk -w "\n%{http_code}" \
+    --max-time 120 \
     -X POST \
     -H "$(auth_header)" \
     -H "Content-Type: application/json" \
     -d "$body" \
-    "${BASE_URL}${path}" 2>&1) || true
+    "${BASE_URL}${path}" 2>/dev/null) || true
+  echo "$response"
+}
+
+api_put() {
+  local path="$1"
+  local body="$2"
+  [[ -z "$body" ]] && body='{}'
+  local response
+  response=$(curl -sk -w "\n%{http_code}" \
+    -X PUT \
+    -H "$(auth_header)" \
+    -H "Content-Type: application/json" \
+    -d "$body" \
+    "${BASE_URL}${path}" 2>/dev/null) || true
+  echo "$response"
+}
+
+api_delete() {
+  local path="$1"
+  local response
+  response=$(curl -sk -w "\n%{http_code}" \
+    -X DELETE \
+    -H "$(auth_header)" \
+    -H "Content-Type: application/json" \
+    "${BASE_URL}${path}" 2>/dev/null) || true
+  echo "$response"
+}
+
+api_patch() {
+  local path="$1"
+  local body="$2"
+  [[ -z "$body" ]] && body='{}'
+  local response
+  response=$(curl -sk -w "\n%{http_code}" \
+    --max-time 120 \
+    -X PATCH \
+    -H "$(auth_header)" \
+    -H "Content-Type: application/json" \
+    -d "$body" \
+    "${BASE_URL}${path}" 2>/dev/null) || true
   echo "$response"
 }
 
@@ -113,7 +158,7 @@ TOKEN=$(echo "$KC_RESPONSE" | jq -r '.access_token // empty' 2>/dev/null)
 
 if [[ -n "$TOKEN" && "$TOKEN" != "null" ]]; then
   log_pass "Keycloak login → JWT obtained for user $KC_USER"
-  KC_ROLE=$(echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq -r '.role // "unknown"' 2>/dev/null)
+  KC_ROLE=$(echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq -r '.role // "unknown"' 2>/dev/null) || true
   log_info "Token role: $KC_ROLE"
 else
   KC_ERROR=$(echo "$KC_RESPONSE" | jq -r '.error_description // .error // "unknown error"' 2>/dev/null)
@@ -121,6 +166,24 @@ else
   echo ""
   echo "  Check Keycloak realm/client/user configuration."
   echo "  Realm: $KC_REALM | Client: $KC_CLIENT | User: $KC_USER"
+  exit 1
+fi
+
+echo ""
+
+# ─── Step 0c: JSON Body Diagnostic ─────────────────────────────────────────────
+
+echo "─── Step 0c: JSON Body Sanity Check ───"
+
+diag_response=$(api_put "/admin/silence/thresholds/global" '{"thresholdDays":3}')
+diag_status=$(extract_status "$diag_response")
+
+if [[ "$diag_status" == "200" ]]; then
+  log_pass "api_put JSON body → 200"
+else
+  log_fail "api_put JSON body → $diag_status"
+  log_info "Error: $(extract_body "$diag_response" | jq -r '.message // .' 2>/dev/null)"
+  echo "  FATAL: Body corruption detected. Aborting."
   exit 1
 fi
 
@@ -179,6 +242,50 @@ else
 fi
 
 echo ""
+
+# ─── Step 2b: Silence Threshold Admin Endpoints ────────────────────────────────
+
+echo "─── Step 2b: Silence Threshold Endpoints ───"
+
+response=$(api_get "/admin/silence/thresholds")
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" ]]; then
+  log_pass "GET /admin/silence/thresholds → 200"
+  global_days=$(echo "$body" | jq -r '.data.global.thresholdDays // empty' 2>/dev/null)
+  if [[ -n "$global_days" ]]; then
+    put_body="{\"thresholdDays\": ${global_days}}"
+    response=$(api_put "/admin/silence/thresholds/global" "$put_body")
+    status=$(extract_status "$response")
+    if [[ "$status" == "200" ]]; then
+      log_pass "PUT /admin/silence/thresholds/global → 200"
+    else
+      log_fail "PUT /admin/silence/thresholds/global → $status"
+      log_info "Body sent: $put_body"
+      log_info "Error: $(extract_body "$response" | jq -r '.message // .' 2>/dev/null)"
+    fi
+  else
+    log_fail "Threshold payload missing data.global.thresholdDays"
+  fi
+
+  existing_override_id=$(echo "$body" | jq -r '.data.overrides[0].workstreamId // empty' 2>/dev/null)
+  if [[ -n "$existing_override_id" ]]; then
+    existing_override_days=$(echo "$body" | jq -r '.data.overrides[0].thresholdDays // 3' 2>/dev/null)
+    put_override_body="{\"workstreamId\":\"${existing_override_id}\",\"thresholdDays\":${existing_override_days}}"
+    response=$(api_put "/admin/silence/thresholds/workstream" "$put_override_body")
+    status=$(extract_status "$response")
+    if [[ "$status" == "200" ]]; then
+      log_pass "PUT /admin/silence/thresholds/workstream (existing override) → 200"
+    else
+      log_fail "PUT /admin/silence/thresholds/workstream (existing override) → $status"
+    fi
+  else
+    log_info "No existing override found; will validate workstream upsert/delete after roster workstream discovery."
+  fi
+else
+  log_fail "GET /admin/silence/thresholds → $status"
+fi
 
 # ─── Step 3: Ensure Roster User Exists ────────────────────────────────────────
 
@@ -296,9 +403,7 @@ else
     log_info "Threads stored: $threads_stored"
   else
     log_fail "POST /admin/channels/${CHANNEL_ID}/import → $status"
-    if [[ "$VERBOSE" == "true" ]]; then
-      log_info "Response: $(extract_body "$response")"
-    fi
+    log_info "Error: $(extract_body "$response" | jq -r '.message // .' 2>/dev/null)"
   fi
 fi
 
@@ -307,8 +412,14 @@ echo ""
 # ─── Step 6: Run Pipeline ───────────────────────────────────────────────────────
 
 echo "─── Step 6: Run Pipeline (classify → summarize → embed → correlate → anonymize → stage) ───"
+echo "  → Running pipeline (LLM processing — may take several minutes)..."
 
-response=$(api_post "/admin/pipeline/run" "")
+response=$(curl -sk -w "\n%{http_code}" \
+  --max-time 600 \
+  -X POST \
+  -H "$(auth_header)" \
+  -H "Content-Type: application/json" \
+  "${BASE_URL}/admin/pipeline/run" 2>/dev/null) || true
 status=$(extract_status "$response")
 body=$(extract_body "$response")
 
@@ -322,39 +433,42 @@ if [[ "$status" == "200" || "$status" == "201" ]]; then
   staging=$(echo "$body" | jq '.data.staging' 2>/dev/null)
 
   if [[ "$classification" != "null" ]]; then
-    c_processed=$(echo "$classification" | jq '.processed' 2>/dev/null || echo "0")
-    c_failed=$(echo "$classification" | jq '.failed' 2>/dev/null || echo "0")
-    log_info "Classification: processed=$c_processed, failed=$c_failed"
+    c_status=$(echo "$classification" | jq -r '.status' 2>/dev/null || echo "unknown")
+    c_processed=$(echo "$classification" | jq '.result.processed // .processed' 2>/dev/null || echo "0")
+    c_failed=$(echo "$classification" | jq '.result.failed // .failed' 2>/dev/null || echo "0")
+    log_info "Classification ($c_status): processed=$c_processed, failed=$c_failed"
   fi
 
   if [[ "$summarization" != "null" ]]; then
-    s_processed=$(echo "$summarization" | jq '.processed' 2>/dev/null || echo "0")
-    s_failed=$(echo "$summarization" | jq '.failed' 2>/dev/null || echo "0")
-    log_info "Summarization: processed=$s_processed, failed=$s_failed"
+    s_status=$(echo "$summarization" | jq -r '.status' 2>/dev/null || echo "unknown")
+    s_processed=$(echo "$summarization" | jq '.result.processed // .processed' 2>/dev/null || echo "0")
+    s_failed=$(echo "$summarization" | jq '.result.failed // .failed' 2>/dev/null || echo "0")
+    log_info "Summarization ($s_status): processed=$s_processed, failed=$s_failed"
   fi
 
   if [[ "$embedding" != "null" ]]; then
-    e_processed=$(echo "$embedding" | jq '.processed' 2>/dev/null || echo "0")
-    e_failed=$(echo "$embedding" | jq '.failed' 2>/dev/null || echo "0")
-    log_info "Embedding: processed=$e_processed, failed=$e_failed"
+    e_status=$(echo "$embedding" | jq -r '.status' 2>/dev/null || echo "unknown")
+    e_processed=$(echo "$embedding" | jq '.result.processed // .processed' 2>/dev/null || echo "0")
+    e_failed=$(echo "$embedding" | jq '.result.failed // .failed' 2>/dev/null || echo "0")
+    log_info "Embedding ($e_status): processed=$e_processed, failed=$e_failed"
   fi
 
   if [[ "$correlation" != "null" ]]; then
-    cor_created=$(echo "$correlation" | jq '.created' 2>/dev/null || echo "0")
-    cor_pairs=$(echo "$correlation" | jq '.pairsEvaluated' 2>/dev/null || echo "0")
-    log_info "Correlation: created=$cor_created, pairsEvaluated=$cor_pairs"
+    cor_status=$(echo "$correlation" | jq -r '.status' 2>/dev/null || echo "unknown")
+    cor_created=$(echo "$correlation" | jq '.result.created // .created' 2>/dev/null || echo "0")
+    cor_pairs=$(echo "$correlation" | jq '.result.pairsEvaluated // .pairsEvaluated' 2>/dev/null || echo "0")
+    log_info "Correlation ($cor_status): created=$cor_created, pairsEvaluated=$cor_pairs"
   fi
 
   if [[ "$staging" != "null" ]]; then
-    stg_staged=$(echo "$staging" | jq '.threadsStaged' 2>/dev/null || echo "0")
-    stg_batch=$(echo "$staging" | jq -r '.batchId' 2>/dev/null || echo "null")
-    log_info "Staging: threadsStaged=$stg_staged, batchId=$stg_batch"
+    stg_status=$(echo "$staging" | jq -r '.status' 2>/dev/null || echo "unknown")
+    stg_staged=$(echo "$staging" | jq '.result.threadsStaged // .threadsStaged' 2>/dev/null || echo "0")
+    stg_batch=$(echo "$staging" | jq -r '.result.batchId // .batchId' 2>/dev/null || echo "null")
+    log_info "Staging ($stg_status): threadsStaged=$stg_staged, batchId=$stg_batch"
   fi
 else
   log_fail "POST /admin/pipeline/run → $status"
-  if [[ "$VERBOSE" == "true" ]]; then
-    log_info "Response: $(extract_body "$response")"
-  fi
+  log_info "Error: $(extract_body "$response" | jq -r '.message // .' 2>/dev/null)"
 fi
 
 echo ""
@@ -385,6 +499,118 @@ if [[ "$status" == "200" ]]; then
   log_info "Workstreams: $ws_count"
 else
   log_fail "GET /admin/roster/workstreams → $status"
+fi
+
+echo ""
+
+# ─── Step 7b: Silence Override Delete Endpoint ─────────────────────────────────
+
+echo "─── Step 7b: Silence Override Delete Endpoint ───"
+
+thresholds_response=$(api_get "/admin/silence/thresholds")
+thresholds_status=$(extract_status "$thresholds_response")
+thresholds_body=$(extract_body "$thresholds_response")
+
+if [[ "$thresholds_status" == "200" ]]; then
+  global_days=$(echo "$thresholds_body" | jq -r '.data.global.thresholdDays // 3' 2>/dev/null)
+  candidate_workstream_id=$(echo "$thresholds_body" | jq -r '.data.overrides[0].workstreamId // empty' 2>/dev/null)
+
+  if [[ -z "$candidate_workstream_id" ]]; then
+    ws_response=$(api_get "/admin/roster/workstreams")
+    ws_status=$(extract_status "$ws_response")
+    ws_body=$(extract_body "$ws_response")
+    if [[ "$ws_status" == "200" ]]; then
+      candidate_workstream_id=$(echo "$ws_body" | jq -r '.data[0].id // empty' 2>/dev/null)
+    fi
+  fi
+
+  if [[ -n "$candidate_workstream_id" ]]; then
+    temp_days=$((global_days + 1))
+    if (( temp_days > 30 )); then
+      temp_days=30
+    fi
+
+    create_body="{\"workstreamId\":\"${candidate_workstream_id}\",\"thresholdDays\":${temp_days}}"
+    create_response=$(api_put "/admin/silence/thresholds/workstream" "$create_body")
+    create_status=$(extract_status "$create_response")
+    if [[ "$create_status" == "200" ]]; then
+      log_pass "PUT /admin/silence/thresholds/workstream (temp override) → 200"
+
+      delete_response=$(api_delete "/admin/silence/thresholds/workstream/${candidate_workstream_id}")
+      delete_status=$(extract_status "$delete_response")
+      if [[ "$delete_status" == "204" ]]; then
+        log_pass "DELETE /admin/silence/thresholds/workstream/:id → 204"
+      else
+        log_fail "DELETE /admin/silence/thresholds/workstream/:id → $delete_status"
+      fi
+    else
+      log_fail "PUT /admin/silence/thresholds/workstream (temp override) → $create_status"
+      log_info "Body sent: $create_body"
+      log_info "Error: $(extract_body "$create_response" | jq -r '.message // .' 2>/dev/null)"
+    fi
+  else
+    log_skip "DELETE /admin/silence/thresholds/workstream/:id (no workstream id available)"
+  fi
+else
+  log_fail "GET /admin/silence/thresholds → $thresholds_status"
+fi
+
+echo ""
+
+# ─── Step 7c: Silence Alert Endpoints ──────────────────────────────────────────
+
+echo "─── Step 7c: Silence Alert Endpoints ───"
+
+response=$(api_get "/silence/alerts")
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" ]]; then
+  log_pass "GET /silence/alerts → 200"
+
+  if echo "$body" | jq -e '.data.alerts' > /dev/null 2>&1; then
+    log_pass "Response has data.alerts array"
+    alert_count=$(echo "$body" | jq '.data.alerts | length' 2>/dev/null || echo "0")
+    log_info "Active silence alerts: $alert_count"
+
+    if [[ "$alert_count" -gt 0 ]]; then
+      first_alert_id=$(echo "$body" | jq -r '.data.alerts[0].id' 2>/dev/null)
+      first_topic=$(echo "$body" | jq -r '.data.alerts[0].topicName' 2>/dev/null)
+      log_info "First alert: [$first_alert_id] $first_topic"
+
+      dismiss_response=$(api_patch "/silence/alerts/${first_alert_id}/dismiss" "{}")
+      dismiss_status=$(extract_status "$dismiss_response")
+      dismiss_body=$(extract_body "$dismiss_response")
+
+      if [[ "$dismiss_status" == "200" ]]; then
+        log_pass "PATCH /silence/alerts/:id/dismiss → 200"
+
+        dismissed_status=$(echo "$dismiss_body" | jq -r '.data.status' 2>/dev/null)
+        if [[ "$dismissed_status" == "dismissed" ]]; then
+          log_pass "Alert status returned as 'dismissed'"
+        else
+          log_fail "Expected status 'dismissed', got '$dismissed_status'"
+        fi
+
+        verify_response=$(api_get "/silence/alerts")
+        verify_body=$(extract_body "$verify_response")
+        still_present=$(echo "$verify_body" | jq --arg id "$first_alert_id" '[.data.alerts[] | select(.id == $id)] | length' 2>/dev/null || echo "1")
+        if [[ "$still_present" == "0" ]]; then
+          log_pass "Dismissed alert no longer in active alerts list"
+        else
+          log_fail "Dismissed alert still present in active alerts list"
+        fi
+      else
+        log_fail "PATCH /silence/alerts/:id/dismiss → $dismiss_status"
+      fi
+    else
+      log_info "No active alerts to dismiss (silence detection may not have run)"
+    fi
+  else
+    log_fail "Response missing data.alerts array"
+  fi
+else
+  log_fail "GET /silence/alerts → $status"
 fi
 
 echo ""
@@ -427,6 +653,7 @@ if [[ "$status" == "200" ]]; then
             log_pass "Approved staging item ${item_id:0:8}..."
           else
             log_fail "Failed to approve staging item ${item_id:0:8}... → $review_status"
+            log_info "Error: $(extract_body "$review_resp" | jq -r '.message // .' 2>/dev/null)"
           fi
         done
       fi
@@ -438,6 +665,7 @@ if [[ "$status" == "200" ]]; then
   fi
 else
   log_fail "GET /admin/staging → $status"
+  log_info "Error: $(extract_body "$response" | jq -r '.message // .' 2>/dev/null)"
 fi
 
 echo ""
@@ -516,11 +744,124 @@ fi
 
 echo ""
 
-# ─── Step 11: UI Verification Summary ───────────────────────────────────────────
+# ─── Step 11: Search API (Epic 6) ────────────────────────────────────────────────
 
-echo "─── Step 11: UI Verification ───"
+echo "─── Step 11: Search API (Epic 6 — Search & Discovery) ───"
 
-response=$(curl -sk -o /dev/null -w "%{http_code}" "$WEB_URL" 2>&1) || true
+search_body='{"query": "Keycloak authentication"}'
+
+response=$(curl -sk -w "\n%{http_code}" \
+  --max-time 120 \
+  -X POST \
+  -H "$(auth_header)" \
+  -H "Content-Type: application/json" \
+  -d "$search_body" \
+  "${BASE_URL}/search" 2>/dev/null) || true
+
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" ]]; then
+  log_pass "POST /search → 200"
+
+  result_count=$(echo "$body" | jq '.data.results | length' 2>/dev/null || echo "0")
+  search_time=$(echo "$body" | jq '.data.meta.searchTimeMs' 2>/dev/null || echo "?")
+  returned_query=$(echo "$body" | jq -r '.data.meta.query' 2>/dev/null || echo "")
+
+  log_info "Results: $result_count, Search time: ${search_time}ms"
+
+  if echo "$body" | jq -e '.data.results' > /dev/null 2>&1; then
+    log_pass "Response has 'data.results' array"
+  else
+    log_fail "Response missing 'data.results' — expected { data: { results: [], meta: {} } }"
+  fi
+
+  if echo "$body" | jq -e '.data.meta.total != null and .data.meta.query != null and .data.meta.searchTimeMs != null' > /dev/null 2>&1; then
+    log_pass "Response meta has total, query, searchTimeMs"
+  else
+    log_fail "Response meta incomplete — expected total, query, searchTimeMs"
+  fi
+
+  if [[ "$result_count" -gt 0 ]]; then
+    log_pass "Search returned results for 'Keycloak authentication'"
+
+    first_headline=$(echo "$body" | jq -r '.data.results[0].threadHeadline' 2>/dev/null || echo "")
+    first_match=$(echo "$body" | jq -r '.data.results[0].matchType' 2>/dev/null || echo "")
+    first_score=$(echo "$body" | jq '.data.results[0].relevanceScore' 2>/dev/null || echo "0")
+    log_info "Top result: [$first_match] $first_headline (score: $first_score)"
+
+    if echo "$body" | jq -e '.data.results[0] | has("threadId", "threadHeadline", "relevanceScore", "matchType")' > /dev/null 2>&1; then
+      log_pass "Result item has required fields (threadId, threadHeadline, relevanceScore, matchType)"
+    else
+      log_fail "Result item missing required fields"
+    fi
+  else
+    log_info "No results for keyword search (threads may not be approved yet — not a failure)"
+  fi
+else
+  log_fail "POST /search → $status (expected 200)"
+  if [[ "$VERBOSE" == "true" ]]; then
+    log_info "Response: $(extract_body "$response")"
+  fi
+fi
+
+echo ""
+
+search_empty_body='{"query": "xyznonexistentquerythatmatchesnothing99"}'
+
+response=$(curl -sk -w "\n%{http_code}" \
+  --max-time 120 \
+  -X POST \
+  -H "$(auth_header)" \
+  -H "Content-Type: application/json" \
+  -d "$search_empty_body" \
+  "${BASE_URL}/search" 2>/dev/null) || true
+
+status=$(extract_status "$response")
+body=$(extract_body "$response")
+
+if [[ "$status" == "200" ]]; then
+  log_pass "POST /search (no-match query) → 200"
+  empty_count=$(echo "$body" | jq '.data.results | length' 2>/dev/null || echo "-1")
+
+  if [[ "$empty_count" == "0" ]]; then
+    log_pass "No-match query returns empty results array"
+
+    if echo "$body" | jq -e '.data.suggestions | length > 0' > /dev/null 2>&1; then
+      log_pass "No-match response includes suggestions"
+    else
+      log_info "No suggestions in empty response (optional)"
+    fi
+  else
+    log_info "No-match query returned $empty_count results (unexpected but not fatal)"
+  fi
+else
+  log_fail "POST /search (no-match query) → $status"
+fi
+
+echo ""
+
+anon_response=$(curl -sk -w "\n%{http_code}" \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"query": "test"}' \
+  "${BASE_URL}/search" 2>/dev/null) || true
+
+anon_status=$(extract_status "$anon_response")
+
+if [[ "$anon_status" == "401" ]]; then
+  log_pass "POST /search (anonymous) → 401 Unauthorized"
+else
+  log_fail "POST /search (anonymous) → $anon_status (expected 401)"
+fi
+
+echo ""
+
+# ─── Step 12: UI Verification Summary ───────────────────────────────────────────
+
+echo "─── Step 12: UI Verification ───"
+
+response=$(curl -sk -o /dev/null -w "%{http_code}" "$WEB_URL" 2>/dev/null) || true
 
 if [[ "$response" == "200" ]]; then
   log_pass "Web UI reachable at $WEB_URL"
@@ -530,19 +871,26 @@ fi
 
 echo ""
 echo "  ┌────────────────────────────────────────────────────────┐"
-echo "  │  Open in browser to verify briefing display:          │"
+echo "  │  Open in browser to verify:                           │"
 echo "  │                                                        │"
 echo "  │  ${WEB_URL}/briefings                                  │"
+echo "  │  ${WEB_URL}/search                                     │"
 echo "  │                                                        │"
 echo "  │  Login: ${KC_USER} / ${KC_PASS}                        │"
 echo "  │                                                        │"
-echo "  │  Verify:                                               │"
+echo "  │  Briefings:                                            │"
 echo "  │   • Briefing cards render with headlines & summaries   │"
 echo "  │   • Role-based layout matches user role                │"
 echo "  │   • Freshness timestamp shows today's date             │"
 echo "  │   • Workstream filter works (Feed layout)              │"
 echo "  │   • Slack deep links point to correct threads          │"
 echo "  │   • Item type badges display (cross_workstream, etc.)  │"
+echo "  │                                                        │"
+echo "  │  Search:                                               │"
+echo "  │   • Search input accepts query and returns results     │"
+echo "  │   • Result cards show headline, summary, match type    │"
+echo "  │   • Empty query shows helpful empty state              │"
+echo "  │   • Search works against imported test data            │"
 echo "  └────────────────────────────────────────────────────────┘"
 
 echo ""

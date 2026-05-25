@@ -45,7 +45,7 @@ function section(title: string) {
 
 async function main() {
   console.log('\n🔍 Story 6.3 — Search API E2E Validation');
-  console.log(`   Database: ${DATABASE_URL.replace(/:[^@]+@/, ':***@')}`);
+  console.log(`   Database: ${DATABASE_URL!.replace(/:[^@]+@/, ':***@')}`);
 
   // ── Section 1: Corpus inspection ──────────────────────────────────────────
   section('1. Search corpus inspection (approved threads)');

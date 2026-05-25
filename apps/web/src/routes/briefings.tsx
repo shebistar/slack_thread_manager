@@ -3,11 +3,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { getLayoutVariant } from '@/lib/role-layout.js';
 import { useTodayBriefing, useMarkItemRead } from '@/hooks/use-briefings.js';
 import type { BriefingWithItems, BriefingItem } from '@/hooks/use-briefings.js';
+import { useSilenceAlerts } from '@/hooks/use-silence.js';
 import { StatsBar } from '@/components/stats-bar/stats-bar.js';
 import { BriefingCard } from '@/components/briefing-card/briefing-card.js';
 import { WorkstreamFilter } from '@/components/workstream-filter/workstream-filter.js';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card.js';
 import { Skeleton } from '@/components/ui/skeleton.js';
+import { SilenceMonitor } from '@/components/silence-monitor/silence-monitor.js';
 import type { UserRole } from '@slack-thread-manager/shared';
 
 export const Route = createFileRoute('/briefings')({
@@ -37,14 +39,21 @@ function BriefingsPage() {
 const ITEM_TYPE_PRIORITY: Record<string, number> = {
   cross_workstream: 0,
   orphaned_action: 1,
+  gone_quiet: 1.5,
   standard: 2,
-  gone_quiet: 3,
 };
 
 function FeedLayout() {
   const { data, isLoading, isError, error } = useTodayBriefing();
+  const { data: silenceAlerts } = useSilenceAlerts();
   const [selectedWorkstream, setSelectedWorkstream] = useState<string | null>(null);
   const markItemRead = useMarkItemRead();
+
+  const alertsByThreadId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of silenceAlerts?.alerts ?? []) m.set(a.threadId, a.silenceDays);
+    return m;
+  }, [silenceAlerts?.alerts]);
 
   const workstreams = useMemo(() => {
     if (!data?.items) return [];
@@ -117,6 +126,7 @@ function FeedLayout() {
                 {featuredItem && (
                   <FeedFeaturedCard
                     item={featuredItem}
+                    silenceDays={alertsByThreadId.get(featuredItem.threadId) ?? null}
                     isRead={(data.readItemIds ?? []).includes(featuredItem.id)}
                     onExpandChange={() => markItemRead.mutate(featuredItem.id)}
                   />
@@ -136,6 +146,7 @@ function FeedLayout() {
                       latestActivityAt={item.latestActivityAt}
                       isRead={(data.readItemIds ?? []).includes(item.id)}
                       onExpandChange={() => markItemRead.mutate(item.id)}
+                      silenceDays={alertsByThreadId.get(item.threadId) ?? null}
                     />
                   ))}
                 </div>
@@ -170,7 +181,7 @@ function FeedHeader({ data, isLoading }: { data: BriefingWithItems | null | unde
   );
 }
 
-function FeedFeaturedCard({ item, isRead, onExpandChange }: { item: BriefingItem; isRead?: boolean; onExpandChange?: () => void }) {
+function FeedFeaturedCard({ item, silenceDays, isRead, onExpandChange }: { item: BriefingItem; silenceDays?: number | null; isRead?: boolean; onExpandChange?: () => void }) {
   return (
     <div className="border-l-[3px] border-l-[--color-brand-red] rounded-lg">
       <BriefingCard
@@ -185,6 +196,7 @@ function FeedFeaturedCard({ item, isRead, onExpandChange }: { item: BriefingItem
         latestActivityAt={item.latestActivityAt}
         isRead={isRead}
         onExpandChange={onExpandChange ? () => onExpandChange() : undefined}
+        silenceDays={silenceDays}
       />
     </div>
   );
@@ -227,9 +239,16 @@ function FeedSkeleton() {
 
 function SplitPanelLayout() {
   const { data, isLoading, isError, error } = useTodayBriefing();
+  const { data: silenceAlerts } = useSilenceAlerts();
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [sidePanelOpen, setSidePanelOpen] = useState(true);
   const markItemRead = useMarkItemRead();
+
+  const alertsByThreadId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of silenceAlerts?.alerts ?? []) m.set(a.threadId, a.silenceDays);
+    return m;
+  }, [silenceAlerts?.alerts]);
 
   const sortedItems = useMemo(() => {
     if (!data?.items) return [];
@@ -312,6 +331,7 @@ function SplitPanelLayout() {
                     setSelectedItemId(isDeselect ? null : item.id);
                     if (!isDeselect) markItemRead.mutate(item.id);
                   }}
+                  silenceDays={alertsByThreadId.get(item.threadId) ?? null}
                 />
               ))
             )}
@@ -544,11 +564,6 @@ function DashboardPanels({ data }: { data: BriefingWithItems }) {
     [items],
   );
 
-  const quietItems = useMemo(
-    () => items.filter((i) => i.itemType === 'gone_quiet'),
-    [items],
-  );
-
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6 mt-6">
       <div className="space-y-6">
@@ -611,31 +626,7 @@ function DashboardPanels({ data }: { data: BriefingWithItems }) {
 
       <div className="space-y-6">
         <section aria-labelledby="silence-monitor-heading">
-          <Card>
-            <div className="bg-[--color-yellow-10] border-b border-[--color-gray-20] px-4 py-3">
-              <h2 id="silence-monitor-heading" className="text-[13px] font-medium text-[--color-gray-95]">Silence Monitor</h2>
-            </div>
-            <CardContent className="p-4">
-              {quietItems.length === 0 ? (
-                <p className="text-sm text-[--color-gray-50]">No silent threads detected</p>
-              ) : (
-                <div className="space-y-2">
-                  {quietItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-[--color-yellow-10] border-l-[3px] border-l-[--color-yellow-30] rounded-r-md p-3"
-                    >
-                      <h4 className="text-[13px] font-medium text-[--color-gray-95]">{item.headline}</h4>
-                      <p className="text-xs text-[--color-gray-50] mt-1">
-                        {item.participantCount != null && `${item.participantCount} participants`}
-                        {item.latestActivityAt && ` · Last activity ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(item.latestActivityAt))}`}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <SilenceMonitor />
         </section>
       </div>
     </div>

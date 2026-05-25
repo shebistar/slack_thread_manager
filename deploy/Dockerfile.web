@@ -6,7 +6,7 @@ RUN corepack enable pnpm
 WORKDIR /app
 
 # Copy dependency manifests first for layer caching
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.json CHANGELOG.md ./
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 COPY packages/config/package.json packages/config/

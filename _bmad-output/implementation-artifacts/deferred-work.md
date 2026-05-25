@@ -137,3 +137,7 @@ Formally accepted as not-now. Each item has a documented trigger condition for w
 
 - `approveAllClean` can overcount approvals under concurrent callers because row-count from guarded `status='pending'` update is not checked before incrementing `approvedCount` (`apps/api/src/modules/admin/staging/staging.service.ts`).
 - `classified_topics.thread_id` is non-unique, so duplicate `threadId` hits are possible in FTS results unless future schema/query constraints are introduced (`packages/db/src/schema/topics.ts`).
+
+## Deferred from: code review of 7-2-workday-aware-threshold-logic (2026-05-15)
+
+- AC7 automated E2E test for text-paste import parity not present in diff. Manual E2E validation was performed and documented in completion notes. Automated E2E tests remain deferred per project context ("E2E / integration tests | After stable UI | deprioritized").

@@ -62,6 +62,8 @@ metadata:
   labels:
     app.kubernetes.io/name: stm-web
     app.kubernetes.io/part-of: slack-thread-manager
+  annotations:
+    haproxy.router.openshift.io/timeout: 15m
 spec:
   host: stm-web-slack-thread-manager.apps.ocp4.shebi.eu
   to:

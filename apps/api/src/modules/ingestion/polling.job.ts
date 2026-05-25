@@ -6,6 +6,7 @@ import type { Database } from '@slack-thread-manager/db';
 import { slackChannels } from '@slack-thread-manager/db';
 import { IngestionService } from './ingestion.service.js';
 import { SlackClientService } from '../slack/slack-client.service.js';
+import { SilenceService } from '../silence/silence.service.js';
 
 const DEFAULT_CRON = '0 */4 * * *';
 
@@ -19,6 +20,7 @@ export class PollingJob {
     @Inject(DATABASE_TOKEN) private readonly db: Database,
     private readonly ingestionService: IngestionService,
     private readonly slackClient: SlackClientService,
+    private readonly silenceService: SilenceService,
   ) {}
 
   getLastBatchRun(): Date | null {
@@ -150,6 +152,14 @@ export class PollingJob {
     const durationMs = Date.now() - startTime;
     this.lastBatchRun = new Date();
     this.lastBatchStatus = hasAnyFailure ? 'failed' : 'success';
+
+    try {
+      const silenceSummary = await this.silenceService.runDetection();
+      this.logger.log('Silence detection complete after ingestion batch', silenceSummary);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Silence detection failed after ingestion batch', { error: msg });
+    }
 
     this.logger.log('Batch polling complete', { ...summary, durationMs });
   }

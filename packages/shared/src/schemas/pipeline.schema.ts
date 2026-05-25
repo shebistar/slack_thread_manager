@@ -9,11 +9,20 @@ export const classificationResultSchema = z.object({
 
 export type ClassificationResult = z.infer<typeof classificationResultSchema>;
 
+const coerceToString = z.preprocess((val) => {
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object' && val !== null) {
+    const obj = val as Record<string, unknown>;
+    return obj.text ?? obj.description ?? obj.action ?? JSON.stringify(val);
+  }
+  return String(val);
+}, z.string());
+
 export const summarySchema = z.object({
   headline: z.string().min(1),
   body: z.string().min(1),
-  key_decisions: z.array(z.string()),
-  action_items: z.array(z.string()),
+  key_decisions: z.array(coerceToString),
+  action_items: z.array(coerceToString),
 });
 
 export const summarizationResultSchema = z.object({

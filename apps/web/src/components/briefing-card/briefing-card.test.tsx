@@ -214,6 +214,71 @@ describe('BriefingCard', () => {
     });
   });
 
+  describe('gone_quiet / silence badge', () => {
+    it('shows "Quiet for N days" badge when silenceDays is provided with gone_quiet itemType', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Silent topic"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="gone_quiet"
+          variant="standard"
+          summaryText="Summary."
+          silenceDays={5}
+        />,
+      );
+      expect(screen.getByText('Quiet for 5 days')).toBeInTheDocument();
+      const card = container.firstChild as HTMLElement;
+      expect(card.className).toContain('border-l-[--color-yellow-30]');
+    });
+
+    it('uses singular "day" when silenceDays is 1', () => {
+      render(
+        <BriefingCard
+          headline="Silent topic"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="gone_quiet"
+          variant="standard"
+          summaryText="Summary."
+          silenceDays={1}
+        />,
+      );
+      expect(screen.getByText('Quiet for 1 day')).toBeInTheDocument();
+    });
+
+    it('falls back to "Gone Quiet" badge when gone_quiet itemType has no silenceDays', () => {
+      render(
+        <BriefingCard
+          headline="Static quiet topic"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="gone_quiet"
+          variant="standard"
+          summaryText="Summary."
+        />,
+      );
+      expect(screen.getByText('Gone Quiet')).toBeInTheDocument();
+    });
+
+    it('shows flagged-quiet state and badge for non-gone_quiet item when silenceDays is provided', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Standard item gone quiet"
+          workstreamName="Engineering"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          silenceDays={3}
+        />,
+      );
+      expect(screen.getByText('Quiet for 3 days')).toBeInTheDocument();
+      const card = container.firstChild as HTMLElement;
+      expect(card.className).toContain('border-l-[--color-yellow-30]');
+    });
+  });
+
   it('renders featured variant as standard variant', () => {
     render(
       <BriefingCard

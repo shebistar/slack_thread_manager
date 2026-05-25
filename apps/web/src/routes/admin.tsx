@@ -40,6 +40,7 @@ import {
   useDeleteBlocklistEntry,
 } from '@/hooks/use-blocklist.js';
 import { ImportForm } from '@/components/admin/import-form.js';
+import { SilenceThresholdsTabContent } from '@/components/silence/silence-thresholds.js';
 import type {
   RosterMember,
   StagingQueueFilter,
@@ -73,6 +74,7 @@ function AdminPage() {
           <TabsTrigger value="channels">Channels</TabsTrigger>
           <TabsTrigger value="staging">Staging</TabsTrigger>
           <TabsTrigger value="blocklist">Blocklist</TabsTrigger>
+          <TabsTrigger value="silence">Silence</TabsTrigger>
           <TabsTrigger value="import">Import History</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
         </TabsList>
@@ -87,6 +89,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="blocklist" className="mt-6">
           <BlocklistTabContent />
+        </TabsContent>
+        <TabsContent value="silence" className="mt-6">
+          <SilenceThresholdsTabContent />
         </TabsContent>
         <TabsContent value="import" className="mt-6">
           <ImportForm />

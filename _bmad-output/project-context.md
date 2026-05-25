@@ -249,7 +249,7 @@ All environment variables are validated on startup via Zod in `apps/api/src/conf
 | ~~`useWorkstreams()` error swallowed~~ | ~~Deferred triage~~ | done (2026-05-12) |
 | E2E / integration tests | After stable UI | deprioritized |
 | Swagger / OpenAPI decorators | When API is externally consumed | deprioritized |
-| pgvector HNSW index | Story 6.2 | pending |
+| ~~pgvector HNSW index~~ | ~~Story 6.2~~ | done (verified in Story 6.2) |
 | LLM prompt injection hardening | Dedicated story | pending (CREATE STORY) |
 | Route-level tests for briefing layouts | Dedicated story | pending (CREATE STORY) |
 | `embed()` fallback to Gemini (primary-only by design) | When embedding pipeline is production-critical | deprioritized |
@@ -258,3 +258,32 @@ All environment variables are validated on startup via Zod in `apps/api/src/conf
 | Gemini safety block distinction (blocked vs. failed) | When prompt safety monitoring is added | deprioritized |
 
 Do NOT implement deprioritized items early — they have deliberate ordering and documented trigger conditions in `deferred-work.md`.
+
+---
+
+## Epic Completion Gate (A15)
+
+No `dev-story` implementation on the next epic may begin until ALL of the following gates are green for the current epic:
+
+1. All stories are `done` (code reviewed, tests green, E2E validated)
+2. `deploy/test-pipeline.sh` updated with steps covering new endpoints/features from the epic
+3. `deploy.sh` runs successfully on OpenShift with no failures
+4. `deploy/test-pipeline.sh` passes on the deployed version — full chain green
+5. Epic retrospective completed — retro document produced, action items assigned
+6. Sprint status updated — epic status set to `done`, retrospective set to `done`
+7. Critical-path prep items from retro completed
+
+Story files for the next epic may be created as planning artifacts, but no code implementation begins until gates are green.
+
+## Deploy Quality Gates (A16, A17)
+
+### Pre-Deploy Check (A17)
+
+`deploy/pre-deploy-check.sh` must pass before `deploy.sh` runs:
+- `pnpm install --frozen-lockfile` — lockfile integrity
+- `pnpm test` — full unit test suite green
+- `pnpm build` — TypeScript compilation succeeds for API and web
+
+### Smoke Test Coverage (A16)
+
+Every new API endpoint added by a story must have a corresponding verification step in `deploy/test-pipeline.sh`. This is part of the story implementation, not follow-up work. The smoke test must cover features from **every** completed epic.

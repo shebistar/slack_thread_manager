@@ -18,6 +18,7 @@ interface BriefingCardProps {
   onSelect?: () => void;
   isRead?: boolean;
   onExpandChange?: (expanded: boolean) => void;
+  silenceDays?: number | null;
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -46,6 +47,7 @@ export function BriefingCard({
   onSelect,
   isRead,
   onExpandChange,
+  silenceDays,
 }: BriefingCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isSelectable = !!onSelect;
@@ -53,7 +55,7 @@ export function BriefingCard({
   if (variant === 'standard' || variant === 'featured') {
     const isOrphaned = itemType === 'orphaned_action';
     const isCrossWorkstream = itemType === 'cross_workstream';
-    const isQuiet = itemType === 'gone_quiet';
+    const isQuiet = itemType === 'gone_quiet' || silenceDays != null;
 
     const showUnreadBorder = !isRead && !isQuiet && !isOrphaned;
     const showReadOpacity = isRead && !selected;
@@ -106,6 +108,7 @@ export function BriefingCard({
                 isCrossWorkstream={isCrossWorkstream}
                 isOrphaned={isOrphaned}
                 isQuiet={isQuiet}
+                silenceDays={silenceDays}
                 isNew={!isRead}
                 showChevron
                 expanded={expanded}
@@ -121,6 +124,7 @@ export function BriefingCard({
               isCrossWorkstream={isCrossWorkstream}
               isOrphaned={isOrphaned}
               isQuiet={isQuiet}
+              silenceDays={silenceDays}
               isNew={!isRead}
               showChevron={false}
               expanded={false}
@@ -206,6 +210,7 @@ function StandardCardHeader({
   isCrossWorkstream,
   isOrphaned,
   isQuiet,
+  silenceDays,
   isNew,
   showChevron,
   expanded,
@@ -218,6 +223,7 @@ function StandardCardHeader({
   isCrossWorkstream: boolean;
   isOrphaned: boolean;
   isQuiet: boolean;
+  silenceDays?: number | null;
   isNew?: boolean;
   showChevron: boolean;
   expanded: boolean;
@@ -256,7 +262,7 @@ function StandardCardHeader({
         )}
         {isQuiet && (
           <Badge className="bg-[--color-yellow-10] text-[--color-yellow-70] text-[10px] px-1.5 py-0">
-            Gone Quiet
+            {silenceDays != null ? `Quiet for ${silenceDays} day${silenceDays !== 1 ? 's' : ''}` : 'Gone Quiet'}
           </Badge>
         )}
         {!isCrossWorkstream && !isOrphaned && !isQuiet && isNew && (

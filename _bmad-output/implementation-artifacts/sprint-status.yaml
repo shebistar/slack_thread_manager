@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-05-14T16:27:00+02:00
+last_updated: 2026-05-20T18:10:00+02:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -93,25 +93,25 @@ development_status:
   epic-5-retrospective: done
 
   # Epic 6: Search & Discovery
-  epic-6: in-progress
+  epic-6: done
   6-1-full-text-search-infrastructure: done
   6-2-semantic-search-with-pgvector: done
   6-3-search-api-and-query-processing: done
   6-4-search-frontend-interface: done
-  epic-6-retrospective: optional
+  epic-6-retrospective: done
 
   # Epic 7: Silence Detection & Monitoring
-  epic-7: backlog
-  7-1-silence-detection-engine: backlog
-  7-2-workday-aware-threshold-logic: backlog
-  7-3-admin-silence-threshold-configuration: backlog
-  7-4-silence-monitor-dashboard-component: backlog
-  7-5-gone-quiet-badges-on-briefing-cards: backlog
-  epic-7-retrospective: optional
+  epic-7: done
+  7-1-silence-detection-engine: done
+  7-2-workday-aware-threshold-logic: done
+  7-3-admin-silence-threshold-configuration: done
+  7-4-silence-monitor-dashboard-component: done
+  7-5-gone-quiet-badges-on-briefing-cards: done
+  epic-7-retrospective: done
 
   # Epic 8: AI Enrichment & Consultant Onboarding
-  epic-8: backlog
-  8-1-enrichment-service-and-source-integration: backlog
+  epic-8: in-progress
+  8-1-enrichment-service-and-source-integration: ready-for-dev
   8-2-enrichment-panel-frontend: backlog
   8-3-backfill-briefing-generation-for-new-consultants: backlog
   8-4-backfill-section-frontend-display: backlog

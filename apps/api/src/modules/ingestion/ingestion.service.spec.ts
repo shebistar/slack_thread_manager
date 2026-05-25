@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { DATABASE_TOKEN } from '../../database/database.module.js';
 import { IngestionService } from './ingestion.service.js';
 import { SlackClientService } from '../slack/slack-client.service.js';
+import { SilenceService } from '../silence/silence.service.js';
 
 function createMockSlackClient() {
   return {
@@ -90,15 +91,20 @@ describe('IngestionService', () => {
   let service: IngestionService;
   let slackClient: ReturnType<typeof createMockSlackClient>;
   let db: ReturnType<typeof createMockDb>;
+  let silenceService: { resolveAlertsForThreads: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     slackClient = createMockSlackClient();
     db = createMockDb();
+    silenceService = {
+      resolveAlertsForThreads: vi.fn().mockResolvedValue(0),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
         IngestionService,
         { provide: SlackClientService, useValue: slackClient },
+        { provide: SilenceService, useValue: silenceService },
         { provide: DATABASE_TOKEN, useValue: db },
         {
           provide: ConfigService,
@@ -142,6 +148,7 @@ describe('IngestionService', () => {
         providers: [
           IngestionService,
           { provide: SlackClientService, useValue: slackClient },
+          { provide: SilenceService, useValue: silenceService },
           { provide: DATABASE_TOKEN, useValue: db },
           {
             provide: ConfigService,
@@ -443,7 +450,9 @@ describe('IngestionService', () => {
       expect(result.threadsChecked).toBe(1);
       expect(result.threadsUpdated).toBe(1);
       expect(result.errors).toBe(0);
+      expect(result.updatedThreadIds).toEqual(['thread-uuid-1']);
       expect(db.transaction).toHaveBeenCalled();
+      expect(silenceService.resolveAlertsForThreads).toHaveBeenCalledWith(['thread-uuid-1']);
     });
 
     it('should skip threads with unchanged latestReplyTs (no ingestThread call)', async () => {
@@ -471,7 +480,9 @@ describe('IngestionService', () => {
       expect(result.threadsChecked).toBe(1);
       expect(result.threadsUpdated).toBe(0);
       expect(result.errors).toBe(0);
+      expect(result.updatedThreadIds).toEqual([]);
       expect(db.transaction).not.toHaveBeenCalled();
+      expect(silenceService.resolveAlertsForThreads).toHaveBeenCalledWith([]);
     });
 
     it('should isolate errors per thread and continue processing remaining threads', async () => {
@@ -502,6 +513,8 @@ describe('IngestionService', () => {
       expect(result.errors).toBe(1);
       expect(result.threadsChecked).toBe(1);
       expect(result.threadsUpdated).toBe(0);
+      expect(result.updatedThreadIds).toEqual([]);
+      expect(silenceService.resolveAlertsForThreads).toHaveBeenCalledWith([]);
     });
   });
 });

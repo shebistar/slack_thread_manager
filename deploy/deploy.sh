@@ -17,6 +17,39 @@ echo "Web image: ${WEB_IMAGE}"
 echo "API image: ${API_IMAGE}"
 echo ""
 
+# ---------- Pre-deploy quality gate ----------
+echo "--- Pre-deploy quality gate ---"
+
+if [[ -x "${SCRIPT_DIR}/pre-deploy-check.sh" ]]; then
+  "${SCRIPT_DIR}/pre-deploy-check.sh"
+else
+  echo "WARN: deploy/pre-deploy-check.sh not found or not executable — running inline checks"
+  echo ""
+  echo "--- Checking lockfile integrity ---"
+  (cd "${REPO_ROOT}" && pnpm install --frozen-lockfile) || {
+    echo "ERROR: Lockfile out of sync. Run 'pnpm install' and commit pnpm-lock.yaml."
+    exit 1
+  }
+
+  echo ""
+  echo "--- Running full test suite ---"
+  (cd "${REPO_ROOT}" && pnpm test) || {
+    echo "ERROR: Tests failed. Fix failing tests before deploying."
+    exit 1
+  }
+
+  echo ""
+  echo "--- Building all packages ---"
+  (cd "${REPO_ROOT}" && pnpm build) || {
+    echo "ERROR: Build failed. Fix TypeScript compilation errors before deploying."
+    exit 1
+  }
+fi
+
+echo ""
+echo "--- Pre-deploy checks passed ---"
+echo ""
+
 # ---------- Registry login ----------
 echo "--- Logging into OpenShift internal registry ---"
 podman login -u unused -p "$(oc whoami -t)" --tls-verify=false "${EXTERNAL_REGISTRY}"
