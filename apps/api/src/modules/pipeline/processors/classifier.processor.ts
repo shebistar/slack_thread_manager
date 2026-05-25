@@ -157,7 +157,7 @@ export class ClassifierProcessor {
 
   private stripMarkdownFences(content: string): string {
     const trimmed = content.trim();
-    const fenceMatch = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/);
+    const fenceMatch = trimmed.match(/```(?:json)?\s*\n([\s\S]*?)\n```/);
     return fenceMatch ? fenceMatch[1].trim() : trimmed;
   }
 

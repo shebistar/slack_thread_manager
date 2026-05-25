@@ -35,7 +35,7 @@ function extractTextContent(content: {
 
 function stripMarkdownFences(content: string): string {
   const trimmed = content.trim();
-  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
+  const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
   return fenceMatch ? fenceMatch[1].trim() : trimmed;
 }
 

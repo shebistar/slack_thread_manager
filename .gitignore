@@ -27,6 +27,7 @@ Thumbs.db
 # Testing
 coverage/
 test-data/
+!deploy/test-data/parse-slack-export.py
 
 # Build info
 *.tsbuildinfo

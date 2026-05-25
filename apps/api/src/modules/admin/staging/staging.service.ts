@@ -350,6 +350,12 @@ export class StagingService {
 
     const batchMap = new Map<string, BatchSummary>();
 
+    const toISO = (val: unknown): string => {
+      if (val instanceof Date) return val.toISOString();
+      if (val) return new Date(val as string).toISOString();
+      return new Date().toISOString();
+    };
+
     for (const row of batches) {
       if (!row.batchId) continue;
 
@@ -360,7 +366,7 @@ export class StagingService {
           pending: 0,
           approved: 0,
           rejected: 0,
-          createdAt: row.minCreatedAt.toISOString(),
+          createdAt: toISO(row.minCreatedAt),
         });
       }
 
@@ -370,8 +376,9 @@ export class StagingService {
       if (row.status === 'approved') summary.approved = row.cnt;
       if (row.status === 'rejected') summary.rejected = row.cnt;
 
-      if (row.minCreatedAt.toISOString() < summary.createdAt) {
-        summary.createdAt = row.minCreatedAt.toISOString();
+      const rowCreatedAt = toISO(row.minCreatedAt);
+      if (rowCreatedAt < summary.createdAt) {
+        summary.createdAt = rowCreatedAt;
       }
     }
 

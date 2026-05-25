@@ -2,11 +2,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { StagingController } from './staging.controller.js';
 import { StagingService } from './staging.service.js';
+import { DATABASE_TOKEN } from '../../../database/database.module.js';
 import { ROLES_KEY } from '../../auth/decorators/roles.decorator.js';
 
 const mockStagingId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const mockBatchId = 'b1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const mockReviewerId = 'c1b2c3d4-e5f6-7890-abcd-ef1234567890';
+const mockInternalUserId = 'd1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
 const mockListResult = {
   items: [
@@ -43,6 +45,14 @@ describe('StagingController', () => {
   let controller: StagingController;
   let stagingService: StagingService;
 
+  const mockDbChain = () => {
+    const chain: Record<string, unknown> = {};
+    chain.select = vi.fn().mockReturnValue(chain);
+    chain.from = vi.fn().mockReturnValue(chain);
+    chain.where = vi.fn().mockResolvedValue([{ id: mockInternalUserId }]);
+    return chain;
+  };
+
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [StagingController],
@@ -55,6 +65,10 @@ describe('StagingController', () => {
             approveAllClean: vi.fn().mockResolvedValue(mockApproveAllResult),
             getBatchProgress: vi.fn().mockResolvedValue(mockBatchProgress),
           },
+        },
+        {
+          provide: DATABASE_TOKEN,
+          useValue: mockDbChain(),
         },
       ],
     }).compile();
@@ -92,7 +106,7 @@ describe('StagingController', () => {
       expect(stagingService.reviewItem).toHaveBeenCalledWith(
         mockStagingId,
         'approve',
-        mockReviewerId,
+        mockInternalUserId,
       );
     });
 
@@ -102,7 +116,7 @@ describe('StagingController', () => {
       expect(stagingService.reviewItem).toHaveBeenCalledWith(
         mockStagingId,
         'reject',
-        mockReviewerId,
+        mockInternalUserId,
       );
     });
   });
@@ -112,7 +126,7 @@ describe('StagingController', () => {
       const req = { user: { sub: mockReviewerId, email: 'a@b.c', name: 'Admin', role: 'ADMIN' as const } };
       const result = await controller.approveAllClean({}, req);
       expect(result).toEqual({ data: mockApproveAllResult });
-      expect(stagingService.approveAllClean).toHaveBeenCalledWith({}, mockReviewerId);
+      expect(stagingService.approveAllClean).toHaveBeenCalledWith({}, mockInternalUserId);
     });
   });
 

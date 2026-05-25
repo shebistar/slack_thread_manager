@@ -51,60 +51,65 @@ auth_header() {
 api_get() {
   local path="$1"
   local response
-  response=$(curl -skf -w "\n%{http_code}" \
+  response=$(curl -sk -w "\n%{http_code}" \
     -H "$(auth_header)" \
     -H "Content-Type: application/json" \
-    "${BASE_URL}${path}" 2>&1) || true
+    "${BASE_URL}${path}" 2>/dev/null) || true
   echo "$response"
 }
 
 api_post() {
   local path="$1"
-  local body="${2:-{}}"
+  local body="$2"
+  [[ -z "$body" ]] && body='{}'
   local response
-  response=$(curl -skf -w "\n%{http_code}" \
+  response=$(curl -sk -w "\n%{http_code}" \
+    --max-time 120 \
     -X POST \
     -H "$(auth_header)" \
     -H "Content-Type: application/json" \
     -d "$body" \
-    "${BASE_URL}${path}" 2>&1) || true
+    "${BASE_URL}${path}" 2>/dev/null) || true
   echo "$response"
 }
 
 api_put() {
   local path="$1"
-  local body="${2:-{}}"
+  local body="$2"
+  [[ -z "$body" ]] && body='{}'
   local response
-  response=$(curl -skf -w "\n%{http_code}" \
+  response=$(curl -sk -w "\n%{http_code}" \
     -X PUT \
     -H "$(auth_header)" \
     -H "Content-Type: application/json" \
     -d "$body" \
-    "${BASE_URL}${path}" 2>&1) || true
+    "${BASE_URL}${path}" 2>/dev/null) || true
   echo "$response"
 }
 
 api_delete() {
   local path="$1"
   local response
-  response=$(curl -skf -w "\n%{http_code}" \
+  response=$(curl -sk -w "\n%{http_code}" \
     -X DELETE \
     -H "$(auth_header)" \
     -H "Content-Type: application/json" \
-    "${BASE_URL}${path}" 2>&1) || true
+    "${BASE_URL}${path}" 2>/dev/null) || true
   echo "$response"
 }
 
 api_patch() {
   local path="$1"
-  local body="${2:-{}}"
+  local body="$2"
+  [[ -z "$body" ]] && body='{}'
   local response
-  response=$(curl -skf -w "\n%{http_code}" \
+  response=$(curl -sk -w "\n%{http_code}" \
+    --max-time 120 \
     -X PATCH \
     -H "$(auth_header)" \
     -H "Content-Type: application/json" \
     -d "$body" \
-    "${BASE_URL}${path}" 2>&1) || true
+    "${BASE_URL}${path}" 2>/dev/null) || true
   echo "$response"
 }
 
@@ -153,7 +158,7 @@ TOKEN=$(echo "$KC_RESPONSE" | jq -r '.access_token // empty' 2>/dev/null)
 
 if [[ -n "$TOKEN" && "$TOKEN" != "null" ]]; then
   log_pass "Keycloak login → JWT obtained for user $KC_USER"
-  KC_ROLE=$(echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq -r '.role // "unknown"' 2>/dev/null)
+  KC_ROLE=$(echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq -r '.role // "unknown"' 2>/dev/null) || true
   log_info "Token role: $KC_ROLE"
 else
   KC_ERROR=$(echo "$KC_RESPONSE" | jq -r '.error_description // .error // "unknown error"' 2>/dev/null)
@@ -161,6 +166,24 @@ else
   echo ""
   echo "  Check Keycloak realm/client/user configuration."
   echo "  Realm: $KC_REALM | Client: $KC_CLIENT | User: $KC_USER"
+  exit 1
+fi
+
+echo ""
+
+# ─── Step 0c: JSON Body Diagnostic ─────────────────────────────────────────────
+
+echo "─── Step 0c: JSON Body Sanity Check ───"
+
+diag_response=$(api_put "/admin/silence/thresholds/global" '{"thresholdDays":3}')
+diag_status=$(extract_status "$diag_response")
+
+if [[ "$diag_status" == "200" ]]; then
+  log_pass "api_put JSON body → 200"
+else
+  log_fail "api_put JSON body → $diag_status"
+  log_info "Error: $(extract_body "$diag_response" | jq -r '.message // .' 2>/dev/null)"
+  echo "  FATAL: Body corruption detected. Aborting."
   exit 1
 fi
 
@@ -239,6 +262,8 @@ if [[ "$status" == "200" ]]; then
       log_pass "PUT /admin/silence/thresholds/global → 200"
     else
       log_fail "PUT /admin/silence/thresholds/global → $status"
+      log_info "Body sent: $put_body"
+      log_info "Error: $(extract_body "$response" | jq -r '.message // .' 2>/dev/null)"
     fi
   else
     log_fail "Threshold payload missing data.global.thresholdDays"
@@ -378,9 +403,7 @@ else
     log_info "Threads stored: $threads_stored"
   else
     log_fail "POST /admin/channels/${CHANNEL_ID}/import → $status"
-    if [[ "$VERBOSE" == "true" ]]; then
-      log_info "Response: $(extract_body "$response")"
-    fi
+    log_info "Error: $(extract_body "$response" | jq -r '.message // .' 2>/dev/null)"
   fi
 fi
 
@@ -389,8 +412,14 @@ echo ""
 # ─── Step 6: Run Pipeline ───────────────────────────────────────────────────────
 
 echo "─── Step 6: Run Pipeline (classify → summarize → embed → correlate → anonymize → stage) ───"
+echo "  → Running pipeline (LLM processing — may take several minutes)..."
 
-response=$(api_post "/admin/pipeline/run" "")
+response=$(curl -sk -w "\n%{http_code}" \
+  --max-time 600 \
+  -X POST \
+  -H "$(auth_header)" \
+  -H "Content-Type: application/json" \
+  "${BASE_URL}/admin/pipeline/run" 2>/dev/null) || true
 status=$(extract_status "$response")
 body=$(extract_body "$response")
 
@@ -404,39 +433,42 @@ if [[ "$status" == "200" || "$status" == "201" ]]; then
   staging=$(echo "$body" | jq '.data.staging' 2>/dev/null)
 
   if [[ "$classification" != "null" ]]; then
-    c_processed=$(echo "$classification" | jq '.processed' 2>/dev/null || echo "0")
-    c_failed=$(echo "$classification" | jq '.failed' 2>/dev/null || echo "0")
-    log_info "Classification: processed=$c_processed, failed=$c_failed"
+    c_status=$(echo "$classification" | jq -r '.status' 2>/dev/null || echo "unknown")
+    c_processed=$(echo "$classification" | jq '.result.processed // .processed' 2>/dev/null || echo "0")
+    c_failed=$(echo "$classification" | jq '.result.failed // .failed' 2>/dev/null || echo "0")
+    log_info "Classification ($c_status): processed=$c_processed, failed=$c_failed"
   fi
 
   if [[ "$summarization" != "null" ]]; then
-    s_processed=$(echo "$summarization" | jq '.processed' 2>/dev/null || echo "0")
-    s_failed=$(echo "$summarization" | jq '.failed' 2>/dev/null || echo "0")
-    log_info "Summarization: processed=$s_processed, failed=$s_failed"
+    s_status=$(echo "$summarization" | jq -r '.status' 2>/dev/null || echo "unknown")
+    s_processed=$(echo "$summarization" | jq '.result.processed // .processed' 2>/dev/null || echo "0")
+    s_failed=$(echo "$summarization" | jq '.result.failed // .failed' 2>/dev/null || echo "0")
+    log_info "Summarization ($s_status): processed=$s_processed, failed=$s_failed"
   fi
 
   if [[ "$embedding" != "null" ]]; then
-    e_processed=$(echo "$embedding" | jq '.processed' 2>/dev/null || echo "0")
-    e_failed=$(echo "$embedding" | jq '.failed' 2>/dev/null || echo "0")
-    log_info "Embedding: processed=$e_processed, failed=$e_failed"
+    e_status=$(echo "$embedding" | jq -r '.status' 2>/dev/null || echo "unknown")
+    e_processed=$(echo "$embedding" | jq '.result.processed // .processed' 2>/dev/null || echo "0")
+    e_failed=$(echo "$embedding" | jq '.result.failed // .failed' 2>/dev/null || echo "0")
+    log_info "Embedding ($e_status): processed=$e_processed, failed=$e_failed"
   fi
 
   if [[ "$correlation" != "null" ]]; then
-    cor_created=$(echo "$correlation" | jq '.created' 2>/dev/null || echo "0")
-    cor_pairs=$(echo "$correlation" | jq '.pairsEvaluated' 2>/dev/null || echo "0")
-    log_info "Correlation: created=$cor_created, pairsEvaluated=$cor_pairs"
+    cor_status=$(echo "$correlation" | jq -r '.status' 2>/dev/null || echo "unknown")
+    cor_created=$(echo "$correlation" | jq '.result.created // .created' 2>/dev/null || echo "0")
+    cor_pairs=$(echo "$correlation" | jq '.result.pairsEvaluated // .pairsEvaluated' 2>/dev/null || echo "0")
+    log_info "Correlation ($cor_status): created=$cor_created, pairsEvaluated=$cor_pairs"
   fi
 
   if [[ "$staging" != "null" ]]; then
-    stg_staged=$(echo "$staging" | jq '.threadsStaged' 2>/dev/null || echo "0")
-    stg_batch=$(echo "$staging" | jq -r '.batchId' 2>/dev/null || echo "null")
-    log_info "Staging: threadsStaged=$stg_staged, batchId=$stg_batch"
+    stg_status=$(echo "$staging" | jq -r '.status' 2>/dev/null || echo "unknown")
+    stg_staged=$(echo "$staging" | jq '.result.threadsStaged // .threadsStaged' 2>/dev/null || echo "0")
+    stg_batch=$(echo "$staging" | jq -r '.result.batchId // .batchId' 2>/dev/null || echo "null")
+    log_info "Staging ($stg_status): threadsStaged=$stg_staged, batchId=$stg_batch"
   fi
 else
   log_fail "POST /admin/pipeline/run → $status"
-  if [[ "$VERBOSE" == "true" ]]; then
-    log_info "Response: $(extract_body "$response")"
-  fi
+  log_info "Error: $(extract_body "$response" | jq -r '.message // .' 2>/dev/null)"
 fi
 
 echo ""
@@ -513,6 +545,8 @@ if [[ "$thresholds_status" == "200" ]]; then
       fi
     else
       log_fail "PUT /admin/silence/thresholds/workstream (temp override) → $create_status"
+      log_info "Body sent: $create_body"
+      log_info "Error: $(extract_body "$create_response" | jq -r '.message // .' 2>/dev/null)"
     fi
   else
     log_skip "DELETE /admin/silence/thresholds/workstream/:id (no workstream id available)"
@@ -619,6 +653,7 @@ if [[ "$status" == "200" ]]; then
             log_pass "Approved staging item ${item_id:0:8}..."
           else
             log_fail "Failed to approve staging item ${item_id:0:8}... → $review_status"
+            log_info "Error: $(extract_body "$review_resp" | jq -r '.message // .' 2>/dev/null)"
           fi
         done
       fi
@@ -630,6 +665,7 @@ if [[ "$status" == "200" ]]; then
   fi
 else
   log_fail "GET /admin/staging → $status"
+  log_info "Error: $(extract_body "$response" | jq -r '.message // .' 2>/dev/null)"
 fi
 
 echo ""
@@ -714,12 +750,13 @@ echo "─── Step 11: Search API (Epic 6 — Search & Discovery) ───"
 
 search_body='{"query": "Keycloak authentication"}'
 
-response=$(curl -skf -w "\n%{http_code}" \
+response=$(curl -sk -w "\n%{http_code}" \
+  --max-time 120 \
   -X POST \
   -H "$(auth_header)" \
   -H "Content-Type: application/json" \
   -d "$search_body" \
-  "${BASE_URL}/search" 2>&1) || true
+  "${BASE_URL}/search" 2>/dev/null) || true
 
 status=$(extract_status "$response")
 body=$(extract_body "$response")
@@ -772,12 +809,13 @@ echo ""
 
 search_empty_body='{"query": "xyznonexistentquerythatmatchesnothing99"}'
 
-response=$(curl -skf -w "\n%{http_code}" \
+response=$(curl -sk -w "\n%{http_code}" \
+  --max-time 120 \
   -X POST \
   -H "$(auth_header)" \
   -H "Content-Type: application/json" \
   -d "$search_empty_body" \
-  "${BASE_URL}/search" 2>&1) || true
+  "${BASE_URL}/search" 2>/dev/null) || true
 
 status=$(extract_status "$response")
 body=$(extract_body "$response")
@@ -807,7 +845,7 @@ anon_response=$(curl -sk -w "\n%{http_code}" \
   -X POST \
   -H "Content-Type: application/json" \
   -d '{"query": "test"}' \
-  "${BASE_URL}/search" 2>&1) || true
+  "${BASE_URL}/search" 2>/dev/null) || true
 
 anon_status=$(extract_status "$anon_response")
 
@@ -823,7 +861,7 @@ echo ""
 
 echo "─── Step 12: UI Verification ───"
 
-response=$(curl -sk -o /dev/null -w "%{http_code}" "$WEB_URL" 2>&1) || true
+response=$(curl -sk -o /dev/null -w "%{http_code}" "$WEB_URL" 2>/dev/null) || true
 
 if [[ "$response" == "200" ]]; then
   log_pass "Web UI reachable at $WEB_URL"

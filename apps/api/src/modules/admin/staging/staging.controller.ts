@@ -4,12 +4,15 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
   Query,
   Req,
 } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
 import { Roles } from '../../auth/decorators/roles.decorator.js';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe.js';
 import {
@@ -23,12 +26,34 @@ import type {
   ApproveAllCleanRequest,
   AuthenticatedUser,
 } from '@slack-thread-manager/shared';
+import { DATABASE_TOKEN } from '../../../database/database.module.js';
+import type { Database } from '@slack-thread-manager/db';
+import { users } from '@slack-thread-manager/db';
 import { StagingService } from './staging.service.js';
 
 @Controller('admin/staging')
 @Roles('ADMIN')
 export class StagingController {
-  constructor(private readonly stagingService: StagingService) {}
+  private readonly logger = new Logger(StagingController.name);
+
+  constructor(
+    private readonly stagingService: StagingService,
+    @Inject(DATABASE_TOKEN) private readonly db: Database,
+  ) {}
+
+  private async resolveInternalUserId(user: AuthenticatedUser): Promise<string> {
+    const [row] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, user.email));
+
+    if (row) return row.id;
+
+    this.logger.warn(
+      `No internal user found for ${user.email} (sub=${user.sub}), falling back to sub`,
+    );
+    return user.sub;
+  }
 
   @Get()
   async list(
@@ -45,7 +70,8 @@ export class StagingController {
     @Body(new ZodValidationPipe(reviewStagingItemSchema)) body: ReviewStagingItem,
     @Req() req: { user: AuthenticatedUser },
   ) {
-    const result = await this.stagingService.reviewItem(id, body.action, req.user.sub);
+    const reviewerId = await this.resolveInternalUserId(req.user);
+    const result = await this.stagingService.reviewItem(id, body.action, reviewerId);
     return { data: result };
   }
 
@@ -55,7 +81,8 @@ export class StagingController {
     @Body(new ZodValidationPipe(approveAllCleanRequestSchema)) body: ApproveAllCleanRequest,
     @Req() req: { user: AuthenticatedUser },
   ) {
-    const result = await this.stagingService.approveAllClean(body, req.user.sub);
+    const reviewerId = await this.resolveInternalUserId(req.user);
+    const result = await this.stagingService.approveAllClean(body, reviewerId);
     return { data: result };
   }
 

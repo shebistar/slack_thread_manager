@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-05-25
+
+### Fixed
+
+- **Staging Approval FK Violation:** `StagingController` was passing the Keycloak JWT `sub` (external UUID) as `reviewedBy`, but `staging_queue.reviewed_by` has a foreign key to the internal `users` table. Added `resolveInternalUserId()` to look up the roster user by email, fixing both individual `POST /:id/review` (500 errors) and `POST /approve-all-clean` (silently approving 0 items).
+- **Staging `toISOString` TypeError:** `buildBatchSummary` in `StagingService` called `.toISOString()` on SQL aggregate results that could be `null` or strings. Added a `toISO()` helper with safe type coercion.
+- **LLM Markdown Fence Stripping:** Classifier, Summarizer, and LLM Entity Detector processors used a regex that required code fences at the exact start/end of the response. Small LLMs (e.g., phi3:mini) append extra text after the closing fence. Removed `^`/`$` anchors so JSON is extracted from between fences regardless of surrounding content.
+- **LLM Summary Schema Coercion:** `summarySchema` in `pipeline.schema.ts` now uses a `coerceToString` Zod preprocessor for `key_decisions` and `action_items`, handling cases where LLMs return objects instead of strings.
+- **Body Parser 413 Limit:** Disabled NestJS default body parser (`bodyParser: false`) and registered Express `json({ limit: '10mb' })` explicitly. Added `client_max_body_size 10m` to the nginx API proxy location. Large Slack imports no longer return 413.
+- **OpenShift HAProxy Timeout:** Added `haproxy.router.openshift.io/timeout: 15m` annotation to the `stm-web` route, preventing long-running requests (pipeline, search) from being terminated at 30 seconds.
+
+### Changed
+
+- **Smoke Test Metric Paths:** `test-pipeline.sh` Step 6 now reads pipeline metrics from `.result.processed` (the API wraps each stage in a `{ status, durationMs, result }` envelope). Stage status is also displayed.
+- **Smoke Test Error Logging:** Individual staging approval failures now log the API error body for easier debugging.
+
+### Added
+
+- **Slack Export Parser:** `deploy/test-data/parse-slack-export.py` — converts raw Slack channel copy-paste exports into the STM import JSON format. Groups messages into threads by `[topic]` tags, generates stable user IDs, and supports batch splitting for large imports.
+
 ## [0.10.0] - 2026-05-20
 
 ### Added
