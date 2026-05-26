@@ -5,6 +5,7 @@ import { useTodayBriefing, useMarkItemRead } from '@/hooks/use-briefings.js';
 import type { BriefingWithItems, BriefingItem } from '@/hooks/use-briefings.js';
 import { useSilenceAlerts } from '@/hooks/use-silence.js';
 import { StatsBar } from '@/components/stats-bar/stats-bar.js';
+import { EnrichmentPanel } from '@/components/enrichment-panel/enrichment-panel.js';
 import { BriefingCard } from '@/components/briefing-card/briefing-card.js';
 import { WorkstreamFilter } from '@/components/workstream-filter/workstream-filter.js';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card.js';
@@ -337,10 +338,10 @@ function SplitPanelLayout() {
             )}
           </div>
 
-          <SidePanel
+          <EnrichmentPanel
+            threadId={selectedItemId ? (sortedItems.find((i) => i.id === selectedItemId)?.threadId ?? null) : null}
             isOpen={sidePanelOpen}
             onToggle={() => setSidePanelOpen((prev) => !prev)}
-            hasSelection={selectedItemId !== null}
           />
         </div>
       ) : null}
@@ -362,91 +363,6 @@ function SplitPanelTopBar() {
   );
 }
 
-function SidePanel({
-  isOpen,
-  onToggle,
-  hasSelection,
-}: {
-  isOpen: boolean;
-  onToggle: () => void;
-  hasSelection: boolean;
-}) {
-  return (
-    <div
-      className={`shrink-0 transition-[width] duration-200 ease-out motion-reduce:transition-none xl:relative ${
-        isOpen ? 'xl:w-[360px]' : 'xl:w-[40px]'
-      }`}
-    >
-      <div className={`bg-[--color-blue-10] rounded-lg border border-[--color-gray-20] ${isOpen ? '' : 'xl:h-full'}`}>
-        <div className="hidden xl:flex items-center justify-end p-1">
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={isOpen}
-            aria-label="Toggle side panel"
-            className="p-1 rounded hover:bg-[--color-gray-20] focus-visible:ring-2 focus-visible:ring-[--color-blue-50] focus-visible:outline-none"
-          >
-            <svg
-              className={`w-5 h-5 text-[--color-gray-50] transition-transform duration-200 ease-out motion-reduce:transition-none ${isOpen ? '' : 'rotate-180'}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden="true"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-        </div>
-
-        <div className={`p-4 pt-0 xl:pt-0 ${isOpen ? '' : 'xl:hidden'}`}>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="px-2 py-0.5 bg-[--color-teal-50] text-white rounded text-[10px] font-medium">
-                AI-Assisted
-              </span>
-              <h4 className="text-sm font-medium text-[--color-gray-95]">Related Context</h4>
-            </div>
-
-            {hasSelection ? (
-              <div className="space-y-5">
-                <div>
-                  <h5 className="text-xs uppercase tracking-wide text-[--color-gray-50] mb-2">Documentation</h5>
-                  <div className="bg-white rounded-md p-3 text-center">
-                    <p className="text-xs text-[--color-gray-50]">
-                      Proactive documentation links will appear here — Epic 8
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <h5 className="text-xs uppercase tracking-wide text-[--color-gray-50] mb-2">Knowledge Base</h5>
-                  <div className="bg-white rounded-md p-3 text-center">
-                    <p className="text-xs text-[--color-gray-50]">
-                      Related knowledge base entries will appear here — Epic 8
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <h5 className="text-xs uppercase tracking-wide text-[--color-gray-50] mb-2">Similar Past Discussions</h5>
-                  <div className="bg-white rounded-md p-3 text-center">
-                    <p className="text-xs text-[--color-gray-50]">
-                      Correlated threads will appear here — Epic 8
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <span className="text-2xl" aria-hidden="true">←</span>
-                <p className="text-sm text-[--color-gray-50] mt-2">
-                  Select a topic card to see related context
-                </p>
-              </div>
-            )}
-          </div>
-      </div>
-    </div>
-  );
-}
 
 function SplitPanelSkeleton() {
   return (
