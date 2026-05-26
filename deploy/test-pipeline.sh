@@ -4,8 +4,9 @@
 # Full chain: oc login → Keycloak auth → health → channels → import → pipeline
 #             → staging → briefings → search → UI verification.
 #
-# Coverage: Epics 1-7 (foundation, ingestion, pipeline, anonymization,
-#           briefings, search & discovery, silence detection & monitoring).
+# Coverage: Epics 1-8 (foundation, ingestion, pipeline, anonymization,
+#           briefings, search & discovery, silence detection & monitoring,
+#           AI enrichment).
 #
 # Usage:
 #   ./deploy/test-pipeline.sh
@@ -792,6 +793,7 @@ if [[ "$status" == "200" ]]; then
 
     if echo "$body" | jq -e '.data.results[0] | has("threadId", "threadHeadline", "relevanceScore", "matchType")' > /dev/null 2>&1; then
       log_pass "Result item has required fields (threadId, threadHeadline, relevanceScore, matchType)"
+      THREAD_ID=$(echo "$body" | jq -r '.data.results[0].threadId' 2>/dev/null || echo "")
     else
       log_fail "Result item missing required fields"
     fi
@@ -853,6 +855,51 @@ if [[ "$anon_status" == "401" ]]; then
   log_pass "POST /search (anonymous) → 401 Unauthorized"
 else
   log_fail "POST /search (anonymous) → $anon_status (expected 401)"
+fi
+
+echo ""
+
+# ─── Step 11b: Enrichment API (Epic 8) ─────────────────────────────────────────
+
+echo "─── Step 11b: Enrichment API (Epic 8 — AI Enrichment) ───"
+
+if [[ -n "$THREAD_ID" ]]; then
+  response=$(api_get "/enrichment/${THREAD_ID}")
+  status=$(extract_status "$response")
+  body=$(extract_body "$response")
+
+  if [[ "$status" == "200" ]]; then
+    log_pass "GET /enrichment/:threadId → 200"
+    sections=$(echo "$body" | jq -r '.data.sections' 2>/dev/null)
+    if [[ "$sections" != "null" ]]; then
+      log_pass "Response contains data.sections array"
+    else
+      log_fail "Response missing data.sections array"
+    fi
+    meta_thread=$(echo "$body" | jq -r '.data.meta.threadId // empty' 2>/dev/null)
+    if [[ -n "$meta_thread" ]]; then
+      log_pass "Response contains data.meta.threadId"
+    else
+      log_fail "Response missing data.meta.threadId"
+    fi
+  else
+    log_fail "GET /enrichment/:threadId → $status"
+  fi
+else
+  log_skip "Enrichment endpoint test skipped — no THREAD_ID available"
+fi
+
+echo ""
+
+enrichment_anon_response=$(curl -sk -w "\n%{http_code}" \
+  "${BASE_URL}/enrichment/00000000-0000-0000-0000-000000000000" 2>/dev/null) || true
+
+enrichment_anon_status=$(extract_status "$enrichment_anon_response")
+
+if [[ "$enrichment_anon_status" == "401" ]]; then
+  log_pass "GET /enrichment/:threadId (anonymous) → 401 Unauthorized"
+else
+  log_fail "GET /enrichment/:threadId (anonymous) → $enrichment_anon_status (expected 401)"
 fi
 
 echo ""

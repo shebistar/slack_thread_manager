@@ -15,6 +15,10 @@ export const llmConfigSchema = z.object({
   SEMANTIC_SEARCH_SIMILARITY_THRESHOLD: z.coerce.number().min(0).max(1).optional(),
   SEARCH_FTS_WEIGHT: z.coerce.number().min(0).max(1).optional().default(0.4),
   SEARCH_SEMANTIC_WEIGHT: z.coerce.number().min(0).max(1).optional().default(0.6),
+  ENRICHMENT_NOTEBOOKLM_URL: z.string().url().optional(),
+  ENRICHMENT_OPENSHIFT_DOCS_URL: z.string().url().optional(),
+  ENRICHMENT_SOURCE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30_000).optional().default(5000),
+  ENRICHMENT_MAX_SIMILAR_RESULTS: z.coerce.number().int().min(1).max(20).optional().default(5),
 });
 
 export type LlmConfig = z.infer<typeof llmConfigSchema>;
