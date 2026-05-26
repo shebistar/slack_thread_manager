@@ -882,6 +882,17 @@ if [[ -n "$THREAD_ID" ]]; then
     else
       log_fail "Response missing data.meta.threadId"
     fi
+    meta_queried=$(echo "$body" | jq -r '.data.meta.queriedAt // empty' 2>/dev/null)
+    if [[ -n "$meta_queried" ]]; then
+      log_pass "Response contains data.meta.queriedAt"
+    else
+      log_fail "Response missing data.meta.queriedAt"
+    fi
+    if echo "$body" | jq -e '.data.meta | has("sourcesAvailable", "sourcesSucceeded")' > /dev/null 2>&1; then
+      log_pass "Response contains data.meta.sourcesAvailable and sourcesSucceeded"
+    else
+      log_fail "Response missing data.meta.sourcesAvailable or sourcesSucceeded"
+    fi
   else
     log_fail "GET /enrichment/:threadId → $status"
   fi

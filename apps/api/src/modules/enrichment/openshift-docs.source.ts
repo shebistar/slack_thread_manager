@@ -17,22 +17,20 @@ export class OpenShiftDocsSource implements EnrichmentSource {
   }
 
   async query(_threadId: string, context: SourceQueryContext): Promise<EnrichmentSourceResult> {
-    const searchTerm = context.primaryTopic ?? context.summary ?? '';
+    const searchTerm = (context.primaryTopic ?? context.summary ?? '').trim();
     if (!searchTerm) {
       return { sections: [] };
     }
 
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), this.timeout);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeout);
 
+    try {
       const encodedQuery = encodeURIComponent(searchTerm);
       const response = await fetch(
         `${this.baseUrl}/search?q=${encodedQuery}&format=json&limit=5`,
         { signal: controller.signal },
       );
-
-      clearTimeout(timer);
 
       if (!response.ok) {
         this.logger.warn('OpenShift docs search returned non-OK status', { status: response.status });
@@ -41,13 +39,15 @@ export class OpenShiftDocsSource implements EnrichmentSource {
 
       const data = await response.json() as { results?: Array<{ title: string; excerpt: string; url: string; relevance?: number }> };
 
-      const sections: EnrichmentSection[] = (data.results ?? []).map((item, idx) => ({
-        title: item.title,
-        description: item.excerpt,
-        sourceUrl: item.url.startsWith('http') ? item.url : `${this.baseUrl}${item.url}`,
-        sourceType: 'OPENSHIFT_DOCS' as const,
-        relevanceScore: item.relevance ?? Math.max(0.5, 1 - idx * 0.1),
-      }));
+      const sections: EnrichmentSection[] = (data.results ?? [])
+        .filter((item) => item.url && item.title)
+        .map((item, idx) => ({
+          title: item.title,
+          description: item.excerpt ?? '',
+          sourceUrl: item.url.startsWith('http') ? item.url : `${this.baseUrl}${item.url}`,
+          sourceType: 'OPENSHIFT_DOCS' as const,
+          relevanceScore: Math.max(0, Math.min(1, item.relevance ?? Math.max(0.5, 1 - idx * 0.1))),
+        }));
 
       this.logger.debug('OpenShift docs query completed', { resultCount: sections.length });
       return { sections };
@@ -58,6 +58,8 @@ export class OpenShiftDocsSource implements EnrichmentSource {
         this.logger.warn('OpenShift docs source failed', { error: err instanceof Error ? err.message : String(err) });
       }
       return { sections: [] };
+    } finally {
+      clearTimeout(timer);
     }
   }
 }

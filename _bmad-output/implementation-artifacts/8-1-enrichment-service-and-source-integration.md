@@ -1,6 +1,6 @@
 # Story 8.1: Enrichment Service & Source Integration
 
-Status: review
+Status: done
 
 ## Story
 
@@ -255,6 +255,33 @@ None.
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (MODIFIED)
 - `_bmad-output/implementation-artifacts/8-1-enrichment-service-and-source-integration.md` (MODIFIED)
 
+### Review Findings
+
+- [x] [Review][Decision] `sourcesSucceeded` semantics — resolved: now counts fulfilled promises (any source that didn't throw)
+- [x] [Review][Patch] AbortController timer not cleared on all paths — fixed: try/finally pattern [notebooklm.source.ts, openshift-docs.source.ts]
+- [x] [Review][Patch] External source JSON mapped without validation — fixed: clamp relevanceScore, filter invalid items [notebooklm.source.ts, openshift-docs.source.ts]
+- [x] [Review][Patch] Multiple classified_topics rows non-deterministic — fixed: added orderBy(desc(createdAt)) [enrichment.service.ts]
+- [x] [Review][Patch] Empty/failure responses cached for entire UTC day — fixed: skip cache when sourcesSucceeded === 0 [enrichment.service.ts]
+- [x] [Review][Patch] Slack permalink only removes first dot — fixed: replaceAll [similar-discussions.source.ts]
+- [x] [Review][Patch] Search terms not trimmed — fixed: .trim() in all source query methods
+- [x] [Review][Patch] No similar-discussions.source.spec.ts — fixed: created with 8 tests [similar-discussions.source.spec.ts]
+- [x] [Review][Patch] Smoke test incomplete for AC5 meta — fixed: added queriedAt, sourcesAvailable, sourcesSucceeded checks [deploy/test-pipeline.sh]
+- [x] [Review][Defer] Unbounded in-memory cache growth (no LRU/max size) — deferred, operational scaling concern
+- [x] [Review][Defer] Concurrent requests duplicate expensive work (no singleflight) — deferred, optimization
+- [x] [Review][Defer] No limit on HTTP response body size from external sources — deferred, trust boundary
+- [x] [Review][Defer] invalidate() never wired to pipeline/topic updates — deferred, requires pipeline hook
+- [x] [Review][Defer] Embedding dimension not validated before SQL — deferred, existing pattern
+- [x] [Review][Defer] buildQueryContext drops plainSummary.body (uses only headline) — deferred, low impact
+- [x] [Review][Defer] CORRELATION_SIMILARITY_THRESHOLD shared config key — deferred, documented shared usage
+- [x] [Review][Defer] No authenticated ARCHITECT/CONSULTANT E2E — deferred, infrastructure gap
+- [x] [Review][Defer] Ingestion-source neutrality not asserted in automated tests — deferred, documented in completion notes
+- [x] [Review][Defer] ZodValidationPipe not wired (ParseUUIDPipe equivalent) — deferred, acceptable deviation
+- [x] [Review][Defer] Cache key omits topic signature (spec Task 5 deviation) — deferred, simplification trade-off
+- [x] [Review][Defer] OpenShift relative URL construction edge cases — deferred, low real-world risk
+- [x] [Review][Defer] 403 Forbidden not in automated smoke test — deferred, verified manually
+- [x] [Review][Defer] Long search terms not truncated before embed/POST — deferred, low priority
+
 ### Change Log
 
 - 2026-05-26: Story 8.1 implemented — enrichment service with 3 source adapters, same-day cache, RBAC, shared schemas, comprehensive tests, smoke test update, and E2E validation
+- 2026-05-26: Code review completed — 1 decision, 8 patches, 13 deferred, 8 dismissed

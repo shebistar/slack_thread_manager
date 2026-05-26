@@ -25,7 +25,7 @@ export class SimilarDiscussionsSource implements EnrichmentSource {
   }
 
   async query(threadId: string, context: SourceQueryContext): Promise<EnrichmentSourceResult> {
-    const searchText = context.primaryTopic ?? context.summary ?? '';
+    const searchText = (context.primaryTopic ?? context.summary ?? '').trim();
     if (!searchText) {
       return { sections: [] };
     }
@@ -69,7 +69,7 @@ export class SimilarDiscussionsSource implements EnrichmentSource {
 
       const sections: EnrichmentSection[] = rows.rows.map((row) => {
         const teamId = configuredTeamId ?? row.slack_team_id;
-        const tsForUrl = row.thread_ts.replace('.', '');
+        const tsForUrl = row.thread_ts.replaceAll('.', '');
         const permalink = `https://app.slack.com/client/${teamId}/${row.channel_slack_id}/thread/${row.channel_slack_id}-${tsForUrl}`;
 
         const summary = this.extractSnippet(row.plain_summary);

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { DATABASE_TOKEN } from '../../database/database.module.js';
 import type { Database } from '@slack-thread-manager/db';
 import { classifiedTopics } from '@slack-thread-manager/db';
@@ -41,9 +41,7 @@ export class EnrichmentService {
 
       if (result.status === 'fulfilled') {
         sections.push(...result.value.sections);
-        if (result.value.sections.length > 0) {
-          sourcesSucceeded++;
-        }
+        sourcesSucceeded++;
       } else {
         this.logger.warn('Enrichment source failed', {
           source: source.name,
@@ -62,7 +60,9 @@ export class EnrichmentService {
       },
     };
 
-    this.cacheService.set(threadId, response);
+    if (sourcesSucceeded > 0) {
+      this.cacheService.set(threadId, response);
+    }
 
     return response;
   }
@@ -76,6 +76,7 @@ export class EnrichmentService {
         })
         .from(classifiedTopics)
         .where(eq(classifiedTopics.threadId, threadId))
+        .orderBy(desc(classifiedTopics.createdAt))
         .limit(1);
 
       if (!topic) {

@@ -23,6 +23,7 @@ describe('EnrichmentService', () => {
     select: vi.fn().mockReturnThis(),
     from: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
     limit: vi.fn().mockResolvedValue([
       { primaryTopic: 'OpenShift networking', plainSummary: 'Discussion about SDN' },
     ]),
@@ -74,7 +75,7 @@ describe('EnrichmentService', () => {
     expect(result.sections[0]!.sourceType).toBe('OPENSHIFT_DOCS');
     expect(result.sections[1]!.sourceType).toBe('NOTEBOOKLM');
     expect(result.meta.sourcesAvailable).toBe(3);
-    expect(result.meta.sourcesSucceeded).toBe(2);
+    expect(result.meta.sourcesSucceeded).toBe(3);
   });
 
   it('returns valid empty payload when all sources return empty', async () => {
@@ -84,7 +85,7 @@ describe('EnrichmentService', () => {
     const result = await service.getEnrichment('11111111-1111-1111-1111-111111111111');
 
     expect(result.sections).toEqual([]);
-    expect(result.meta.sourcesSucceeded).toBe(0);
+    expect(result.meta.sourcesSucceeded).toBe(3);
     expect(result.meta.sourcesAvailable).toBe(3);
   });
 
@@ -95,7 +96,7 @@ describe('EnrichmentService', () => {
 
     expect(result.sections).toHaveLength(1);
     expect(result.sections[0]!.sourceType).toBe('OPENSHIFT_DOCS');
-    expect(result.meta.sourcesSucceeded).toBe(1);
+    expect(result.meta.sourcesSucceeded).toBe(2);
   });
 
   it('handles all sources failing gracefully', async () => {
@@ -158,5 +159,16 @@ describe('EnrichmentService', () => {
       '11111111-1111-1111-1111-111111111111',
       expect.objectContaining({ sections: expect.any(Array), meta: expect.any(Object) }),
     );
+  });
+
+  it('does not cache when all sources fail', async () => {
+    mockCacheService.set.mockClear();
+    (mockSource1.query as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Fail'));
+    (mockSource2.query as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Fail'));
+    (mockSource3.query as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Fail'));
+
+    await service.getEnrichment('44444444-4444-4444-4444-444444444444');
+
+    expect(mockCacheService.set).not.toHaveBeenCalled();
   });
 });
