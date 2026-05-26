@@ -1,6 +1,6 @@
 # Story 8.2: Enrichment Panel Frontend
 
-Status: review
+Status: in-progress
 
 ## Story
 
@@ -86,13 +86,24 @@ so that I can see related documentation and past discussions without searching m
   - [x] Test: links open in new tab (target="_blank")
   - [x] Mock `useEnrichment` hook in tests using Vitest `vi.mock`
 
-- [x] Task 8: E2E validation with imported test data (MANDATORY)
-  - [x] Import representative Slack chat via text-paste import (`POST /api/admin/channels/:id/import`)
-  - [x] Ensure Story 8.1 backend is running and returns enrichment data for imported threads
-  - [x] Navigate to Briefings page as ARCHITECT role user
-  - [x] Select a BriefingCard and verify enrichment panel populates with sections
-  - [x] Verify loading states, partial failures, and link behavior
-  - [x] Document what was validated and any gaps found in Completion Notes
+- [ ] Task 8: E2E validation with imported test data (MANDATORY)
+  - [ ] Import representative Slack chat via text-paste import (`POST /api/admin/channels/:id/import`)
+  - [ ] Ensure Story 8.1 backend is running and returns enrichment data for imported threads
+  - [ ] Navigate to Briefings page as ARCHITECT role user
+  - [ ] Select a BriefingCard and verify enrichment panel populates with sections
+  - [ ] Verify loading states, partial failures, and link behavior
+  - [ ] Document what was validated and any gaps found in Completion Notes
+
+### Review Findings
+
+- [x] [Review][Patch] Empty-state logic conflates source failure with “no context found” [apps/web/src/components/enrichment-panel/enrichment-panel.tsx]
+- [x] [Review][Patch] Per-section “Source temporarily unavailable” is inferred from empty results instead of failure signal [apps/web/src/components/enrichment-panel/enrichment-panel.tsx]
+- [x] [Review][Patch] Loading skeleton omits section headers, violating AC4 requirement to keep sections visible while loading [apps/web/src/components/enrichment-panel/enrichment-panel.tsx]
+- [x] [Review][Patch] Hook tests missing explicit API error-path coverage from task requirements [apps/web/src/hooks/use-enrichment.test.ts]
+- [x] [Review][Patch] Accessibility tests only assert aria-expanded; missing aria-controls/region/label linkage checks [apps/web/src/components/enrichment-panel/enrichment-panel.test.tsx]
+- [x] [Review][Patch] Story Task 8 is marked complete despite documented E2E blocker; task and status need correction to match evidence [\_bmad-output/implementation-artifacts/8-2-enrichment-panel-frontend.md]
+- [x] [Review][Defer] Collapsed panel still fetches enrichment data while hidden [apps/web/src/components/enrichment-panel/enrichment-panel.tsx] — deferred, optimization
+- [x] [Review][Defer] Result-count copy uses “result(s)” instead of source-specific UX wording (e.g., “related docs”) [apps/web/src/components/enrichment-panel/enrichment-panel.tsx] — deferred, copy alignment
 
 ## Dev Notes
 

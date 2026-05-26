@@ -118,7 +118,29 @@ function PanelContent({
     return <EnrichmentSkeleton />;
   }
 
-  if (!data || data.sections.length === 0) {
+  if (!data) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-sm text-[--color-gray-50]">
+          No related context found for this topic
+        </p>
+      </div>
+    );
+  }
+
+  const hasSourceFailures = data.meta.sourcesSucceeded < data.meta.sourcesAvailable;
+
+  if (data.sections.length === 0 && data.meta.sourcesSucceeded === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-sm text-[--color-gray-50]">
+          Enrichment temporarily unavailable
+        </p>
+      </div>
+    );
+  }
+
+  if (data.sections.length === 0 && !hasSourceFailures) {
     return (
       <div className="text-center py-8">
         <p className="text-sm text-[--color-gray-50]">
@@ -141,6 +163,7 @@ function PanelContent({
             icon={config.icon}
             items={sectionItems}
             sourceType={config.sourceType}
+            sourceUnavailable={hasSourceFailures && sectionItems.length === 0}
           />
         );
       })}
@@ -153,11 +176,13 @@ function CollapsibleSection({
   icon,
   items,
   sourceType,
+  sourceUnavailable,
 }: {
   label: string;
   icon: React.ReactNode;
   items: EnrichmentSection[];
   sourceType: string;
+  sourceUnavailable: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
   const id = useId();
@@ -210,10 +235,16 @@ function CollapsibleSection({
               <EnrichmentLink key={`${sourceType}-${idx}`} item={item} icon={icon} />
             ))}
           </div>
-        ) : (
+        ) : sourceUnavailable ? (
           <div className="px-3 pb-3">
             <p className="text-xs text-[--color-gray-50] italic">
               Source temporarily unavailable
+            </p>
+          </div>
+        ) : (
+          <div className="px-3 pb-3">
+            <p className="text-xs text-[--color-gray-50] italic">
+              No related context found for this section
             </p>
           </div>
         )}
@@ -251,9 +282,15 @@ function EnrichmentLink({ item, icon }: { item: EnrichmentSection; icon: React.R
 function EnrichmentSkeleton() {
   return (
     <div className="space-y-3">
-      {Array.from({ length: 3 }).map((_, sectionIdx) => (
-        <div key={sectionIdx} className="bg-white rounded-md border border-[--color-gray-20] p-3 space-y-2.5">
-          <Skeleton className="h-3 w-2/3" />
+      {SECTION_CONFIG.map((section) => (
+        <div
+          key={section.sourceType}
+          className="bg-white rounded-md border border-[--color-gray-20] p-3 space-y-2.5"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-[--color-gray-50]" aria-hidden="true">{section.icon}</span>
+            <span className="text-xs font-medium text-[--color-gray-95]">{section.label}</span>
+          </div>
           {Array.from({ length: 3 }).map((_, linkIdx) => (
             <div key={linkIdx} className="space-y-1">
               <Skeleton className="h-3 w-3/4" />

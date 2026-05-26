@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { EnrichmentPanel } from './enrichment-panel.js';
@@ -31,16 +31,29 @@ describe('EnrichmentPanel', () => {
     const { container } = render(<EnrichmentPanel threadId="thread-1" isOpen={true} onToggle={() => {}} />);
     const skeletons = container.querySelectorAll('[class*="animate-pulse"], [data-slot="skeleton"]');
     expect(skeletons.length).toBeGreaterThan(0);
+    expect(screen.getByText('OpenShift Documentation')).toBeInTheDocument();
+    expect(screen.getByText('Knowledge Base (NotebookLM)')).toBeInTheDocument();
+    expect(screen.getByText('Similar Past Discussions')).toBeInTheDocument();
   });
 
   it('shows "No related context found" when sections are empty', () => {
+    mockUseEnrichment.mockReturnValue({
+      data: { sections: [], meta: { threadId: 'thread-1', queriedAt: '2026-05-26T09:00:00Z', sourcesAvailable: 3, sourcesSucceeded: 3 } },
+      isLoading: false,
+      isError: false,
+    });
+    render(<EnrichmentPanel threadId="thread-1" isOpen={true} onToggle={() => {}} />);
+    expect(screen.getByText('No related context found for this topic')).toBeInTheDocument();
+  });
+
+  it('shows "Enrichment temporarily unavailable" when all sources fail', () => {
     mockUseEnrichment.mockReturnValue({
       data: { sections: [], meta: { threadId: 'thread-1', queriedAt: '2026-05-26T09:00:00Z', sourcesAvailable: 3, sourcesSucceeded: 0 } },
       isLoading: false,
       isError: false,
     });
     render(<EnrichmentPanel threadId="thread-1" isOpen={true} onToggle={() => {}} />);
-    expect(screen.getByText('No related context found for this topic')).toBeInTheDocument();
+    expect(screen.getByText('Enrichment temporarily unavailable')).toBeInTheDocument();
   });
 
   it('shows "Enrichment temporarily unavailable" on error', () => {
@@ -121,12 +134,21 @@ describe('EnrichmentPanel', () => {
 
     const docsButton = screen.getByRole('button', { name: /OpenShift Documentation/i });
     expect(docsButton).toHaveAttribute('aria-expanded', 'true');
+    const panelId = docsButton.getAttribute('aria-controls');
+    expect(panelId).toBeTruthy();
+    const panel = document.getElementById(panelId!);
+    expect(panel).not.toBeNull();
+    expect(panel).toHaveAttribute('role', 'region');
+    expect(panel).toHaveAttribute('aria-labelledby', docsButton.id);
+    expect(panel).toHaveAttribute('aria-hidden', 'false');
 
     await user.click(docsButton);
     expect(docsButton).toHaveAttribute('aria-expanded', 'false');
+    expect(panel).toHaveAttribute('aria-hidden', 'true');
 
     await user.click(docsButton);
     expect(docsButton).toHaveAttribute('aria-expanded', 'true');
+    expect(panel).toHaveAttribute('aria-hidden', 'false');
   });
 
   it('links open in new tab (target="_blank")', () => {

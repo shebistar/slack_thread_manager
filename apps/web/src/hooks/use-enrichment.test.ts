@@ -74,4 +74,15 @@ describe('use-enrichment hook', () => {
     expect(result).toEqual(mockResponse);
     expect(api.get).toHaveBeenCalledWith('/enrichment/thread-1');
   });
+
+  it('queryFn propagates API errors', async () => {
+    const { api } = await import('@/lib/api-client.js');
+    (api.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('API 500'));
+
+    useEnrichment('thread-1');
+    const callArgs = mockUseQuery.mock.calls[0][0];
+
+    await expect(callArgs.queryFn()).rejects.toThrow('API 500');
+    expect(api.get).toHaveBeenCalledWith('/enrichment/thread-1');
+  });
 });
