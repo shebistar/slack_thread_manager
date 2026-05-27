@@ -29,6 +29,7 @@ KC_USER="shebi"
 KC_PASS="shebi"
 
 CHANNEL_ID="${CHANNEL_ID:-}"
+THREAD_ID="${THREAD_ID:-}"
 VERBOSE="${VERBOSE:-false}"
 
 RED='\033[0;31m'

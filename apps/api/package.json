@@ -23,6 +23,7 @@
     "@slack-thread-manager/shared": "workspace:*",
     "@slack/web-api": "^7.15.2",
     "drizzle-orm": "^0.41.0",
+    "express": "^5.2.0",
     "jwks-rsa": "^4.0.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
