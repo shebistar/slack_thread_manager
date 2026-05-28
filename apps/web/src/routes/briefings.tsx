@@ -7,6 +7,7 @@ import { useSilenceAlerts } from '@/hooks/use-silence.js';
 import { StatsBar } from '@/components/stats-bar/stats-bar.js';
 import { EnrichmentPanel } from '@/components/enrichment-panel/enrichment-panel.js';
 import { BriefingCard } from '@/components/briefing-card/briefing-card.js';
+import { BackfillSection } from '@/components/backfill-section/backfill-section.js';
 import { WorkstreamFilter } from '@/components/workstream-filter/workstream-filter.js';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card.js';
 import { Skeleton } from '@/components/ui/skeleton.js';
@@ -38,13 +39,42 @@ function BriefingsPage() {
 }
 
 const ITEM_TYPE_PRIORITY: Record<string, number> = {
+  backfill: -1,
   cross_workstream: 0,
   orphaned_action: 1,
   gone_quiet: 1.5,
   standard: 2,
 };
 
-function FeedLayout() {
+function normalizeItemType(itemType: string): string {
+  return itemType.toLowerCase();
+}
+
+function sortByItemPriority(items: BriefingItem[]): BriefingItem[] {
+  return [...items].sort(
+    (a, b) =>
+      (ITEM_TYPE_PRIORITY[normalizeItemType(a.itemType)] ?? 99) -
+      (ITEM_TYPE_PRIORITY[normalizeItemType(b.itemType)] ?? 99),
+  );
+}
+
+export function partitionItems(items: BriefingItem[]): {
+  backfillItems: BriefingItem[];
+  dailyItems: BriefingItem[];
+} {
+  const backfillItems: BriefingItem[] = [];
+  const dailyItems: BriefingItem[] = [];
+  for (const item of items) {
+    if (normalizeItemType(item.itemType) === 'backfill') {
+      backfillItems.push(item);
+    } else {
+      dailyItems.push(item);
+    }
+  }
+  return { backfillItems, dailyItems };
+}
+
+export function FeedLayout() {
   const { data, isLoading, isError, error } = useTodayBriefing();
   const { data: silenceAlerts } = useSilenceAlerts();
   const [selectedWorkstream, setSelectedWorkstream] = useState<string | null>(null);
@@ -56,27 +86,35 @@ function FeedLayout() {
     return m;
   }, [silenceAlerts?.alerts]);
 
-  const workstreams = useMemo(() => {
+  const sortedItems = useMemo(() => {
     if (!data?.items) return [];
+    return sortByItemPriority(data.items);
+  }, [data?.items]);
+
+  const { backfillItems, dailyItems } = useMemo(
+    () => partitionItems(sortedItems),
+    [sortedItems],
+  );
+
+  const workstreams = useMemo(() => {
+    if (dailyItems.length === 0) return [];
     const names = new Set<string>();
-    for (const item of data.items) {
+    for (const item of dailyItems) {
       if (item.workstreamName) names.add(item.workstreamName);
     }
     return Array.from(names).sort();
-  }, [data?.items]);
+  }, [dailyItems]);
 
-  const filteredItems = useMemo(() => {
-    if (!data?.items) return [];
-    const items = selectedWorkstream
-      ? data.items.filter((i) => i.workstreamName === selectedWorkstream)
-      : data.items;
-    return [...items].sort(
-      (a, b) => (ITEM_TYPE_PRIORITY[a.itemType] ?? 99) - (ITEM_TYPE_PRIORITY[b.itemType] ?? 99),
-    );
-  }, [data?.items, selectedWorkstream]);
+  const filteredDailyItems = useMemo(
+    () =>
+      selectedWorkstream
+        ? dailyItems.filter((i) => i.workstreamName === selectedWorkstream)
+        : dailyItems,
+    [dailyItems, selectedWorkstream],
+  );
 
-  const featuredItem = filteredItems[0] ?? null;
-  const standardItems = filteredItems.slice(1);
+  const featuredItem = filteredDailyItems[0] ?? null;
+  const standardItems = filteredDailyItems.slice(1);
 
   if (!isLoading && isError) {
     return (
@@ -111,6 +149,18 @@ function FeedLayout() {
         <FeedSkeleton />
       ) : data ? (
         <div className="space-y-0">
+          {backfillItems.length > 0 && (
+            <div className="p-6 pb-0">
+              <BackfillSection
+                items={backfillItems}
+                readItemIds={data.readItemIds ?? []}
+                onMarkRead={(id) => markItemRead.mutate(id)}
+                variant="feed"
+                showDailyEmptyState={selectedWorkstream === null && dailyItems.length === 0}
+              />
+            </div>
+          )}
+
           <div className="bg-[--color-gray-10] border-b border-[--color-gray-20] px-6 py-3">
             <WorkstreamFilter
             workstreams={workstreams}
@@ -120,8 +170,10 @@ function FeedLayout() {
           </div>
 
           <div className="p-6 space-y-4">
-            {filteredItems.length === 0 ? (
+            {filteredDailyItems.length === 0 ? (
+              backfillItems.length > 0 && selectedWorkstream === null && dailyItems.length === 0 ? null : (
               <FeedEmptyState hasFilter={selectedWorkstream !== null} />
+              )
             ) : (
               <>
                 {featuredItem && (
@@ -238,7 +290,7 @@ function FeedSkeleton() {
   );
 }
 
-function SplitPanelLayout() {
+export function SplitPanelLayout() {
   const { data, isLoading, isError, error } = useTodayBriefing();
   const { data: silenceAlerts } = useSilenceAlerts();
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -253,10 +305,13 @@ function SplitPanelLayout() {
 
   const sortedItems = useMemo(() => {
     if (!data?.items) return [];
-    return [...data.items].sort(
-      (a, b) => (ITEM_TYPE_PRIORITY[a.itemType] ?? 99) - (ITEM_TYPE_PRIORITY[b.itemType] ?? 99),
-    );
+    return sortByItemPriority(data.items);
   }, [data?.items]);
+
+  const { backfillItems, dailyItems } = useMemo(
+    () => partitionItems(sortedItems),
+    [sortedItems],
+  );
 
   useEffect(() => {
     if (selectedItemId && sortedItems.length > 0 && !sortedItems.some((i) => i.id === selectedItemId)) {
@@ -305,15 +360,33 @@ function SplitPanelLayout() {
       ) : data ? (
         <div className="mt-4 flex flex-col xl:flex-row gap-6">
           <div className="flex-1 min-w-0 space-y-4" role="listbox" aria-label="Briefing topics">
-            {sortedItems.length === 0 ? (
+            {backfillItems.length > 0 && (
+              <BackfillSection
+                items={backfillItems}
+                readItemIds={data.readItemIds ?? []}
+                onMarkRead={(id) => markItemRead.mutate(id)}
+                variant="split-panel"
+                selectedItemId={selectedItemId}
+                onSelectItem={(id) => {
+                  const isDeselect = selectedItemId === id;
+                  setSelectedItemId(isDeselect ? null : id);
+                  if (!isDeselect) markItemRead.mutate(id);
+                }}
+                showDailyEmptyState={dailyItems.length === 0}
+              />
+            )}
+
+            {dailyItems.length === 0 ? (
+              backfillItems.length > 0 ? null : (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <p className="text-lg text-[--color-gray-50]">No briefing items today.</p>
                 <p className="text-sm text-[--color-gray-50] mt-2">
                   Check back after the next batch run.
                 </p>
               </div>
+              )
             ) : (
-              sortedItems.map((item) => (
+              dailyItems.map((item) => (
                 <BriefingCard
                   key={item.id}
                   headline={item.headline}
@@ -379,7 +452,7 @@ function SplitPanelSkeleton() {
   );
 }
 
-function DashboardLayout() {
+export function DashboardLayout() {
   const { data, isLoading, isError, error } = useTodayBriefing();
 
   if (!isLoading && isError) {
@@ -450,11 +523,14 @@ function DashboardHeader({ data, isLoading }: { data: BriefingWithItems | null |
 }
 
 function DashboardPanels({ data }: { data: BriefingWithItems }) {
-  const { items } = data;
+  const { backfillItems, dailyItems } = useMemo(
+    () => partitionItems(sortByItemPriority(data.items)),
+    [data.items],
+  );
 
   const workstreamStats = useMemo(() => {
     const map = new Map<string, { count: number; messageCount: number; hasQuiet: boolean; latestActivityAt: string | null }>();
-    items.forEach((item) => {
+    dailyItems.forEach((item) => {
       const name = item.workstreamName ?? 'Unassigned';
       const existing = map.get(name) ?? { count: 0, messageCount: 0, hasQuiet: false, latestActivityAt: null };
       let latestActivityAt = existing.latestActivityAt;
@@ -473,16 +549,29 @@ function DashboardPanels({ data }: { data: BriefingWithItems }) {
     return Array.from(map.entries())
       .sort(([, a], [, b]) => b.count - a.count)
       .map(([name, value]) => ({ name, ...value }));
-  }, [items]);
+  }, [dailyItems]);
 
   const decisionItems = useMemo(
-    () => items.filter((i) => ['cross_workstream', 'orphaned_action', 'standard'].includes(i.itemType)),
-    [items],
+    () =>
+      dailyItems.filter((i) =>
+        ['cross_workstream', 'orphaned_action', 'standard'].includes(normalizeItemType(i.itemType)),
+      ),
+    [dailyItems],
   );
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6 mt-6">
       <div className="space-y-6">
+        {backfillItems.length > 0 && (
+          <BackfillSection
+            items={backfillItems}
+            readItemIds={[]}
+            onMarkRead={() => {}}
+            variant="dashboard"
+            showDailyEmptyState={dailyItems.length === 0}
+          />
+        )}
+
         <section aria-labelledby="workstream-status-heading">
           <Card>
             <div className="flex items-center justify-between bg-[--color-gray-10] border-b border-[--color-gray-20] px-4 py-3">

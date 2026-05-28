@@ -56,6 +56,7 @@ export function BriefingCard({
     const isOrphaned = itemType === 'orphaned_action';
     const isCrossWorkstream = itemType === 'cross_workstream';
     const isQuiet = itemType === 'gone_quiet' || silenceDays != null;
+    const isHistorical = itemType === 'backfill';
 
     const showUnreadBorder = !isRead && !isQuiet && !isOrphaned;
     const showReadOpacity = isRead && !selected;
@@ -108,6 +109,7 @@ export function BriefingCard({
                 isCrossWorkstream={isCrossWorkstream}
                 isOrphaned={isOrphaned}
                 isQuiet={isQuiet}
+                isHistorical={isHistorical}
                 silenceDays={silenceDays}
                 isNew={!isRead}
                 showChevron
@@ -124,6 +126,7 @@ export function BriefingCard({
               isCrossWorkstream={isCrossWorkstream}
               isOrphaned={isOrphaned}
               isQuiet={isQuiet}
+              isHistorical={isHistorical}
               silenceDays={silenceDays}
               isNew={!isRead}
               showChevron={false}
@@ -210,6 +213,7 @@ function StandardCardHeader({
   isCrossWorkstream,
   isOrphaned,
   isQuiet,
+  isHistorical,
   silenceDays,
   isNew,
   showChevron,
@@ -223,6 +227,7 @@ function StandardCardHeader({
   isCrossWorkstream: boolean;
   isOrphaned: boolean;
   isQuiet: boolean;
+  isHistorical: boolean;
   silenceDays?: number | null;
   isNew?: boolean;
   showChevron: boolean;
@@ -263,6 +268,11 @@ function StandardCardHeader({
         {isQuiet && (
           <Badge className="bg-[--color-yellow-10] text-[--color-yellow-70] text-[10px] px-1.5 py-0">
             {silenceDays != null ? `Quiet for ${silenceDays} day${silenceDays !== 1 ? 's' : ''}` : 'Gone Quiet'}
+          </Badge>
+        )}
+        {!isCrossWorkstream && !isOrphaned && !isQuiet && isHistorical && (
+          <Badge className="bg-[--color-gray-20] text-[--color-gray-50] text-[10px] px-1.5 py-0">
+            Historical
           </Badge>
         )}
         {!isCrossWorkstream && !isOrphaned && !isQuiet && isNew && (

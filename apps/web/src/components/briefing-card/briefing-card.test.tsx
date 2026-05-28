@@ -131,6 +131,36 @@ describe('BriefingCard', () => {
       expect(screen.getByText('Cross-workstream')).toBeInTheDocument();
     });
 
+    it('renders Historical badge for backfill items', () => {
+      render(
+        <BriefingCard
+          headline="Historical onboarding context"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="backfill"
+          variant="standard"
+          summaryText="Historical summary"
+        />,
+      );
+
+      expect(screen.getByText('Historical')).toBeInTheDocument();
+    });
+
+    it('does not render Historical badge for non-backfill items', () => {
+      render(
+        <BriefingCard
+          headline="Daily update"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Daily summary"
+        />,
+      );
+
+      expect(screen.queryByText('Historical')).not.toBeInTheDocument();
+    });
+
     it('expands to show full summary text when clicked', async () => {
       const user = userEvent.setup();
       render(
