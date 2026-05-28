@@ -82,17 +82,17 @@ describe('BriefingsController', () => {
   });
 
   describe('GET /briefings/today', () => {
-    it('returns briefing with items wrapped in data envelope', async () => {
+    it('returns briefing with items wrapped in data envelope and uppercase types', async () => {
       briefingsService.getTodayBriefing.mockResolvedValue(mockBriefingResult);
 
       const result = await controller.getTodayBriefing(mockUser);
 
-      expect(result).toEqual({
-        data: {
-          ...mockBriefingResult,
-          nextBatchScheduledAt: expect.any(String),
-        },
-      });
+      expect(result.data).toBeDefined();
+      expect(result.data!.briefing.briefingShape).toBe('EXECUTIVE_SCAN');
+      expect(result.data!.briefing.briefingDate).toBe(mockBriefingResult.briefing.briefingDate.toISOString());
+      expect(result.data!.items[0]?.itemType).toBe('STANDARD');
+      expect(result.data!.readItemIds).toEqual([]);
+      expect(result.data!.nextBatchScheduledAt).toEqual(expect.any(String));
       expect(briefingsService.getTodayBriefing).toHaveBeenCalledWith('user-123', 'shebi@example.com');
     });
 
@@ -103,6 +103,35 @@ describe('BriefingsController', () => {
 
       expect(result).toEqual({ data: null });
       expect(briefingsService.getTodayBriefing).toHaveBeenCalledWith('user-123', 'shebi@example.com');
+    });
+
+    it('serializes BACKFILL item type to uppercase in today endpoint', async () => {
+      briefingsService.getTodayBriefing.mockResolvedValue({
+        briefing: {
+          ...mockBriefingResult.briefing,
+          briefingShape: 'intelligence_report',
+        },
+        items: [
+          {
+            ...mockBriefingResult.items[0],
+            id: 'item-backfill',
+            itemType: 'backfill',
+          },
+          {
+            ...mockBriefingResult.items[0],
+            id: 'item-standard',
+            itemType: 'standard',
+            sortOrder: 1,
+          },
+        ],
+        readItemIds: [],
+      });
+
+      const result = await controller.getTodayBriefing(mockUser);
+
+      expect(result.data!.items[0]?.itemType).toBe('BACKFILL');
+      expect(result.data!.items[1]?.itemType).toBe('STANDARD');
+      expect(result.data!.briefing.briefingShape).toBe('INTELLIGENCE_REPORT');
     });
 
     it('passes the correct user sub to the service', async () => {
@@ -251,6 +280,54 @@ describe('BriefingsController', () => {
       await expect(
         controller.getBriefingById(mockUser, 'f11d4b4e-5f6f-4d5d-91c5-bfd73e10b9b0'),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('serializes BACKFILL item type to uppercase', async () => {
+      briefingsService.resolveUserIdFromAuth.mockResolvedValue('user-123');
+      briefingsService.getBriefingById.mockResolvedValue({
+        briefing: {
+          id: 'f11d4b4e-5f6f-4d5d-91c5-bfd73e10b9b0',
+          userId: 'user-123',
+          briefingDate: new Date('2026-05-27T00:00:00.000Z'),
+          briefingShape: 'intelligence_report',
+          generatedAt: new Date('2026-05-27T04:00:00.000Z'),
+          threadCount: 2,
+          workstreamCount: 1,
+        },
+        items: [
+          {
+            id: 'item-backfill',
+            briefingId: 'f11d4b4e-5f6f-4d5d-91c5-bfd73e10b9b0',
+            threadId: 'thread-backfill',
+            headline: 'Historical decision',
+            summaryText: 'Past context',
+            workstreamName: 'Platform',
+            sourceThreadUrl: null,
+            itemType: 'backfill',
+            sortOrder: 0,
+          },
+          {
+            id: 'item-daily',
+            briefingId: 'f11d4b4e-5f6f-4d5d-91c5-bfd73e10b9b0',
+            threadId: 'thread-daily',
+            headline: 'Today update',
+            summaryText: 'Current summary',
+            workstreamName: 'Platform',
+            sourceThreadUrl: null,
+            itemType: 'standard',
+            sortOrder: 1,
+          },
+        ],
+        readItemIds: [],
+      });
+
+      const result = await controller.getBriefingById(
+        mockUser,
+        'f11d4b4e-5f6f-4d5d-91c5-bfd73e10b9b0',
+      );
+
+      expect(result.data.items[0]?.itemType).toBe('BACKFILL');
+      expect(result.data.items[1]?.itemType).toBe('STANDARD');
     });
   });
 });

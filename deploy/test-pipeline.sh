@@ -6,7 +6,7 @@
 #
 # Coverage: Epics 1-8 (foundation, ingestion, pipeline, anonymization,
 #           briefings, search & discovery, silence detection & monitoring,
-#           AI enrichment).
+#           AI enrichment, backfill briefing generation).
 #
 # Usage:
 #   ./deploy/test-pipeline.sh
@@ -733,6 +733,24 @@ if [[ "$status" == "200" ]]; then
       first_headline=$(echo "$briefing_data" | jq -r '.items[0].headline' 2>/dev/null || echo "")
       first_type=$(echo "$briefing_data" | jq -r '.items[0].itemType' 2>/dev/null || echo "")
       log_info "First item: [$first_type] $first_headline"
+
+      # Validate all itemType values are known (Epic 8.3: includes BACKFILL)
+      valid_types='["STANDARD","CROSS_WORKSTREAM","ORPHANED_ACTION","GONE_QUIET","BACKFILL"]'
+      invalid_types=$(echo "$briefing_data" | jq -r --argjson valid "$valid_types" \
+        '[.items[].itemType | select(. as $t | $valid | index($t) | not)] | unique | .[]' 2>/dev/null)
+      if [[ -z "$invalid_types" ]]; then
+        log_pass "All itemType values are valid (including BACKFILL support)"
+      else
+        log_fail "Unknown itemType values detected: $invalid_types"
+      fi
+
+      # Report backfill items if present (first-time user scenario)
+      backfill_count=$(echo "$briefing_data" | jq '[.items[] | select(.itemType == "BACKFILL")] | length' 2>/dev/null || echo "0")
+      if [[ "$backfill_count" -gt 0 ]]; then
+        log_pass "Backfill items present ($backfill_count) — first-time user onboarding active"
+      else
+        log_info "No backfill items (user has prior briefings — expected for repeat runs)"
+      fi
     else
       log_fail "Briefing has 0 items (expected at least 1)"
     fi

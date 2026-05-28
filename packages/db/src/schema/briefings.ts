@@ -14,6 +14,7 @@ export const briefingItemTypeEnum = pgEnum('briefing_item_type', [
   'cross_workstream',
   'orphaned_action',
   'gone_quiet',
+  'backfill',
 ]);
 
 export const briefings = pgTable(

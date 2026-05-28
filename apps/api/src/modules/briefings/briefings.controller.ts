@@ -23,7 +23,17 @@ export class BriefingsController {
 
     return {
       data: {
-        ...result,
+        briefing: {
+          ...result.briefing,
+          briefingShape: result.briefing.briefingShape.toUpperCase(),
+          briefingDate: result.briefing.briefingDate.toISOString(),
+          generatedAt: result.briefing.generatedAt.toISOString(),
+        },
+        items: result.items.map((item) => ({
+          ...item,
+          itemType: item.itemType.toUpperCase(),
+        })),
+        readItemIds: result.readItemIds,
         nextBatchScheduledAt: this.getNextBriefingRunIso(),
       },
     };

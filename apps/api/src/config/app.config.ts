@@ -20,6 +20,7 @@ const baseSchema = z.object({
   SLACK_TEAM_ID: z.string().optional(),
   INGESTION_CRON_SCHEDULE: z.string().default('0 */4 * * *'),
   BRIEFING_CRON_SCHEDULE: z.string().default('0 4 * * *'),
+  BRIEFING_BACKFILL_LOOKBACK_DAYS: z.coerce.number().int().min(1).max(365).default(90),
   PROJECT_TIMEZONE: z.string().default('Europe/Berlin').refine(
     isValidIanaTimezone,
     'PROJECT_TIMEZONE must be a valid IANA timezone (e.g. Europe/Berlin)',

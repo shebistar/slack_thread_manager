@@ -43,6 +43,7 @@ const ROLE_TO_SHAPE: Record<string, BriefingShapeValue> = {
 };
 
 const ITEM_TYPE_SORT_PRIORITY: Record<BriefingItemTypeValue, number> = {
+  backfill: -1,
   cross_workstream: 0,
   orphaned_action: 1,
   standard: 2,
@@ -80,11 +81,6 @@ export class BriefingsService {
 
     const lastGeneration = await this.getLastSuccessfulGeneration();
     const approvedThreads = await this.getApprovedThreadsSince(lastGeneration);
-
-    if (approvedThreads.length === 0) {
-      this.logger.log('No new approved content, skipping generation');
-      return { usersProcessed: activeUsers.length, briefingsGenerated: 0, itemsGenerated: 0 };
-    }
 
     let briefingsGenerated = 0;
     let itemsGenerated = 0;
@@ -152,7 +148,24 @@ export class BriefingsService {
     }
 
     const shape = this.mapRoleToBriefingShape(user.role);
-    const items = await this.buildBriefingItems(approvedThreads, shape, user);
+    const dailyItems = await this.buildBriefingItems(approvedThreads, shape, user);
+
+    const isFirstBriefing = !(await this.hasExistingBriefings(user.id));
+    let backfillItems: typeof dailyItems = [];
+
+    if (isFirstBriefing) {
+      const lookbackDays = this.getBackfillLookbackDays();
+      const backfillThreads = await this.getBackfillThreads(user, lookbackDays);
+      backfillItems = await this.buildBriefingItems(backfillThreads, shape, user);
+      if (backfillItems.length > 0) {
+        this.logger.log(`First briefing for user ${user.id}: ${backfillItems.length} backfill items`, {
+          userId: user.id,
+          lookbackDays,
+        });
+      }
+    }
+
+    const items = [...backfillItems, ...dailyItems];
 
     if (items.length === 0) {
       this.logger.log(`No items for user ${user.id} with shape ${shape}`);
@@ -193,6 +206,7 @@ export class BriefingsService {
       userId: user.id,
       shape,
       itemCount: items.length,
+      backfillCount: backfillItems.length,
       workstreamCount: workstreamNames.size,
     });
 
@@ -491,6 +505,74 @@ export class BriefingsService {
       );
 
     return reads.map((r) => r.briefingItemId);
+  }
+
+  async hasExistingBriefings(userId: string): Promise<boolean> {
+    const [existing] = await this.db
+      .select({ id: briefings.id })
+      .from(briefings)
+      .where(eq(briefings.userId, userId))
+      .limit(1);
+    return !!existing;
+  }
+
+  async getBackfillThreads(user: User, lookbackDays: number): Promise<ThreadWithContext[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setUTCDate(cutoffDate.getUTCDate() - lookbackDays);
+
+    const userWs = await this.db
+      .select({ workstreamId: userWorkstreams.workstreamId })
+      .from(userWorkstreams)
+      .where(eq(userWorkstreams.userId, user.id));
+    const assignedIds = userWs.map((w) => w.workstreamId);
+
+    if (assignedIds.length === 0) {
+      this.logger.log(`No workstreams assigned for user ${user.id}, skipping backfill`);
+      return [];
+    }
+
+    const rows = await this.db
+      .select({
+        threadId: slackThreads.id,
+        threadTs: slackThreads.threadTs,
+        channelSlackId: slackChannels.slackChannelId,
+        primaryTopic: classifiedTopics.primaryTopic,
+        technicalSummary: classifiedTopics.technicalSummary,
+        plainSummary: classifiedTopics.plainSummary,
+        workstreamName: workstreams.name,
+        workstreamId: classifiedTopics.workstreamId,
+      })
+      .from(slackThreads)
+      .innerJoin(classifiedTopics, eq(classifiedTopics.threadId, slackThreads.id))
+      .innerJoin(slackChannels, eq(slackChannels.id, slackThreads.channelId))
+      .leftJoin(workstreams, eq(workstreams.id, classifiedTopics.workstreamId))
+      .where(
+        and(
+          eq(slackThreads.pipelineState, 'delivered'),
+          gte(slackThreads.updatedAt, cutoffDate),
+          inArray(classifiedTopics.workstreamId, assignedIds),
+        )!,
+      )
+      .orderBy(desc(slackThreads.updatedAt));
+
+    return rows.map((row) => ({
+      threadId: row.threadId,
+      threadTs: row.threadTs,
+      channelSlackId: row.channelSlackId,
+      headline: row.primaryTopic,
+      technicalSummary: row.technicalSummary,
+      plainSummary: row.plainSummary,
+      workstreamName: row.workstreamName,
+      workstreamId: row.workstreamId,
+      itemType: 'backfill' as BriefingItemTypeValue,
+    }));
+  }
+
+  private getBackfillLookbackDays(): number {
+    const raw = this.configService.get<number>('BRIEFING_BACKFILL_LOOKBACK_DAYS');
+    const days = Number(raw);
+    if (!Number.isFinite(days) || days < 1) return 90;
+    return Math.min(days, 365);
   }
 
   private extractSummaryText(summary: unknown): string {

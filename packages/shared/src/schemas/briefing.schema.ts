@@ -13,6 +13,7 @@ export const briefingItemTypeSchema = z.enum([
   'CROSS_WORKSTREAM',
   'ORPHANED_ACTION',
   'GONE_QUIET',
+  'BACKFILL',
 ]);
 
 export type BriefingItemType = z.infer<typeof briefingItemTypeSchema>;

@@ -5,14 +5,17 @@ import { DATABASE_TOKEN } from '../../database/database.module.js';
 import { BriefingsService } from './briefings.service.js';
 import { PipelineStateService } from '../pipeline/pipeline-state.service.js';
 
-function createMockUser(overrides: Partial<{ id: string; role: string; email: string; displayName: string; slackHandle: string }> = {}) {
+type UserRole = 'ARCHITECT' | 'PM' | 'CONSULTANT' | 'SALES' | 'TRAINING' | 'ADMIN';
+type ItemType = 'standard' | 'cross_workstream' | 'orphaned_action' | 'gone_quiet' | 'backfill';
+
+function createMockUser(overrides: Partial<{ id: string; role: UserRole; email: string; displayName: string; slackHandle: string }> = {}) {
   return {
     id: overrides.id ?? 'user-1',
     email: overrides.email ?? 'test@example.com',
     displayName: overrides.displayName ?? 'Test User',
     slackHandle: overrides.slackHandle ?? '@test',
-    slackNicknames: [],
-    role: overrides.role ?? 'PM',
+    slackNicknames: [] as string[],
+    role: overrides.role ?? ('PM' as UserRole),
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -22,18 +25,18 @@ function createMockThread(overrides: Partial<{
   threadId: string;
   workstreamId: string | null;
   workstreamName: string | null;
-  itemType: string;
+  itemType: ItemType;
 }> = {}) {
   return {
     threadId: overrides.threadId ?? 'thread-1',
     threadTs: '1700000000.000100',
     channelSlackId: 'C01ABC',
     headline: 'Test Topic',
-    technicalSummary: { text: 'Technical details about the topic' },
-    plainSummary: { text: 'Simple summary of the topic' },
+    technicalSummary: { text: 'Technical details about the topic' } as unknown,
+    plainSummary: { text: 'Simple summary of the topic' } as unknown,
     workstreamName: overrides.workstreamName ?? 'Engineering',
     workstreamId: overrides.workstreamId ?? 'ws-1',
-    itemType: overrides.itemType ?? 'standard',
+    itemType: overrides.itemType ?? ('standard' as ItemType),
   };
 }
 
@@ -63,7 +66,7 @@ describe('BriefingsService', () => {
     mockSelectOrderBy = vi.fn().mockReturnValue({ limit: mockSelectLimit });
     mockSelectWhere = vi.fn().mockImplementation(() => {
       const result = selectResults[selectCallCount - 1] ?? [];
-      return Object.assign(result, { orderBy: mockSelectOrderBy });
+      return Object.assign(result, { orderBy: mockSelectOrderBy, limit: mockSelectLimit });
     });
     mockSelectLeftJoin = vi.fn().mockReturnValue({ where: mockSelectWhere });
     mockSelectInnerJoin = vi.fn().mockReturnValue({
@@ -255,6 +258,7 @@ describe('BriefingsService', () => {
       selectResults = [
         [],
         [{ workstreamId: 'ws-1' }],
+        [{ id: 'prior-briefing' }],
       ];
 
       mockInsertValues.mockReturnValueOnce({
@@ -647,6 +651,260 @@ describe('BriefingsService', () => {
       const result = await service.getReadItemIds('user-1', 'briefing-1');
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('hasExistingBriefings', () => {
+    it('should return false when user has no prior briefings', async () => {
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }) };
+      });
+
+      const result = await service.hasExistingBriefings('user-new');
+
+      expect(result).toBe(false);
+    });
+
+    it('should return true when user has existing briefings', async () => {
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ id: 'briefing-1' }]) }) };
+      });
+
+      const result = await service.hasExistingBriefings('user-1');
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('getBackfillThreads', () => {
+    it('should return empty array when user has no workstream assignments', async () => {
+      mockSelectFrom.mockImplementationOnce(() => {
+        selectCallCount++;
+        return { where: vi.fn().mockResolvedValue([]) };
+      });
+
+      const user = createMockUser({ id: 'user-new' });
+      const result = await service.getBackfillThreads(user, 90);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return delivered threads filtered by workstreams within lookback window', async () => {
+      mockSelectFrom
+        .mockImplementationOnce(() => {
+          selectCallCount++;
+          return { where: vi.fn().mockResolvedValue([{ workstreamId: 'ws-1' }]) };
+        })
+        .mockImplementationOnce(() => {
+          selectCallCount++;
+          const backfillRows = [
+            {
+              threadId: 'historical-thread-1',
+              threadTs: '1699000000.000100',
+              channelSlackId: 'C01XYZ',
+              primaryTopic: 'Past decision',
+              technicalSummary: { text: 'Technical past' },
+              plainSummary: { text: 'Plain past' },
+              workstreamName: 'Engineering',
+              workstreamId: 'ws-1',
+            },
+          ];
+          return {
+            innerJoin: vi.fn().mockReturnValue({
+              innerJoin: vi.fn().mockReturnValue({
+                leftJoin: vi.fn().mockReturnValue({
+                  where: vi.fn().mockReturnValue({
+                    orderBy: vi.fn().mockResolvedValue(backfillRows),
+                  }),
+                }),
+              }),
+            }),
+          };
+        });
+
+      const user = createMockUser({ id: 'user-new' });
+      const result = await service.getBackfillThreads(user, 90);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.threadId).toBe('historical-thread-1');
+      expect(result[0]!.itemType).toBe('backfill');
+    });
+  });
+
+  describe('generateBriefingForUser — backfill behavior', () => {
+    it('should include backfill items for first-time users', async () => {
+      const newUser = createMockUser({ id: 'user-new', role: 'CONSULTANT' });
+      const dailyThread = createMockThread({ threadId: 'daily-1' });
+      const today = new Date('2026-05-27');
+      today.setUTCHours(0, 0, 0, 0);
+
+      mockSelectFrom
+        .mockImplementationOnce(() => {
+          selectCallCount++;
+          return { where: vi.fn().mockResolvedValue([]) };
+        });
+
+      const hasExistingSpy = vi.spyOn(service, 'hasExistingBriefings').mockResolvedValueOnce(false);
+
+      const backfillThread = createMockThread({
+        threadId: 'backfill-1',
+        itemType: 'backfill',
+        workstreamName: 'Engineering',
+      });
+      const getBackfillSpy = vi.spyOn(service, 'getBackfillThreads').mockResolvedValueOnce([backfillThread]);
+
+      const buildSpy = vi.spyOn(service, 'buildBriefingItems');
+      buildSpy
+        .mockResolvedValueOnce([{
+          threadId: 'backfill-1',
+          headline: 'Backfill topic',
+          summaryText: 'Historical context',
+          workstreamName: 'Engineering',
+          sourceThreadUrl: null,
+          itemType: 'backfill' as ItemType,
+        }])
+        .mockResolvedValueOnce([{
+          threadId: 'daily-1',
+          headline: 'Daily topic',
+          summaryText: 'Today summary',
+          workstreamName: 'Engineering',
+          sourceThreadUrl: null,
+          itemType: 'standard' as ItemType,
+        }]);
+
+      mockInsertValues.mockReturnValueOnce({
+        returning: vi.fn().mockResolvedValue([{
+          id: 'briefing-new',
+          userId: 'user-new',
+          briefingDate: today,
+          briefingShape: 'intelligence_report',
+          generatedAt: new Date(),
+          threadCount: 2,
+          workstreamCount: 1,
+        }]),
+      }).mockReturnValueOnce({
+        then: (resolve: any) => resolve(),
+      });
+
+      const result = await service.generateBriefingForUser(newUser, [dailyThread], today);
+
+      expect(result).toEqual({ itemCount: 2 });
+      expect(hasExistingSpy).toHaveBeenCalledWith('user-new');
+      expect(getBackfillSpy).toHaveBeenCalled();
+      expect(buildSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('should NOT include backfill items for repeat users', async () => {
+      const existingUser = createMockUser({ id: 'user-existing', role: 'SALES' });
+      const dailyThread = createMockThread({ threadId: 'daily-1' });
+      const today = new Date('2026-05-27');
+      today.setUTCHours(0, 0, 0, 0);
+
+      mockSelectFrom
+        .mockImplementationOnce(() => {
+          selectCallCount++;
+          return { where: vi.fn().mockResolvedValue([]) };
+        });
+
+      const hasExistingSpy = vi.spyOn(service, 'hasExistingBriefings').mockResolvedValueOnce(true);
+      const getBackfillSpy = vi.spyOn(service, 'getBackfillThreads');
+
+      const buildSpy = vi.spyOn(service, 'buildBriefingItems');
+      buildSpy.mockResolvedValueOnce([{
+        threadId: 'daily-1',
+        headline: 'Daily topic',
+        summaryText: 'Today summary',
+        workstreamName: 'Engineering',
+        sourceThreadUrl: null,
+        itemType: 'standard' as ItemType,
+      }]);
+
+      mockInsertValues.mockReturnValueOnce({
+        returning: vi.fn().mockResolvedValue([{
+          id: 'briefing-existing',
+          userId: 'user-existing',
+          briefingDate: today,
+          briefingShape: 'executive_scan',
+          generatedAt: new Date(),
+          threadCount: 1,
+          workstreamCount: 1,
+        }]),
+      }).mockReturnValueOnce({
+        then: (resolve: any) => resolve(),
+      });
+
+      const result = await service.generateBriefingForUser(existingUser, [dailyThread], today);
+
+      expect(result).toEqual({ itemCount: 1 });
+      expect(hasExistingSpy).toHaveBeenCalledWith('user-existing');
+      expect(getBackfillSpy).not.toHaveBeenCalled();
+      expect(buildSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle first-time user with no approved threads (backfill-only briefing)', async () => {
+      const newUser = createMockUser({ id: 'user-backfill-only', role: 'PM' });
+      const today = new Date('2026-05-27');
+      today.setUTCHours(0, 0, 0, 0);
+
+      mockSelectFrom
+        .mockImplementationOnce(() => {
+          selectCallCount++;
+          return { where: vi.fn().mockResolvedValue([]) };
+        });
+
+      vi.spyOn(service, 'hasExistingBriefings').mockResolvedValueOnce(false);
+      vi.spyOn(service, 'getBackfillThreads').mockResolvedValueOnce([
+        createMockThread({ threadId: 'backfill-only-1', itemType: 'backfill' }),
+      ]);
+
+      const buildSpy = vi.spyOn(service, 'buildBriefingItems');
+      buildSpy
+        .mockResolvedValueOnce([{
+          threadId: 'backfill-only-1',
+          headline: 'Historical topic',
+          summaryText: 'History summary',
+          workstreamName: 'Engineering',
+          sourceThreadUrl: null,
+          itemType: 'backfill' as ItemType,
+        }])
+        .mockResolvedValueOnce([]);
+
+      mockInsertValues.mockReturnValueOnce({
+        returning: vi.fn().mockResolvedValue([{
+          id: 'briefing-backfill-only',
+          userId: 'user-backfill-only',
+          briefingDate: today,
+          briefingShape: 'filtered_brief',
+          generatedAt: new Date(),
+          threadCount: 1,
+          workstreamCount: 1,
+        }]),
+      }).mockReturnValueOnce({
+        then: (resolve: any) => resolve(),
+      });
+
+      const result = await service.generateBriefingForUser(newUser, [], today);
+
+      expect(result).toEqual({ itemCount: 1 });
+    });
+  });
+
+  describe('buildBriefingItems — backfill sort priority', () => {
+    it('should sort backfill items before all other types', async () => {
+      const threads = [
+        createMockThread({ threadId: 'thread-1', itemType: 'standard' }),
+        createMockThread({ threadId: 'thread-2', itemType: 'backfill' }),
+        createMockThread({ threadId: 'thread-3', itemType: 'cross_workstream' }),
+      ];
+
+      const salesUser = createMockUser({ id: 'user-sales', role: 'SALES' });
+      const items = await service.buildBriefingItems(threads, 'executive_scan', salesUser);
+
+      expect(items[0]!.itemType).toBe('backfill');
+      expect(items[1]!.itemType).toBe('cross_workstream');
+      expect(items[2]!.itemType).toBe('standard');
     });
   });
 });
