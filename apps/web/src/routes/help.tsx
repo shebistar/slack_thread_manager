@@ -89,7 +89,7 @@ function OverviewSection() {
       <h2 className="text-xl font-medium text-[--color-gray-95] mb-4">
         Overview
       </h2>
-      <p className="text-sm text-[--color-gray-70] mb-4">
+      <p className="text-sm text-gray-70 mb-4">
         Slack Thread Manager is an internal tool that passively monitors your
         team's Slack channels, ingests discussion threads, and transforms them
         into actionable knowledge. It delivers personalized daily briefings
@@ -99,7 +99,7 @@ function OverviewSection() {
       <h3 className="text-base font-medium text-[--color-gray-95] mt-6 mb-3">
         Key Capabilities
       </h3>
-      <ul className="list-disc pl-5 text-sm text-[--color-gray-70] space-y-2">
+      <ul className="list-disc pl-5 text-sm text-gray-70 space-y-2">
         <li>
           <strong>Silent Observer</strong> — reads Slack channels in read-only
           mode; never posts or modifies any data in Slack.
@@ -135,7 +135,7 @@ function GettingStartedSection() {
       <h2 className="text-xl font-medium text-[--color-gray-95] mb-4">
         Getting Started
       </h2>
-      <ol className="list-decimal pl-5 text-sm text-[--color-gray-70] space-y-4">
+      <ol className="list-decimal pl-5 text-sm text-gray-70 space-y-4">
         <li>
           <strong>Sign in</strong> — authenticate with your corporate SSO
           credentials. You'll be redirected to the identity provider
@@ -189,7 +189,7 @@ function FeaturesSection() {
           <h3 className="text-base font-medium text-[--color-gray-95] mb-2">
             Daily Briefings
           </h3>
-          <p className="text-sm text-[--color-gray-70]">
+          <p className="text-sm text-gray-70">
             Briefings are generated on a schedule and personalized based on your
             role and assigned workstreams. Each briefing highlights new
             decisions, unresolved blockers, detected action items, and topics
@@ -202,7 +202,7 @@ function FeaturesSection() {
           <h3 className="text-base font-medium text-[--color-gray-95] mb-2">
             Search & Discovery
           </h3>
-          <p className="text-sm text-[--color-gray-70]">
+          <p className="text-sm text-gray-70">
             Full-text and semantic search across all ingested threads. Results
             are returned regardless of which channel the discussion occurred in.
             Semantic search understands intent, so you can ask questions
@@ -214,7 +214,7 @@ function FeaturesSection() {
           <h3 className="text-base font-medium text-[--color-gray-95] mb-2">
             Team Roster
           </h3>
-          <p className="text-sm text-[--color-gray-70]">
+          <p className="text-sm text-gray-70">
             Admins manage the team roster mapping display names, emails, Slack
             handles, and common nicknames to roles and workstream assignments.
             The roster drives personalized briefings and role-based access.
@@ -225,7 +225,7 @@ function FeaturesSection() {
           <h3 className="text-base font-medium text-[--color-gray-95] mb-2">
             Channel Configuration
           </h3>
-          <p className="text-sm text-[--color-gray-70]">
+          <p className="text-sm text-gray-70">
             Admins configure which Slack channels the system monitors. Channels
             can be general-purpose or optionally mapped to a workstream, and
             can be toggled active or inactive to pause ingestion without
@@ -237,7 +237,7 @@ function FeaturesSection() {
           <h3 className="text-base font-medium text-[--color-gray-95] mb-2">
             Import History
           </h3>
-          <p className="text-sm text-[--color-gray-70]">
+          <p className="text-sm text-gray-70">
             When live Slack API access isn't available, admins can populate
             thread data manually. Copy messages directly from Slack's UI and
             paste them into the Import History tab, or upload JSON files from a
@@ -251,7 +251,7 @@ function FeaturesSection() {
           <h3 className="text-base font-medium text-[--color-gray-95] mb-2">
             Knowledge Transformation Pipeline
           </h3>
-          <p className="text-sm text-[--color-gray-70]">
+          <p className="text-sm text-gray-70">
             Ingested threads are automatically processed through a multi-stage
             pipeline: classified by topic and workstream, summarized with both
             technical and plain-language summaries, and embedded as semantic
@@ -265,7 +265,7 @@ function FeaturesSection() {
           <h3 className="text-base font-medium text-[--color-gray-95] mb-2">
             Silence Detection
           </h3>
-          <p className="text-sm text-[--color-gray-70]">
+          <p className="text-sm text-gray-70">
             The system monitors active discussion topics. When a topic goes
             quiet beyond a configurable threshold (workday-aware), it's flagged
             in briefings so dropped conversations don't slip through the cracks.
@@ -282,7 +282,7 @@ function RolesSection() {
       <h2 className="text-xl font-medium text-[--color-gray-95] mb-4">
         Roles & Permissions
       </h2>
-      <p className="text-sm text-[--color-gray-70] mb-4">
+      <p className="text-sm text-gray-70 mb-4">
         Access is determined by the role assigned in the team roster. Each role
         receives briefings scoped to their relevant workstreams.
       </p>
@@ -304,7 +304,7 @@ function RolesSection() {
               </th>
             </tr>
           </thead>
-          <tbody className="text-[--color-gray-70]">
+          <tbody className="text-gray-70">
             {[
               { role: 'Admin', briefing: true, search: true, admin: true },
               { role: 'Architect', briefing: true, search: true, admin: false },
@@ -355,7 +355,7 @@ function ChangelogSection() {
                 <h4 className="text-sm font-medium text-[--color-gray-95] mb-1">
                   {section.title}
                 </h4>
-                <ul className="list-disc pl-5 text-sm text-[--color-gray-70] space-y-1">
+                <ul className="list-disc pl-5 text-sm text-gray-70 space-y-1">
                   {section.items.map((item, itemIdx) => (
                     <li key={`${release.version}-${section.title}-${itemIdx}`}>
                       {item}

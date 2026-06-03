@@ -196,7 +196,7 @@ export function ImportForm() {
       </form>
 
       {lastResult && (
-        <div className="rounded-md border border-[--color-gray-20] bg-[--color-gray-5] p-4 max-w-lg">
+        <div className="rounded-md border border-[--color-gray-20] bg-gray-05 p-4 max-w-lg">
           <h3 className="text-sm font-medium text-[--color-gray-95] mb-2">
             Import Results
           </h3>
@@ -225,7 +225,7 @@ export function ImportForm() {
         </h3>
         <div className="space-y-3 text-sm text-[--color-gray-50]">
           <div>
-            <p className="font-medium text-[--color-gray-70] mb-1">Option 1: Copy &amp; Paste (easiest)</p>
+            <p className="font-medium text-gray-70 mb-1">Option 1: Copy &amp; Paste (easiest)</p>
             <ol className="space-y-0.5 list-decimal list-inside">
               <li>Open the Slack channel in your browser or desktop app</li>
               <li>Scroll up to load the messages you want</li>
@@ -234,7 +234,7 @@ export function ImportForm() {
             </ol>
           </div>
           <div>
-            <p className="font-medium text-[--color-gray-70] mb-1">Option 2: Workspace Export (admin only)</p>
+            <p className="font-medium text-gray-70 mb-1">Option 2: Workspace Export (admin only)</p>
             <ol className="space-y-0.5 list-decimal list-inside">
               <li>Go to Slack admin: Settings &amp; Administration &gt; Workspace settings</li>
               <li>Click &quot;Import/Export Data&quot; then the &quot;Export&quot; tab</li>

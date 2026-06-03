@@ -44,7 +44,7 @@ export function StagingReviewItem({
             {new Date(item.createdAt).toLocaleDateString()}
           </span>
         </div>
-        <span className="text-xs font-mono text-[--color-gray-40]">
+        <span className="text-xs font-mono text-gray-40">
           {item.id.slice(0, 8)}
         </span>
       </div>
@@ -93,10 +93,10 @@ export function StagingReviewItem({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
-          <p className="text-xs font-medium text-[--color-gray-60] uppercase tracking-wide">
+          <p className="text-xs font-medium text-gray-60 uppercase tracking-wide">
             Original
           </p>
-          <div className="text-sm text-[--color-gray-80] bg-[--color-gray-05] rounded p-2 max-h-32 overflow-y-auto">
+          <div className="text-sm text-gray-80 bg-gray-05 rounded p-2 max-h-32 overflow-y-auto">
             <HighlightedContent
               text={item.originalContent.plainSummary.body}
               flags={item.flags}
@@ -104,10 +104,10 @@ export function StagingReviewItem({
           </div>
         </div>
         <div className="space-y-1">
-          <p className="text-xs font-medium text-[--color-gray-60] uppercase tracking-wide">
+          <p className="text-xs font-medium text-gray-60 uppercase tracking-wide">
             Anonymized
           </p>
-          <div className="text-sm text-[--color-gray-80] bg-[--color-gray-05] rounded p-2 max-h-32 overflow-y-auto">
+          <div className="text-sm text-gray-80 bg-gray-05 rounded p-2 max-h-32 overflow-y-auto">
             {item.anonymizedContent.plainSummary.body}
           </div>
         </div>
@@ -159,7 +159,7 @@ function HighlightedContent({
           (t) => t.toLowerCase() === part.toLowerCase(),
         );
         return isMatch ? (
-          <mark key={i} className="bg-red-100 text-red-900 px-0.5 rounded">
+          <mark key={i} className="bg-red-10 text-brand-red-dark px-0.5 rounded">
             {part}
           </mark>
         ) : (

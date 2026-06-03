@@ -111,7 +111,7 @@ export function BlocklistTable({
     <div className="space-y-3">
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-[320px]">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[--color-gray-40]" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-40" />
           <Input
             placeholder="Search terms…"
             value={search}
@@ -184,7 +184,7 @@ export function BlocklistTable({
                     <TableCell className="font-mono text-sm font-medium">
                       {entry.term}
                     </TableCell>
-                    <TableCell className="font-mono text-sm text-[--color-gray-60]">
+                    <TableCell className="font-mono text-sm text-gray-60">
                       {entry.replacement}
                     </TableCell>
                     <TableCell>
