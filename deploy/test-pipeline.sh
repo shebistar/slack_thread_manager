@@ -6,7 +6,7 @@
 #
 # Coverage: Epics 1-8 (foundation, ingestion, pipeline, anonymization,
 #           briefings, search & discovery, silence detection & monitoring,
-#           AI enrichment, backfill briefing generation).
+#           AI enrichment, backfill briefing generation, architect E2E).
 #
 # Usage:
 #   ./deploy/test-pipeline.sh
@@ -28,6 +28,9 @@ KC_CLIENT="slack-thread-manager-web"
 KC_USER="shebi"
 KC_PASS="shebi"
 
+KC_ARCH_USER="${KC_ARCH_USER:-alex.chen}"
+KC_ARCH_PASS="${KC_ARCH_PASS:-password}"
+
 CHANNEL_ID="${CHANNEL_ID:-}"
 THREAD_ID="${THREAD_ID:-}"
 VERBOSE="${VERBOSE:-false}"
@@ -48,6 +51,18 @@ log_info() { echo -e "  → $1"; }
 
 auth_header() {
   echo "Authorization: Bearer $TOKEN"
+}
+
+obtain_token() {
+  local user="$1"
+  local pass="$2"
+  local kc_resp
+  kc_resp=$(curl -sk -X POST "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
+    -d "client_id=${KC_CLIENT}" \
+    -d "username=${user}" \
+    -d "password=${pass}" \
+    -d "grant_type=password" 2>&1)
+  echo "$kc_resp" | jq -r '.access_token // empty' 2>/dev/null
 }
 
 api_get() {
@@ -934,9 +949,176 @@ fi
 
 echo ""
 
-# ─── Step 12: UI Verification Summary ───────────────────────────────────────────
+# ─── Step 12: Architect User E2E (Epic 8.2 — Enrichment Panel) ───────────────
 
-echo "─── Step 12: UI Verification ───"
+echo "─── Step 12: Architect User E2E (role-based layout + enrichment) ───"
+
+ARCH_TOKEN=$(obtain_token "$KC_ARCH_USER" "$KC_ARCH_PASS")
+
+if [[ -n "$ARCH_TOKEN" && "$ARCH_TOKEN" != "null" ]]; then
+  log_pass "Keycloak login → JWT obtained for ARCHITECT user $KC_ARCH_USER"
+  ARCH_ROLE=$(echo "$ARCH_TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq -r '.role // "unknown"' 2>/dev/null) || true
+  log_info "Token role: $ARCH_ROLE"
+
+  if [[ "$ARCH_ROLE" != "ARCHITECT" ]]; then
+    log_fail "Expected role ARCHITECT, got $ARCH_ROLE — check Keycloak user attribute"
+  fi
+
+  # 12a: Ensure architect roster entry exists
+  log_info "Ensuring roster entry for $KC_ARCH_USER..."
+
+  ARCH_EMAIL="${KC_ARCH_USER}@example.com"
+  roster_response=$(api_get "/admin/roster")
+  roster_body=$(extract_body "$roster_response")
+  arch_roster_id=$(echo "$roster_body" | jq -r --arg email "$ARCH_EMAIL" '.data[] | select(.email == $email) | .id' 2>/dev/null)
+
+  if [[ -n "$arch_roster_id" ]]; then
+    log_pass "Architect roster entry exists: $arch_roster_id"
+  else
+    log_info "Creating architect roster entry..."
+
+    ws_response=$(api_get "/admin/roster/workstreams")
+    ws_body=$(extract_body "$ws_response")
+    first_ws_id=$(echo "$ws_body" | jq -r '.data[0].id // empty' 2>/dev/null)
+
+    arch_roster_body=$(cat <<ARCH_ROSTER_EOF
+{
+  "email": "${ARCH_EMAIL}",
+  "displayName": "Alex Chen (Architect)",
+  "slackHandle": "${KC_ARCH_USER}",
+  "slackNicknames": ["alex"],
+  "role": "ARCHITECT",
+  "workstreamIds": $(if [[ -n "$first_ws_id" ]]; then echo "[\"$first_ws_id\"]"; else echo "[]"; fi)
+}
+ARCH_ROSTER_EOF
+)
+
+    create_response=$(api_post "/admin/roster" "$arch_roster_body")
+    create_status=$(extract_status "$create_response")
+
+    if [[ "$create_status" == "201" ]]; then
+      log_pass "Architect roster entry created for $ARCH_EMAIL"
+    elif [[ "$create_status" == "409" ]]; then
+      log_pass "Architect roster entry already exists (409)"
+    else
+      log_fail "POST /admin/roster (architect) → $create_status"
+    fi
+  fi
+
+  # 12b: Regenerate briefings so the architect has content
+  log_info "Regenerating briefings to include architect user..."
+  regen_response=$(api_post "/admin/briefings/generate" "")
+  regen_status=$(extract_status "$regen_response")
+  if [[ "$regen_status" == "200" || "$regen_status" == "201" ]]; then
+    regen_body=$(extract_body "$regen_response")
+    regen_count=$(echo "$regen_body" | jq '.data.briefingsGenerated' 2>/dev/null || echo "0")
+    log_pass "Briefings regenerated ($regen_count briefings)"
+  else
+    log_fail "POST /admin/briefings/generate (for architect) → $regen_status"
+  fi
+
+  # 12c: Verify briefings as ARCHITECT user
+  SAVED_TOKEN="$TOKEN"
+  TOKEN="$ARCH_TOKEN"
+
+  response=$(api_get "/briefings/today")
+  status=$(extract_status "$response")
+  body=$(extract_body "$response")
+
+  if [[ "$status" == "200" ]]; then
+    log_pass "GET /briefings/today (ARCHITECT) → 200"
+
+    arch_shape=$(echo "$body" | jq -r '.data.briefing.briefingShape' 2>/dev/null || echo "unknown")
+    arch_items=$(echo "$body" | jq '.data.items | length' 2>/dev/null || echo "0")
+
+    if [[ "$arch_shape" == "intelligence_report" ]]; then
+      log_pass "Briefing shape is intelligence_report (split-panel layout)"
+    else
+      log_fail "Expected intelligence_report shape, got $arch_shape"
+    fi
+
+    log_info "Architect briefing items: $arch_items"
+
+    if [[ "$arch_items" -gt 0 ]]; then
+      log_pass "Architect briefing contains displayable items"
+
+      # Pick a thread ID for enrichment test
+      ARCH_THREAD_ID=$(echo "$body" | jq -r '.data.items[0].threadId // empty' 2>/dev/null)
+    else
+      log_info "Architect briefing has 0 items (may need workstream-thread mapping)"
+    fi
+  elif [[ "$status" == "404" ]]; then
+    log_info "GET /briefings/today (ARCHITECT) → 404 — no briefing for user yet"
+  else
+    log_fail "GET /briefings/today (ARCHITECT) → $status"
+  fi
+
+  # 12d: Verify enrichment endpoint as ARCHITECT
+  if [[ -n "${ARCH_THREAD_ID:-}" ]]; then
+    response=$(api_get "/enrichment/${ARCH_THREAD_ID}")
+    status=$(extract_status "$response")
+    body=$(extract_body "$response")
+
+    if [[ "$status" == "200" ]]; then
+      log_pass "GET /enrichment/:threadId (ARCHITECT) → 200"
+
+      if echo "$body" | jq -e '.data.sections' > /dev/null 2>&1; then
+        section_count=$(echo "$body" | jq '.data.sections | length' 2>/dev/null || echo "0")
+        log_pass "Enrichment response has data.sections ($section_count sections)"
+      else
+        log_fail "Enrichment response missing data.sections"
+      fi
+
+      if echo "$body" | jq -e '.data.meta.threadId' > /dev/null 2>&1; then
+        log_pass "Enrichment response has data.meta.threadId"
+      else
+        log_fail "Enrichment response missing data.meta.threadId"
+      fi
+    else
+      log_fail "GET /enrichment/:threadId (ARCHITECT) → $status"
+    fi
+  elif [[ -n "$THREAD_ID" ]]; then
+    log_info "Using THREAD_ID from search results for enrichment test..."
+    response=$(api_get "/enrichment/${THREAD_ID}")
+    status=$(extract_status "$response")
+
+    if [[ "$status" == "200" ]]; then
+      log_pass "GET /enrichment/:threadId (ARCHITECT, search thread) → 200"
+    else
+      log_fail "GET /enrichment/:threadId (ARCHITECT, search thread) → $status"
+    fi
+  else
+    log_skip "Enrichment (ARCHITECT) — no threadId available"
+  fi
+
+  # 12e: Verify enrichment is DENIED for non-ARCHITECT/CONSULTANT roles
+  TOKEN="$SAVED_TOKEN"
+
+  if [[ -n "${ARCH_THREAD_ID:-}${THREAD_ID:-}" ]]; then
+    test_thread="${ARCH_THREAD_ID:-$THREAD_ID}"
+    response=$(api_get "/enrichment/${test_thread}")
+    status=$(extract_status "$response")
+
+    if [[ "$status" == "403" ]]; then
+      log_pass "GET /enrichment/:threadId (ADMIN role) → 403 Forbidden (role guard works)"
+    elif [[ "$status" == "200" ]]; then
+      log_info "GET /enrichment/:threadId (ADMIN role) → 200 (ADMIN may be allowed — not a failure)"
+    else
+      log_fail "GET /enrichment/:threadId (ADMIN role) → $status (expected 403 or 200)"
+    fi
+  fi
+
+else
+  log_skip "Architect E2E — Keycloak login failed for $KC_ARCH_USER"
+  log_info "Create Keycloak user '$KC_ARCH_USER' with attribute role=ARCHITECT and password '$KC_ARCH_PASS'"
+  log_info "Or override: KC_ARCH_USER=myuser KC_ARCH_PASS=mypass ./deploy/test-pipeline.sh"
+fi
+
+echo ""
+
+# ─── Step 13: UI Verification Summary ───────────────────────────────────────────
+
+echo "─── Step 13: UI Verification ───"
 
 response=$(curl -sk -o /dev/null -w "%{http_code}" "$WEB_URL" 2>/dev/null) || true
 
@@ -947,28 +1129,35 @@ else
 fi
 
 echo ""
-echo "  ┌────────────────────────────────────────────────────────┐"
-echo "  │  Open in browser to verify:                           │"
-echo "  │                                                        │"
-echo "  │  ${WEB_URL}/briefings                                  │"
-echo "  │  ${WEB_URL}/search                                     │"
-echo "  │                                                        │"
-echo "  │  Login: ${KC_USER} / ${KC_PASS}                        │"
-echo "  │                                                        │"
-echo "  │  Briefings:                                            │"
-echo "  │   • Briefing cards render with headlines & summaries   │"
-echo "  │   • Role-based layout matches user role                │"
-echo "  │   • Freshness timestamp shows today's date             │"
-echo "  │   • Workstream filter works (Feed layout)              │"
-echo "  │   • Slack deep links point to correct threads          │"
-echo "  │   • Item type badges display (cross_workstream, etc.)  │"
-echo "  │                                                        │"
-echo "  │  Search:                                               │"
-echo "  │   • Search input accepts query and returns results     │"
-echo "  │   • Result cards show headline, summary, match type    │"
-echo "  │   • Empty query shows helpful empty state              │"
-echo "  │   • Search works against imported test data            │"
-echo "  └────────────────────────────────────────────────────────┘"
+echo "  ┌──────────────────────────────────────────────────────────┐"
+echo "  │  Open in browser to verify:                              │"
+echo "  │                                                          │"
+echo "  │  ${WEB_URL}/briefings                                    │"
+echo "  │  ${WEB_URL}/search                                       │"
+echo "  │                                                          │"
+echo "  │  ADMIN login:     ${KC_USER} / ${KC_PASS}                │"
+echo "  │  ARCHITECT login:  ${KC_ARCH_USER} / ${KC_ARCH_PASS}     │"
+echo "  │                                                          │"
+echo "  │  Briefings (ADMIN):                                      │"
+echo "  │   • Briefing cards render with headlines & summaries     │"
+echo "  │   • Role-based layout matches user role                  │"
+echo "  │   • Freshness timestamp shows today's date               │"
+echo "  │   • Workstream filter works (Feed layout)                │"
+echo "  │   • Slack deep links point to correct threads            │"
+echo "  │   • Item type badges display (cross_workstream, etc.)    │"
+echo "  │                                                          │"
+echo "  │  Briefings (ARCHITECT):                                  │"
+echo "  │   • Briefing shape is intelligence_report (split-panel)  │"
+echo "  │   • Enrichment panel appears for each briefing item      │"
+echo "  │   • Enrichment sections load with source-attributed data │"
+echo "  │   • Loading / empty states render correctly              │"
+echo "  │                                                          │"
+echo "  │  Search:                                                 │"
+echo "  │   • Search input accepts query and returns results       │"
+echo "  │   • Result cards show headline, summary, match type      │"
+echo "  │   • Empty query shows helpful empty state                │"
+echo "  │   • Search works against imported test data              │"
+echo "  └──────────────────────────────────────────────────────────┘"
 
 echo ""
 

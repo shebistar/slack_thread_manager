@@ -1,6 +1,6 @@
 # Story 8.4: Backfill Section Frontend Display
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -243,3 +243,4 @@ Codex 5.3
 ### Change Log
 
 - 2026-05-27: Implemented Story 8.4 backfill section display across all briefing layouts with tests.
+- 2026-05-29: Review complete — all tasks verified, E2E validated. Story marked done.

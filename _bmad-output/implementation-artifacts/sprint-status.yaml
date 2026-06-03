@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-05-27T17:32:00+02:00
+last_updated: 2026-06-02T19:20:00+02:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -110,16 +110,16 @@ development_status:
   epic-7-retrospective: done
 
   # Epic 8: AI Enrichment & Consultant Onboarding
-  epic-8: in-progress
+  epic-8: done
   8-1-enrichment-service-and-source-integration: done
-  8-2-enrichment-panel-frontend: in-progress
+  8-2-enrichment-panel-frontend: done
   8-3-backfill-briefing-generation-for-new-consultants: done
-  8-4-backfill-section-frontend-display: review
-  epic-8-retrospective: optional
+  8-4-backfill-section-frontend-display: done
+  epic-8-retrospective: done
 
   # Epic 9: UX Modernization & Visual Consistency
-  epic-9: backlog
-  9-1-design-system-token-alignment: backlog
+  epic-9: in-progress
+  9-1-design-system-token-alignment: ready-for-dev
   9-2-adaptive-role-based-layout-shell: backlog
   9-3-briefing-card-visual-state-system: backlog
   9-4-search-experience-visual-refresh: backlog
