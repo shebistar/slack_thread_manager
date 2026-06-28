@@ -72,4 +72,8 @@ describe('getLayoutVariant', () => {
   it('returns "split-panel" for CONSULTANT role', () => {
     expect(getLayoutVariant('CONSULTANT')).toBe('split-panel');
   });
+
+  it('defaults to "dashboard" for unknown role', () => {
+    expect(getLayoutVariant('UNKNOWN' as never)).toBe('dashboard');
+  });
 });

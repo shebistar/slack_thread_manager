@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-06-03T19:42:00+02:00
+last_updated: 2026-06-28T18:15:00+02:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -120,9 +120,18 @@ development_status:
   # Epic 9: UX Modernization & Visual Consistency
   epic-9: in-progress
   9-1-design-system-token-alignment: review
-  9-2-adaptive-role-based-layout-shell: ready-for-dev
-  9-3-briefing-card-visual-state-system: backlog
+  9-2-adaptive-role-based-layout-shell: review
+  9-3-briefing-card-visual-state-system: ready-for-dev
   9-4-search-experience-visual-refresh: backlog
   9-5-global-navigation-header-and-information-architecture-polish: backlog
   9-6-responsive-accessibility-and-ux-regression-hardening: backlog
   epic-9-retrospective: optional
+
+  # Epic 10: OpenShift Full-Stack Installer & Deployment Automation
+  epic-10: in-progress
+  10-1-pvc-manifest-and-keycloak-openshift-deployment: done
+  10-2-ollama-openshift-deployment-with-model-auto-pull: done
+  10-3-one-command-full-stack-installer: done
+  10-4-backup-and-restore-workflow: done
+  10-5-make-deploy-sh-idempotent-after-install-sh: backlog
+  epic-10-retrospective: optional

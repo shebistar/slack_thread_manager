@@ -9,7 +9,8 @@ import { EnrichmentPanel } from '@/components/enrichment-panel/enrichment-panel.
 import { BriefingCard } from '@/components/briefing-card/briefing-card.js';
 import { BackfillSection } from '@/components/backfill-section/backfill-section.js';
 import { WorkstreamFilter } from '@/components/workstream-filter/workstream-filter.js';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card.js';
+import { BriefingPageFrame } from '@/components/briefing-page-frame/briefing-page-frame.js';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.js';
 import { Skeleton } from '@/components/ui/skeleton.js';
 import { SilenceMonitor } from '@/components/silence-monitor/silence-monitor.js';
 import type { UserRole } from '@slack-thread-manager/shared';
@@ -143,93 +144,76 @@ export function FeedLayout() {
     <div>
       <h1 className="sr-only">Daily Briefing</h1>
 
-      <FeedHeader data={data} isLoading={isLoading} />
+      <BriefingPageFrame
+        title="Daily Briefing"
+        layoutLabel="Filtered Brief"
+        briefingData={data}
+        isLoading={isLoading}
+      >
+        {isLoading ? (
+          <FeedSkeleton />
+        ) : data ? (
+          <div className="space-y-0">
+            {backfillItems.length > 0 && (
+              <div className="px-6 pt-6">
+                <BackfillSection
+                  items={backfillItems}
+                  readItemIds={data.readItemIds ?? []}
+                  onMarkRead={(id) => markItemRead.mutate(id)}
+                  variant="feed"
+                  showDailyEmptyState={selectedWorkstream === null && dailyItems.length === 0}
+                />
+              </div>
+            )}
 
-      {isLoading ? (
-        <FeedSkeleton />
-      ) : data ? (
-        <div className="space-y-0">
-          {backfillItems.length > 0 && (
-            <div className="p-6 pb-0">
-              <BackfillSection
-                items={backfillItems}
-                readItemIds={data.readItemIds ?? []}
-                onMarkRead={(id) => markItemRead.mutate(id)}
-                variant="feed"
-                showDailyEmptyState={selectedWorkstream === null && dailyItems.length === 0}
+            <div className="bg-[--color-gray-10] border-b border-[--color-gray-20] px-6 py-3">
+              <WorkstreamFilter
+                workstreams={workstreams}
+                selectedWorkstream={selectedWorkstream}
+                onSelect={setSelectedWorkstream}
               />
             </div>
-          )}
 
-          <div className="bg-[--color-gray-10] border-b border-[--color-gray-20] px-6 py-3">
-            <WorkstreamFilter
-            workstreams={workstreams}
-            selectedWorkstream={selectedWorkstream}
-            onSelect={setSelectedWorkstream}
-          />
-          </div>
-
-          <div className="p-6 space-y-4">
-            {filteredDailyItems.length === 0 ? (
-              backfillItems.length > 0 && selectedWorkstream === null && dailyItems.length === 0 ? null : (
-              <FeedEmptyState hasFilter={selectedWorkstream !== null} />
-              )
-            ) : (
-              <>
-                {featuredItem && (
-                  <FeedFeaturedCard
-                    item={featuredItem}
-                    silenceDays={alertsByThreadId.get(featuredItem.threadId) ?? null}
-                    isRead={(data.readItemIds ?? []).includes(featuredItem.id)}
-                    onExpandChange={() => markItemRead.mutate(featuredItem.id)}
-                  />
-                )}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {standardItems.map((item) => (
-                    <BriefingCard
-                      key={item.id}
-                      headline={item.headline}
-                      workstreamName={item.workstreamName}
-                      sourceThreadUrl={item.sourceThreadUrl}
-                      itemType={item.itemType}
-                      variant="standard"
-                      summaryText={item.summaryText}
-                      messageCount={item.messageCount}
-                      participantCount={item.participantCount}
-                      latestActivityAt={item.latestActivityAt}
-                      isRead={(data.readItemIds ?? []).includes(item.id)}
-                      onExpandChange={() => markItemRead.mutate(item.id)}
-                      silenceDays={alertsByThreadId.get(item.threadId) ?? null}
+            <div className="p-6 space-y-4">
+              {filteredDailyItems.length === 0 ? (
+                backfillItems.length > 0 && selectedWorkstream === null && dailyItems.length === 0 ? null : (
+                  <FeedEmptyState hasFilter={selectedWorkstream !== null} />
+                )
+              ) : (
+                <>
+                  {featuredItem && (
+                    <FeedFeaturedCard
+                      item={featuredItem}
+                      silenceDays={alertsByThreadId.get(featuredItem.threadId) ?? null}
+                      isRead={(data.readItemIds ?? []).includes(featuredItem.id)}
+                      onExpandChange={() => markItemRead.mutate(featuredItem.id)}
                     />
-                  ))}
-                </div>
-              </>
-            )}
+                  )}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    {standardItems.map((item) => (
+                      <BriefingCard
+                        key={item.id}
+                        headline={item.headline}
+                        workstreamName={item.workstreamName}
+                        sourceThreadUrl={item.sourceThreadUrl}
+                        itemType={item.itemType}
+                        variant="standard"
+                        summaryText={item.summaryText}
+                        messageCount={item.messageCount}
+                        participantCount={item.participantCount}
+                        latestActivityAt={item.latestActivityAt}
+                        isRead={(data.readItemIds ?? []).includes(item.id)}
+                        onExpandChange={() => markItemRead.mutate(item.id)}
+                        silenceDays={alertsByThreadId.get(item.threadId) ?? null}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function FeedHeader({ data, isLoading }: { data: BriefingWithItems | null | undefined; isLoading: boolean }) {
-  const dateStr = data
-    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(new Date(data.briefing.generatedAt))
-    : '';
-  const timeStr = data
-    ? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(data.briefing.generatedAt))
-    : '';
-
-  return (
-    <div className="bg-white border-b-[3px] border-b-[--color-brand-red] px-6 py-4 flex items-center justify-between rounded-t-lg">
-      <div>
-        <h2 className="font-[--font-display] text-xl font-medium text-[--color-gray-95]">Daily Briefing</h2>
-        {!isLoading && data && (
-          <p className="text-[13px] text-[--color-gray-50] mt-1">
-            {dateStr} · Generated at {timeStr} · {data.briefing.threadCount} threads across {data.briefing.workstreamCount} workstreams
-          </p>
-        )}
-      </div>
+        ) : null}
+      </BriefingPageFrame>
     </div>
   );
 }
@@ -353,89 +337,79 @@ export function SplitPanelLayout() {
     <div>
       <h1 className="sr-only">Daily Briefing</h1>
 
-      <SplitPanelTopBar />
-
-      {isLoading ? (
-        <SplitPanelSkeleton />
-      ) : data ? (
-        <div className="mt-4 flex flex-col xl:flex-row gap-6">
-          <div className="flex-1 min-w-0 space-y-4" role="listbox" aria-label="Briefing topics">
-            {backfillItems.length > 0 && (
-              <BackfillSection
-                items={backfillItems}
-                readItemIds={data.readItemIds ?? []}
-                onMarkRead={(id) => markItemRead.mutate(id)}
-                variant="split-panel"
-                selectedItemId={selectedItemId}
-                onSelectItem={(id) => {
-                  const isDeselect = selectedItemId === id;
-                  setSelectedItemId(isDeselect ? null : id);
-                  if (!isDeselect) markItemRead.mutate(id);
-                }}
-                showDailyEmptyState={dailyItems.length === 0}
-              />
-            )}
-
-            {dailyItems.length === 0 ? (
-              backfillItems.length > 0 ? null : (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <p className="text-lg text-[--color-gray-50]">No briefing items today.</p>
-                <p className="text-sm text-[--color-gray-50] mt-2">
-                  Check back after the next batch run.
-                </p>
-              </div>
-              )
-            ) : (
-              dailyItems.map((item) => (
-                <BriefingCard
-                  key={item.id}
-                  headline={item.headline}
-                  workstreamName={item.workstreamName}
-                  sourceThreadUrl={item.sourceThreadUrl}
-                  itemType={item.itemType}
-                  variant="standard"
-                  summaryText={item.summaryText}
-                  messageCount={item.messageCount}
-                  participantCount={item.participantCount}
-                  latestActivityAt={item.latestActivityAt}
-                  selected={selectedItemId === item.id}
-                  isRead={(data.readItemIds ?? []).includes(item.id)}
-                  onSelect={() => {
-                    const isDeselect = selectedItemId === item.id;
-                    setSelectedItemId(isDeselect ? null : item.id);
-                    if (!isDeselect) markItemRead.mutate(item.id);
+      <BriefingPageFrame
+        title="Daily Briefing — Intelligence Report"
+        layoutLabel="Lead Architect View"
+        briefingData={data}
+        isLoading={isLoading}
+      >
+        {isLoading ? (
+          <SplitPanelSkeleton />
+        ) : data ? (
+          <div className="mt-6 flex flex-col xl:flex-row gap-6">
+            <div className="flex-1 min-w-0 space-y-4" role="listbox" aria-label="Briefing topics">
+              {backfillItems.length > 0 && (
+                <BackfillSection
+                  items={backfillItems}
+                  readItemIds={data.readItemIds ?? []}
+                  onMarkRead={(id) => markItemRead.mutate(id)}
+                  variant="split-panel"
+                  selectedItemId={selectedItemId}
+                  onSelectItem={(id) => {
+                    const isDeselect = selectedItemId === id;
+                    setSelectedItemId(isDeselect ? null : id);
+                    if (!isDeselect) markItemRead.mutate(id);
                   }}
-                  silenceDays={alertsByThreadId.get(item.threadId) ?? null}
+                  showDailyEmptyState={dailyItems.length === 0}
                 />
-              ))
-            )}
+              )}
+
+              {dailyItems.length === 0 ? (
+                backfillItems.length > 0 ? null : (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <p className="text-lg text-[--color-gray-50]">No briefing items today.</p>
+                    <p className="text-sm text-[--color-gray-50] mt-2">
+                      Check back after the next batch run.
+                    </p>
+                  </div>
+                )
+              ) : (
+                dailyItems.map((item) => (
+                  <BriefingCard
+                    key={item.id}
+                    headline={item.headline}
+                    workstreamName={item.workstreamName}
+                    sourceThreadUrl={item.sourceThreadUrl}
+                    itemType={item.itemType}
+                    variant="standard"
+                    summaryText={item.summaryText}
+                    messageCount={item.messageCount}
+                    participantCount={item.participantCount}
+                    latestActivityAt={item.latestActivityAt}
+                    selected={selectedItemId === item.id}
+                    isRead={(data.readItemIds ?? []).includes(item.id)}
+                    onSelect={() => {
+                      const isDeselect = selectedItemId === item.id;
+                      setSelectedItemId(isDeselect ? null : item.id);
+                      if (!isDeselect) markItemRead.mutate(item.id);
+                    }}
+                    silenceDays={alertsByThreadId.get(item.threadId) ?? null}
+                  />
+                ))
+              )}
+            </div>
+
+            <EnrichmentPanel
+              threadId={selectedItemId ? (sortedItems.find((i) => i.id === selectedItemId)?.threadId ?? null) : null}
+              isOpen={sidePanelOpen}
+              onToggle={() => setSidePanelOpen((prev) => !prev)}
+            />
           </div>
-
-          <EnrichmentPanel
-            threadId={selectedItemId ? (sortedItems.find((i) => i.id === selectedItemId)?.threadId ?? null) : null}
-            isOpen={sidePanelOpen}
-            onToggle={() => setSidePanelOpen((prev) => !prev)}
-          />
-        </div>
-      ) : null}
+        ) : null}
+      </BriefingPageFrame>
     </div>
   );
 }
-
-function SplitPanelTopBar() {
-  return (
-    <div className="relative bg-white border border-[--color-gray-20] rounded-lg px-6 py-3 flex items-center gap-4">
-      <div className="absolute top-0 left-0 right-0 h-0.5 bg-[--color-brand-red] rounded-t-lg" />
-      <h2 className="font-[--font-display] text-base font-medium text-[--color-gray-95]">
-        Daily Briefing — Intelligence Report
-      </h2>
-      <span className="ml-auto px-2.5 py-1 bg-[--color-teal-10] text-[--color-teal-50] rounded text-[11px] font-medium">
-        Lead Architect View
-      </span>
-    </div>
-  );
-}
-
 
 function SplitPanelSkeleton() {
   return (
@@ -490,34 +464,20 @@ export function DashboardLayout() {
     <div>
       <h1 className="sr-only">Daily Briefing</h1>
 
-      <DashboardHeader data={data} isLoading={isLoading} />
+      <BriefingPageFrame
+        title="Briefing Dashboard"
+        layoutLabel="Executive Scan"
+        briefingData={data}
+        isLoading={isLoading}
+      >
+        <StatsBar data={data} isLoading={isLoading} />
 
-      <StatsBar data={data} isLoading={isLoading} />
-
-      {isLoading ? (
-        <PanelsSkeleton />
-      ) : data ? (
-        <DashboardPanels data={data} />
-      ) : null}
-    </div>
-  );
-}
-
-function DashboardHeader({ data, isLoading }: { data: BriefingWithItems | null | undefined; isLoading: boolean }) {
-  const dateStr = data
-    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(data.briefing.generatedAt))
-    : '';
-  const timeStr = data
-    ? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(data.briefing.generatedAt))
-    : '';
-
-  return (
-    <div className="flex items-center gap-4 bg-[--color-gray-95] text-white rounded-t-lg px-6 py-4 mb-0">
-      <div className="w-1 h-6 bg-[--color-brand-red] rounded-sm shrink-0" />
-      <h2 className="font-[--font-display] text-lg font-medium">Briefing Dashboard</h2>
-      <span className="ml-auto text-xs text-[--color-gray-50]">
-        {isLoading ? '' : `${dateStr} · ${timeStr}`}
-      </span>
+        {isLoading ? (
+          <PanelsSkeleton />
+        ) : data ? (
+          <DashboardPanels data={data} />
+        ) : null}
+      </BriefingPageFrame>
     </div>
   );
 }
