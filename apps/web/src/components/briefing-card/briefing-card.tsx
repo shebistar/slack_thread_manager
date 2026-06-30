@@ -19,6 +19,7 @@ interface BriefingCardProps {
   isRead?: boolean;
   onExpandChange?: (expanded: boolean) => void;
   silenceDays?: number | null;
+  isPartialMatch?: boolean;
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -31,6 +32,70 @@ function formatRelativeTime(dateStr: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.floor(diffHours / 24);
   return `${diffDays}d ago`;
+}
+
+interface CardStateInput {
+  isRead: boolean;
+  selected: boolean;
+  isQuiet: boolean;
+  isOrphaned: boolean;
+  isPartialMatch: boolean;
+  isNew: boolean;
+  isSelectable: boolean;
+}
+
+interface CardStateOutput {
+  cardClasses: string;
+  leftBorder: string;
+  opacity: string;
+}
+
+export function getCardStateClasses(input: CardStateInput): CardStateOutput {
+  const { isRead, selected, isQuiet, isOrphaned, isPartialMatch, isNew, isSelectable } = input;
+
+  let leftBorder = '';
+  let cardClasses = '';
+  let opacity = '';
+
+  // Full border: selected overrides everything
+  if (selected) {
+    cardClasses = 'border-state-selected-border bg-state-selected-bg';
+  } else if (!isRead) {
+    // Left border priority: gone-quiet > orphaned > unread > partial-match > newly-surfaced
+    if (isQuiet) {
+      leftBorder = 'border-l-2 border-l-state-gone-quiet-border';
+      cardClasses = 'bg-state-gone-quiet-bg';
+    } else if (isOrphaned) {
+      leftBorder = 'border-l-2 border-l-state-gone-quiet-border';
+    } else if (!isPartialMatch) {
+      // Normal unread: blue left border (not a semantic "state" token — it's the generic unread accent)
+      leftBorder = 'border-l-2 border-l-[--color-blue-50]';
+    } else {
+      // partial-match (lower priority than unread-standard)
+      leftBorder = 'border-l-2 border-l-state-partial-match-border';
+      cardClasses = 'bg-state-partial-match-bg';
+    }
+
+    // newly-surfaced: only if no higher-priority border was set
+    if (isNew && leftBorder === '') {
+      leftBorder = 'border-l-2 border-l-[--color-green-50]';
+    }
+  } else {
+    // isRead cases with no selection
+    // No left border for read cards. Quiet/orphaned lose their border when read.
+  }
+
+  // Opacity: read + not selected → dimmed
+  if (isRead && !selected) {
+    opacity = 'opacity-60';
+  }
+
+  // Focus ring for selectable cards
+  if (isSelectable) {
+    cardClasses += ' focus-visible:ring-2 focus-visible:ring-[--color-blue-50] focus-visible:outline-none';
+  }
+
+  return { cardClasses: cardClasses.trim(), leftBorder, opacity };
 }
 
 export function BriefingCard({
@@ -48,6 +113,7 @@ export function BriefingCard({
   isRead,
   onExpandChange,
   silenceDays,
+  isPartialMatch,
 }: BriefingCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isSelectable = !!onSelect;
@@ -57,9 +123,17 @@ export function BriefingCard({
     const isCrossWorkstream = itemType === 'cross_workstream';
     const isQuiet = itemType === 'gone_quiet' || silenceDays != null;
     const isHistorical = itemType === 'backfill';
+    const isNew = !isRead;
 
-    const showUnreadBorder = !isRead && !isQuiet && !isOrphaned;
-    const showReadOpacity = isRead && !selected;
+    const state = getCardStateClasses({
+      isRead: !!isRead,
+      selected: !!selected,
+      isQuiet,
+      isOrphaned,
+      isPartialMatch: !!isPartialMatch,
+      isNew,
+      isSelectable,
+    });
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isSelectable && (e.key === 'Enter' || e.key === ' ')) {
@@ -70,13 +144,7 @@ export function BriefingCard({
 
     return (
       <Card
-        className={`transition-shadow hover:shadow-md transition-opacity duration-200 ease-out motion-reduce:transition-none ${
-          showUnreadBorder ? 'border-l-2 border-l-[--color-blue-50]' : ''
-        } ${isQuiet && !isRead ? `border-l-2 border-l-[--color-yellow-30] ${!selected ? 'bg-[--color-yellow-10]' : ''}` : ''
-        } ${isOrphaned && !isRead ? 'border-l-2 border-l-[--color-yellow-30]' : ''} ${
-          selected ? 'border-[--color-blue-50] bg-[--color-blue-10]' : ''
-        } ${showReadOpacity ? 'opacity-60' : ''
-        } ${isSelectable ? 'focus-visible:ring-2 focus-visible:ring-[--color-blue-50] focus-visible:outline-none' : ''}`}
+        className={`transition-shadow hover:shadow-md transition-opacity duration-200 ease-out motion-reduce:transition-none ${state.leftBorder} ${state.cardClasses} ${state.opacity}`}
         {...(isSelectable
           ? {
               role: 'option',
@@ -111,7 +179,8 @@ export function BriefingCard({
                 isQuiet={isQuiet}
                 isHistorical={isHistorical}
                 silenceDays={silenceDays}
-                isNew={!isRead}
+                isNew={isNew}
+                isPartialMatch={isPartialMatch}
                 showChevron
                 expanded={expanded}
               />
@@ -128,7 +197,8 @@ export function BriefingCard({
               isQuiet={isQuiet}
               isHistorical={isHistorical}
               silenceDays={silenceDays}
-              isNew={!isRead}
+              isNew={isNew}
+              isPartialMatch={isPartialMatch}
               showChevron={false}
               expanded={false}
             />
@@ -166,7 +236,7 @@ export function BriefingCard({
 
   // compact variant (default)
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-[--color-gray-20] last:border-b-0">
+    <div className="flex items-start gap-3 py-3 border-b border-[--color-gray-20] last:border-b-0 transition-colors hover:bg-[--color-gray-05] motion-reduce:transition-none">
       <div className="flex-1 min-w-0">
         <p className="font-medium font-[--font-display] text-sm text-[--color-gray-95] truncate">
           {headline}
@@ -216,6 +286,7 @@ function StandardCardHeader({
   isHistorical,
   silenceDays,
   isNew,
+  isPartialMatch,
   showChevron,
   expanded,
 }: {
@@ -230,6 +301,7 @@ function StandardCardHeader({
   isHistorical: boolean;
   silenceDays?: number | null;
   isNew?: boolean;
+  isPartialMatch?: boolean;
   showChevron: boolean;
   expanded: boolean;
 }) {
@@ -278,6 +350,11 @@ function StandardCardHeader({
         {!isCrossWorkstream && !isOrphaned && !isQuiet && isNew && (
           <Badge className="bg-[--color-green-10] text-[--color-green-50] text-[10px] px-1.5 py-0">
             New
+          </Badge>
+        )}
+        {isPartialMatch && (
+          <Badge className="bg-[--color-yellow-10] text-[--color-yellow-70] text-[10px] px-1.5 py-0">
+            Partial match — verify with source
           </Badge>
         )}
         {showChevron && (

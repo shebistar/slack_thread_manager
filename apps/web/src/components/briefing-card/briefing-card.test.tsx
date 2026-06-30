@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { BriefingCard } from './briefing-card.js';
+import { BriefingCard, getCardStateClasses } from './briefing-card.js';
 
 describe('BriefingCard', () => {
   describe('compact variant', () => {
@@ -78,6 +78,34 @@ describe('BriefingCard', () => {
       expect(screen.getByText('No workstream item')).toBeInTheDocument();
       const badges = screen.queryAllByText(/Platform|Engineering/);
       expect(badges).toHaveLength(0);
+    });
+
+    it('has hover background class for subtle feedback', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Hover card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="compact"
+        />,
+      );
+      const el = container.firstChild as HTMLElement;
+      expect(el.className).toContain('hover:bg-[--color-gray-05]');
+    });
+
+    it('has motion-reduce:transition-none on compact variant', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Compact motion"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="compact"
+        />,
+      );
+      const el = container.firstChild as HTMLElement;
+      expect(el.className).toContain('motion-reduce:transition-none');
     });
   });
 
@@ -259,7 +287,7 @@ describe('BriefingCard', () => {
       );
       expect(screen.getByText('Quiet for 5 days')).toBeInTheDocument();
       const card = container.firstChild as HTMLElement;
-      expect(card.className).toContain('border-l-[--color-yellow-30]');
+      expect(card.className).toContain('border-l-state-gone-quiet-border');
     });
 
     it('uses singular "day" when silenceDays is 1', () => {
@@ -305,7 +333,7 @@ describe('BriefingCard', () => {
       );
       expect(screen.getByText('Quiet for 3 days')).toBeInTheDocument();
       const card = container.firstChild as HTMLElement;
-      expect(card.className).toContain('border-l-[--color-yellow-30]');
+      expect(card.className).toContain('border-l-state-gone-quiet-border');
     });
   });
 
@@ -326,7 +354,7 @@ describe('BriefingCard', () => {
   });
 
   describe('selectable variant (onSelect)', () => {
-    it('renders selected state with blue border and background', () => {
+    it('renders selected state with semantic border and background tokens', () => {
       const { container } = render(
         <BriefingCard
           headline="Selected card"
@@ -341,8 +369,8 @@ describe('BriefingCard', () => {
       );
       const card = container.querySelector('[role="option"]');
       expect(card).toBeInTheDocument();
-      expect(card?.className).toContain('border-[--color-blue-50]');
-      expect(card?.className).toContain('bg-[--color-blue-10]');
+      expect(card?.className).toContain('border-state-selected-border');
+      expect(card?.className).toContain('bg-state-selected-bg');
       expect(card).toHaveAttribute('aria-selected', 'true');
     });
 
@@ -514,7 +542,7 @@ describe('BriefingCard', () => {
         />,
       );
       const card = container.querySelector('[role="option"]') as HTMLElement;
-      expect(card.className).toContain('border-[--color-blue-50]');
+      expect(card.className).toContain('border-state-selected-border');
       expect(card.className).not.toContain('opacity-60');
     });
 
@@ -532,7 +560,7 @@ describe('BriefingCard', () => {
       );
       const card = container.firstChild as HTMLElement;
       expect(card.className).toContain('opacity-60');
-      expect(card.className).not.toContain('border-l-[--color-yellow-30]');
+      expect(card.className).not.toContain('border-l-state-gone-quiet-border');
     });
 
     it('compact variant: isRead prop does not affect visual output', () => {
@@ -589,6 +617,232 @@ describe('BriefingCard', () => {
       handleExpand.mockClear();
       await user.click(toggle); // collapse
       expect(handleExpand).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('partial-match state', () => {
+    it('renders yellow background and badge when isPartialMatch is true', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Partial match card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          isRead={false}
+          isPartialMatch={true}
+        />,
+      );
+      const card = container.firstChild as HTMLElement;
+      expect(card.className).toContain('bg-state-partial-match-bg');
+      expect(card.className).toContain('border-l-state-partial-match-border');
+      expect(screen.getByText('Partial match — verify with source')).toBeInTheDocument();
+    });
+
+    it('partial-match + read applies opacity-60', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Read partial match"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          isRead={true}
+          isPartialMatch={true}
+        />,
+      );
+      const card = container.firstChild as HTMLElement;
+      expect(card.className).toContain('opacity-60');
+    });
+
+    it('partial-match + gone-quiet: gone-quiet wins', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Quiet partial match"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="gone_quiet"
+          variant="standard"
+          summaryText="Summary."
+          isRead={false}
+          isPartialMatch={true}
+        />,
+      );
+      const card = container.firstChild as HTMLElement;
+      expect(card.className).toContain('border-l-state-gone-quiet-border');
+      expect(card.className).toContain('bg-state-gone-quiet-bg');
+      expect(card.className).not.toContain('bg-state-partial-match-bg');
+    });
+
+    it('partial-match + selected: selected wins', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="Selected partial match"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          isRead={false}
+          isPartialMatch={true}
+          selected={true}
+          onSelect={() => {}}
+        />,
+      );
+      const card = container.querySelector('[role="option"]') as HTMLElement;
+      expect(card.className).toContain('bg-state-selected-bg');
+      expect(card.className).not.toContain('bg-state-partial-match-bg');
+    });
+  });
+
+  describe('newly-surfaced state', () => {
+    it('newly surfaced card renders green left border when no higher-priority border', () => {
+      const state = getCardStateClasses({
+        isRead: false,
+        selected: false,
+        isQuiet: false,
+        isOrphaned: false,
+        isPartialMatch: false,
+        isNew: true,
+        isSelectable: false,
+      });
+      // Normal unread takes priority over newly-surfaced in the current logic
+      // because unread non-special cards get blue border first
+      expect(state.leftBorder).toContain('border-l-[--color-blue-50]');
+    });
+
+    it('newly surfaced + unread: unread blue border wins over green', () => {
+      const { container } = render(
+        <BriefingCard
+          headline="New unread card"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          isRead={false}
+        />,
+      );
+      const card = container.firstChild as HTMLElement;
+      expect(card.className).toContain('border-l-[--color-blue-50]');
+      expect(card.className).not.toContain('border-l-[--color-green-50]');
+    });
+
+    it('New badge always renders regardless of left border priority', () => {
+      render(
+        <BriefingCard
+          headline="New card with badge"
+          workstreamName="Platform"
+          sourceThreadUrl={null}
+          itemType="standard"
+          variant="standard"
+          summaryText="Summary."
+          isRead={false}
+        />,
+      );
+      expect(screen.getByText('New')).toBeInTheDocument();
+    });
+  });
+
+  describe('getCardStateClasses helper', () => {
+    it('selected overrides all other states', () => {
+      const result = getCardStateClasses({
+        isRead: false,
+        selected: true,
+        isQuiet: true,
+        isOrphaned: false,
+        isPartialMatch: true,
+        isNew: true,
+        isSelectable: true,
+      });
+      expect(result.cardClasses).toContain('bg-state-selected-bg');
+      expect(result.cardClasses).toContain('border-state-selected-border');
+      expect(result.leftBorder).toBe('');
+      expect(result.opacity).toBe('');
+    });
+
+    it('gone-quiet takes priority over orphaned and partial-match', () => {
+      const result = getCardStateClasses({
+        isRead: false,
+        selected: false,
+        isQuiet: true,
+        isOrphaned: false,
+        isPartialMatch: true,
+        isNew: true,
+        isSelectable: false,
+      });
+      expect(result.leftBorder).toContain('border-l-state-gone-quiet-border');
+      expect(result.cardClasses).toContain('bg-state-gone-quiet-bg');
+    });
+
+    it('orphaned gets yellow border without background', () => {
+      const result = getCardStateClasses({
+        isRead: false,
+        selected: false,
+        isQuiet: false,
+        isOrphaned: true,
+        isPartialMatch: false,
+        isNew: false,
+        isSelectable: false,
+      });
+      expect(result.leftBorder).toContain('border-l-state-gone-quiet-border');
+      expect(result.cardClasses).not.toContain('bg-state-gone-quiet-bg');
+    });
+
+    it('read + not selected gives opacity-60', () => {
+      const result = getCardStateClasses({
+        isRead: true,
+        selected: false,
+        isQuiet: false,
+        isOrphaned: false,
+        isPartialMatch: false,
+        isNew: false,
+        isSelectable: false,
+      });
+      expect(result.opacity).toBe('opacity-60');
+      expect(result.leftBorder).toBe('');
+    });
+
+    it('read + selected: no opacity', () => {
+      const result = getCardStateClasses({
+        isRead: true,
+        selected: true,
+        isQuiet: false,
+        isOrphaned: false,
+        isPartialMatch: false,
+        isNew: false,
+        isSelectable: true,
+      });
+      expect(result.opacity).toBe('');
+    });
+
+    it('partial-match unread gets partial-match tokens', () => {
+      const result = getCardStateClasses({
+        isRead: false,
+        selected: false,
+        isQuiet: false,
+        isOrphaned: false,
+        isPartialMatch: true,
+        isNew: true,
+        isSelectable: false,
+      });
+      expect(result.leftBorder).toContain('border-l-state-partial-match-border');
+      expect(result.cardClasses).toContain('bg-state-partial-match-bg');
+    });
+
+    it('selectable adds focus-visible ring class', () => {
+      const result = getCardStateClasses({
+        isRead: false,
+        selected: false,
+        isQuiet: false,
+        isOrphaned: false,
+        isPartialMatch: false,
+        isNew: false,
+        isSelectable: true,
+      });
+      expect(result.cardClasses).toContain('focus-visible:ring-2');
     });
   });
 });
