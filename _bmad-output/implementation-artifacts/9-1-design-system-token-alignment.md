@@ -1,6 +1,6 @@
 # Story 9.1: Design System Token Alignment
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -320,3 +320,11 @@ Claude Opus 4 (Cursor)
 - `apps/web/src/components/staging/staging-review-item.tsx` (UPDATE — 8 token class migrations + brand color fix)
 - `apps/web/src/components/blocklist/blocklist-table.tsx` (UPDATE — 2 token class migrations)
 - `apps/web/src/components/admin/import-form.tsx` (UPDATE — 3 token class migrations)
+
+### Review Findings
+
+- [x] [Review][Patch] Unread/read opacity+border tokens not bridged in `@theme inline` — `--state-unread-opacity`, `--state-read-opacity`, `--state-unread-border`, `--state-read-border` are defined in `:root` but have no corresponding `--color-state-unread-*` / `--color-state-read-*` entries in the `@theme inline` block, violating AC#3 completeness. [`apps/web/src/styles/globals.css`]
+- [x] [Review][Patch] State tokens use raw hex instead of `var()` palette composition — `:root` defines `--state-gone-quiet-bg: #fff4cc` etc. using literal hex values instead of `var(--color-yellow-10)` as specified in Task 3 intent; breaks the single-source-of-truth principle. [`apps/web/src/styles/globals.css`]
+- [x] [Review][Defer] Dark mode has no `.dark` overrides for semantic state tokens — state colors defined only under `:root`, giving light-theme yellows/blues on dark cards. Deferred per spec (dark mode is not V1 scope). [`apps/web/src/styles/globals.css`]
+- [x] [Review][Defer] Incomplete `[--color-*]` token migration across codebase — 25+ files still use arbitrary `[--color-*]` syntax after this story; intentional partial migration per Story 9.3 notes ("migrate only where it improves readability"). [`apps/web/src/`] — deferred, pre-existing
+- [x] [Review][Defer] Spacing/typography scale tokens defined but not consumed in components — `--space-*` and `--font-size-*` tokens are defined in `:root` but all components still use Tailwind spacing literals (`px-6`, `text-xl`). Deferred as adoption-sweep work for a later story. [`apps/web/src/styles/globals.css`] — deferred, pre-existing

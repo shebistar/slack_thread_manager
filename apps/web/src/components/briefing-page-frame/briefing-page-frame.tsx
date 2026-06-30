@@ -12,12 +12,29 @@ interface BriefingPageFrameProps {
 }
 
 function formatFreshness(data: BriefingWithItems): string {
+  const countStr = `${data.briefing.threadCount} threads across ${data.briefing.workstreamCount} workstreams`;
+
+  const generatedDate = new Date(data.briefing.generatedAt);
+  if (isNaN(generatedDate.getTime())) {
+    return countStr;
+  }
+
   const timeStr = new Intl.DateTimeFormat(undefined, {
     hour: 'numeric',
     minute: '2-digit',
-  }).format(new Date(data.briefing.generatedAt));
+  }).format(generatedDate);
 
-  return `Generated today at ${timeStr} · ${data.briefing.threadCount} threads across ${data.briefing.workstreamCount} workstreams`;
+  const now = new Date();
+  const isToday =
+    generatedDate.getFullYear() === now.getFullYear() &&
+    generatedDate.getMonth() === now.getMonth() &&
+    generatedDate.getDate() === now.getDate();
+
+  const dateLabel = isToday
+    ? `today at ${timeStr}`
+    : `on ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(generatedDate)} at ${timeStr}`;
+
+  return `Generated ${dateLabel} · ${countStr}`;
 }
 
 export function BriefingPageFrame({

@@ -63,20 +63,20 @@
 
   --state-normal-bg: var(--background);
   --state-normal-border: transparent;
-  --state-selected-bg: #e0f0ff;
-  --state-selected-border: #0066cc;
+  --state-selected-bg: var(--color-blue-10);
+  --state-selected-border: var(--color-blue-50);
   --state-unread-opacity: 1;
   --state-unread-border: currentColor;
   --state-read-opacity: 0.6;
   --state-read-border: transparent;
-  --state-gone-quiet-bg: #fff4cc;
-  --state-gone-quiet-border: #ffcc17;
-  --state-flagged-bg: #fce3e3;
-  --state-flagged-border: #f0561d;
-  --state-partial-match-bg: #fff4cc;
-  --state-partial-match-border: #ffcc17;
-  --state-ai-assisted-bg: #e0f0ff;
-  --state-ai-assisted-badge: #37a3a3;
+  --state-gone-quiet-bg: var(--color-yellow-10);
+  --state-gone-quiet-border: var(--color-yellow-30);
+  --state-flagged-bg: var(--color-red-10);
+  --state-flagged-border: var(--color-red-orange-50);
+  --state-partial-match-bg: var(--color-yellow-10);
+  --state-partial-match-border: var(--color-yellow-30);
+  --state-ai-assisted-bg: var(--color-blue-10);
+  --state-ai-assisted-badge: var(--color-teal-50);
 
   --space-xs: 4px;
   --space-sm: 8px;
@@ -143,6 +143,10 @@
   --color-state-normal-border: var(--state-normal-border);
   --color-state-selected-bg: var(--state-selected-bg);
   --color-state-selected-border: var(--state-selected-border);
+  --color-state-unread-opacity: var(--state-unread-opacity);
+  --color-state-unread-border: var(--state-unread-border);
+  --color-state-read-opacity: var(--state-read-opacity);
+  --color-state-read-border: var(--state-read-border);
   --color-state-gone-quiet-bg: var(--state-gone-quiet-bg);
   --color-state-gone-quiet-border: var(--state-gone-quiet-border);
   --color-state-flagged-bg: var(--state-flagged-bg);

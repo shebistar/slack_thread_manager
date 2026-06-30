@@ -352,7 +352,7 @@ function StandardCardHeader({
             New
           </Badge>
         )}
-        {isPartialMatch && (
+        {isPartialMatch && !isOrphaned && (
           <Badge className="bg-[--color-yellow-10] text-[--color-yellow-70] text-[10px] px-1.5 py-0">
             Partial match — verify with source
           </Badge>

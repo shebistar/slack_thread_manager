@@ -1,6 +1,6 @@
 # Story 9.3: Briefing Card Visual State System
 
-Status: review
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -309,3 +309,15 @@ No debug issues encountered.
 ### Change Log
 
 - 2026-06-30: Implemented Story 9.3 — migrated BriefingCard to semantic state tokens, added partial-match state, extracted getCardStateClasses helper, standardized hover/focus/transitions (267 total tests passing).
+
+### Review Findings
+
+- [ ] [Review][Decision] Green newly-surfaced left border is unreachable dead code — `isNew = !isRead` so every unread branch sets `leftBorder` before the `isNew && leftBorder === ''` green check. Clarify: is the green border removed in favour of the New badge, or should `isNew` be a separate API-level prop? [`apps/web/src/components/briefing-card/briefing-card.tsx:80-82, 126`] — deferred pending API design decision
+- [ ] [Review][Decision] `isPartialMatch` prop never wired from production callers — prop exists on `BriefingCard` but `briefings.tsx` passes no `isPartialMatch`, and `BriefingItem` has no such field in the API type. Future story, or should it wire to an existing data signal? [`apps/web/src/routes/briefings.tsx`] — deferred pending API design decision
+- [ ] [Review][Decision] Compact variant ignores all state treatments vs. AC#1 — compact path returns early without calling `getCardStateClasses()`; test explicitly asserts `isRead` has no visual effect on compact. AC#1 says "card variants include visual treatments." Is compact intentionally display-only, or does AC#1 need addressing? [`apps/web/src/components/briefing-card/briefing-card.tsx:237-274`] — deferred pending product decision
+- [x] [Review][Patch] Orphaned + partial-match badge mismatch — when `isOrphaned=true` and `isPartialMatch=true`, the orphaned border wins but the partial-match badge still renders unconditionally, confusingly labelling an orphaned card as "Partial match — verify with source." [`apps/web/src/components/briefing-card/briefing-card.tsx:355-358`]
+- [x] [Review][Defer] `isNew` conflated with `!isRead` — "New" badge appears on every unread item diluting the newly-surfaced signal; needs an API-level `isNewlySurfaced` flag to resolve properly. [`apps/web/src/components/briefing-card/briefing-card.tsx:126`] — deferred, pre-existing
+- [x] [Review][Defer] `silenceDays != null` forces gone-quiet styling on non-`gone_quiet` items — a standard item with a silence alert gets yellow border and "Quiet for N days" badge. Pre-existing logic, unchanged here. [`apps/web/src/components/briefing-card/briefing-card.tsx:124`] — deferred, pre-existing
+- [x] [Review][Defer] `featured` variant unused in routes — production feed uses `variant="standard"` inside a red-border wrapper div; `variant="featured"` is dead code in production. Pre-existing. [`apps/web/src/components/briefing-card/briefing-card.tsx:5`] — deferred, pre-existing
+- [x] [Review][Defer] `formatRelativeTime()` allows negative/future values — future `latestActivityAt` yields strings like "-3m ago"; no sign/NaN guard. Pre-existing function, unchanged by this diff. [`apps/web/src/components/briefing-card/briefing-card.tsx:25-34`] — deferred, pre-existing
+- [x] [Review][Defer] Selected card border competes with Card base border — base Card applies `border border-[--color-gray-20]`; selected adds `border-state-selected-border` via className merge; specificity may render mixed border colors. Pre-existing Card component behaviour. [`apps/web/src/components/ui/card.tsx`] — deferred, pre-existing

@@ -1,6 +1,6 @@
 # Story 9.2: Adaptive Role-Based Layout Shell
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -295,3 +295,11 @@ No debug issues encountered.
 ### Change Log
 
 - 2026-06-28: Implemented Story 9.2 — extracted BriefingPageFrame shared component, unified layout headers across all 3 variants, added integration and unit tests (251 total tests passing).
+
+### Review Findings
+
+- [x] [Review][Patch] `formatFreshness()` hardcodes "today" regardless of actual briefing date — returns "Generated today at …" even for stale briefings from prior days. [`apps/web/src/components/briefing-page-frame/briefing-page-frame.tsx:20`]
+- [x] [Review][Patch] Error/empty states bypass `BriefingPageFrame` shell — `isError` and null-data paths in all three layouts render bare divs without the unified header/badge/freshness frame, violating AC#4. [`apps/web/src/routes/briefings.tsx`]
+- [x] [Review][Patch] `formatFreshness()` has no invalid-date guard on `generatedAt` — `new Date(data.briefing.generatedAt)` with a bad string embeds "Invalid Date" in the freshness line. [`apps/web/src/components/briefing-page-frame/briefing-page-frame.tsx:18`]
+- [x] [Review][Defer] `nextBatchScheduledAt` not surfaced in `BriefingPageFrame` — `BriefingWithItems` includes this field but the frame never reads it; no stale-data warning exists. Old `FeedHeader` also omitted this. [`apps/web/src/components/briefing-page-frame/briefing-page-frame.tsx`] — deferred, pre-existing
+- [x] [Review][Defer] `BriefingPageFrame` uses plain `<div>` wrapper, missing semantic `<header>` landmark — minor a11y gap for page structure. Low-risk for internal tool. [`apps/web/src/components/briefing-page-frame/briefing-page-frame.tsx`] — deferred, pre-existing

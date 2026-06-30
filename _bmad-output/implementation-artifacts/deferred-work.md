@@ -147,6 +147,19 @@ Formally accepted as not-now. Each item has a documented trigger condition for w
 - Enrichment data is fetched even when the side panel is visually collapsed; deferred as a performance optimization.
 - Section result-count copy currently uses generic “result(s)” instead of source-specific UX wording; deferred as copy alignment.
 
+## Deferred from: code review of stories 9.1, 9.2, 9.3 (2026-06-30)
+
+- Dark mode has no `.dark` overrides for semantic state tokens — light-theme yellows/blues render on dark cards; dark mode is not V1 scope. (`apps/web/src/styles/globals.css`)
+- Incomplete `[--color-*]` token migration across codebase — 25+ files still use arbitrary syntax; intentional partial migration per Story 9.3 notes. (`apps/web/src/`)
+- Spacing/typography scale tokens defined but not consumed in components — `--space-*` and `--font-size-*` defined in `:root` but all components use Tailwind literals; adoption-sweep deferred to later sprint. (`apps/web/src/styles/globals.css`)
+- `nextBatchScheduledAt` not surfaced in `BriefingPageFrame` — stale-briefing indicator missing; old `FeedHeader` also omitted this. (`apps/web/src/components/briefing-page-frame/briefing-page-frame.tsx`)
+- `BriefingPageFrame` uses plain `<div>` wrapper, missing semantic `<header>` landmark — minor a11y gap; low-risk for internal tool. (`apps/web/src/components/briefing-page-frame/briefing-page-frame.tsx`)
+- `isNew` conflated with `!isRead` — "New" badge appears on every unread item, diluting the newly-surfaced signal; needs API-level `isNewlySurfaced` flag to resolve. (`apps/web/src/components/briefing-card/briefing-card.tsx:126`)
+- `silenceDays != null` forces gone-quiet styling on non-`gone_quiet` items — a standard item with a silence alert gets yellow border + "Quiet for N days" badge, potentially misrepresenting item type. Pre-existing. (`apps/web/src/components/briefing-card/briefing-card.tsx:124`)
+- `featured` variant unused in routes — production feed uses `variant="standard"` inside a red-border wrapper; `variant="featured"` is dead code. Pre-existing. (`apps/web/src/components/briefing-card/briefing-card.tsx:5`)
+- `formatRelativeTime()` allows negative/future values — future `latestActivityAt` yields strings like "-3m ago"; no sign/NaN guard. Pre-existing, unchanged. (`apps/web/src/components/briefing-card/briefing-card.tsx:25-34`)
+- Selected card border competes with Card base border — base Card applies `border border-[--color-gray-20]`; selected adds `border-state-selected-border` via className merge; specificity may produce mixed colors. Pre-existing Card component behaviour. (`apps/web/src/components/ui/card.tsx`)
+
 ## Deferred from: code review of 8-3-backfill-briefing-generation-for-new-consultants (2026-05-27)
 
 - First-time user with no workstream assignments and no daily content causes repeated `hasExistingBriefings` + `getBackfillThreads` queries each cron run since no briefing row is ever inserted. Low impact; resolves when user gets workstream assignments or content appears.
