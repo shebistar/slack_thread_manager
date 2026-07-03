@@ -85,9 +85,39 @@ describe('SearchResultCard', () => {
     expect(screen.queryByText(/Partial match/)).not.toBeInTheDocument();
   });
 
-  it('applies white background to the card', () => {
+  it('applies white background to the card for high-confidence results', () => {
     const { container } = render(<SearchResultCard item={fullItem} />);
     const card = container.firstChild as HTMLElement;
     expect(card.className).toContain('bg-white');
+  });
+
+  it('applies motion-reduce transition guard alongside the hover transition', () => {
+    const { container } = render(<SearchResultCard item={fullItem} />);
+    const card = container.firstChild as HTMLElement;
+    expect(card.className).toContain('transition-shadow');
+    expect(card.className).toContain('motion-reduce:transition-none');
+  });
+
+  it('applies semantic partial-match background and left border tokens', () => {
+    const { container } = render(<SearchResultCard item={{ ...fullItem, relevanceScore: 0.2 }} />);
+    const card = container.firstChild as HTMLElement;
+    expect(card.className).toContain('bg-state-partial-match-bg');
+    expect(card.className).toContain('border-l-state-partial-match-border');
+    expect(card.className).not.toContain('bg-white');
+  });
+
+  it('renders a relevance indicator for confident matches', () => {
+    render(<SearchResultCard item={{ ...fullItem, relevanceScore: 0.85 }} />);
+    expect(screen.getByText('85% match')).toBeInTheDocument();
+  });
+
+  it('hides the relevance indicator for partial-match results', () => {
+    render(<SearchResultCard item={{ ...fullItem, relevanceScore: 0.3 }} />);
+    expect(screen.queryByText(/% match/)).not.toBeInTheDocument();
+  });
+
+  it('rounds the relevance percentage', () => {
+    render(<SearchResultCard item={{ ...fullItem, relevanceScore: 0.666 }} />);
+    expect(screen.getByText('67% match')).toBeInTheDocument();
   });
 });

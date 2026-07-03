@@ -94,6 +94,12 @@ describe('SearchPage', () => {
     expect(input).toHaveAttribute('placeholder', 'Ask a question about project discussions...');
   });
 
+  it('renders the page frame header with title and context badge', () => {
+    render(<SearchPage />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Search' })).toBeInTheDocument();
+    expect(screen.getByText('Natural Language Search')).toBeInTheDocument();
+  });
+
   it('sets document title', () => {
     render(<SearchPage />);
     expect(document.title).toBe('Search — Slack Thread Manager');
@@ -127,6 +133,25 @@ describe('SearchPage', () => {
     render(<SearchPage />);
     const skeletons = screen.getAllByTestId('skeleton');
     expect(skeletons.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('does not flash a skeleton when cached data is already available (AC 5)', async () => {
+    const user = userEvent.setup();
+    mockUseSearch.mockImplementation((q: string) => ({
+      data: q ? fullResponse : undefined,
+      isLoading: true,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    render(<SearchPage />);
+    const input = screen.getByRole('textbox', { name: /search project discussions/i });
+    await user.type(input, 'api design');
+    await user.click(screen.getByRole('button', { name: /^search$/i }));
+
+    expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument();
+    expect(screen.getByText('API Design Discussion')).toBeInTheDocument();
   });
 
   it('renders result cards when data is available (AC 3)', async () => {
