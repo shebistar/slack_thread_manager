@@ -40,7 +40,6 @@ interface CardStateInput {
   isQuiet: boolean;
   isOrphaned: boolean;
   isPartialMatch: boolean;
-  isNew: boolean;
   isSelectable: boolean;
 }
 
@@ -51,7 +50,7 @@ interface CardStateOutput {
 }
 
 export function getCardStateClasses(input: CardStateInput): CardStateOutput {
-  const { isRead, selected, isQuiet, isOrphaned, isPartialMatch, isNew, isSelectable } = input;
+  const { isRead, selected, isQuiet, isOrphaned, isPartialMatch, isSelectable } = input;
 
   let leftBorder = '';
   let cardClasses = '';
@@ -61,24 +60,22 @@ export function getCardStateClasses(input: CardStateInput): CardStateOutput {
   if (selected) {
     cardClasses = 'border-state-selected-border bg-state-selected-bg';
   } else if (!isRead) {
-    // Left border priority: gone-quiet > orphaned > unread > partial-match > newly-surfaced
+    // Left border priority: gone-quiet > orphaned > unread > partial-match
+    // Note: "newly-surfaced" has no left-border treatment — the "New" badge
+    // (rendered in StandardCardHeader) is the sole visual indicator. A
+    // discrete isNewlySurfaced API signal would be needed for a green border.
     if (isQuiet) {
       leftBorder = 'border-l-2 border-l-state-gone-quiet-border';
       cardClasses = 'bg-state-gone-quiet-bg';
     } else if (isOrphaned) {
       leftBorder = 'border-l-2 border-l-state-gone-quiet-border';
     } else if (!isPartialMatch) {
-      // Normal unread: blue left border (not a semantic "state" token — it's the generic unread accent)
+      // Normal unread: blue left border (generic unread accent, not a state token)
       leftBorder = 'border-l-2 border-l-[--color-blue-50]';
     } else {
-      // partial-match (lower priority than unread-standard)
+      // partial-match: lower priority than standard unread
       leftBorder = 'border-l-2 border-l-state-partial-match-border';
       cardClasses = 'bg-state-partial-match-bg';
-    }
-
-    // newly-surfaced: only if no higher-priority border was set
-    if (isNew && leftBorder === '') {
-      leftBorder = 'border-l-2 border-l-[--color-green-50]';
     }
   } else {
     // isRead cases with no selection
@@ -131,7 +128,6 @@ export function BriefingCard({
       isQuiet,
       isOrphaned,
       isPartialMatch: !!isPartialMatch,
-      isNew,
       isSelectable,
     });
 

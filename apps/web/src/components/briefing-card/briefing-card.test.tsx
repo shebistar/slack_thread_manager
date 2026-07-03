@@ -698,22 +698,20 @@ describe('BriefingCard', () => {
   });
 
   describe('newly-surfaced state', () => {
-    it('newly surfaced card renders green left border when no higher-priority border', () => {
+    it('unread standard card always gets blue left border (newly-surfaced is badge-only)', () => {
       const state = getCardStateClasses({
         isRead: false,
         selected: false,
         isQuiet: false,
         isOrphaned: false,
         isPartialMatch: false,
-        isNew: true,
         isSelectable: false,
       });
-      // Normal unread takes priority over newly-surfaced in the current logic
-      // because unread non-special cards get blue border first
       expect(state.leftBorder).toContain('border-l-[--color-blue-50]');
+      expect(state.leftBorder).not.toContain('border-l-[--color-green-50]');
     });
 
-    it('newly surfaced + unread: unread blue border wins over green', () => {
+    it('unread card never renders green border regardless of state', () => {
       const { container } = render(
         <BriefingCard
           headline="New unread card"
@@ -730,7 +728,7 @@ describe('BriefingCard', () => {
       expect(card.className).not.toContain('border-l-[--color-green-50]');
     });
 
-    it('New badge always renders regardless of left border priority', () => {
+    it('New badge renders for unread standard cards', () => {
       render(
         <BriefingCard
           headline="New card with badge"
@@ -754,7 +752,6 @@ describe('BriefingCard', () => {
         isQuiet: true,
         isOrphaned: false,
         isPartialMatch: true,
-        isNew: true,
         isSelectable: true,
       });
       expect(result.cardClasses).toContain('bg-state-selected-bg');
@@ -770,7 +767,6 @@ describe('BriefingCard', () => {
         isQuiet: true,
         isOrphaned: false,
         isPartialMatch: true,
-        isNew: true,
         isSelectable: false,
       });
       expect(result.leftBorder).toContain('border-l-state-gone-quiet-border');
@@ -784,7 +780,6 @@ describe('BriefingCard', () => {
         isQuiet: false,
         isOrphaned: true,
         isPartialMatch: false,
-        isNew: false,
         isSelectable: false,
       });
       expect(result.leftBorder).toContain('border-l-state-gone-quiet-border');
@@ -798,7 +793,6 @@ describe('BriefingCard', () => {
         isQuiet: false,
         isOrphaned: false,
         isPartialMatch: false,
-        isNew: false,
         isSelectable: false,
       });
       expect(result.opacity).toBe('opacity-60');
@@ -812,7 +806,6 @@ describe('BriefingCard', () => {
         isQuiet: false,
         isOrphaned: false,
         isPartialMatch: false,
-        isNew: false,
         isSelectable: true,
       });
       expect(result.opacity).toBe('');
@@ -825,7 +818,6 @@ describe('BriefingCard', () => {
         isQuiet: false,
         isOrphaned: false,
         isPartialMatch: true,
-        isNew: true,
         isSelectable: false,
       });
       expect(result.leftBorder).toContain('border-l-state-partial-match-border');
@@ -839,7 +831,6 @@ describe('BriefingCard', () => {
         isQuiet: false,
         isOrphaned: false,
         isPartialMatch: false,
-        isNew: false,
         isSelectable: true,
       });
       expect(result.cardClasses).toContain('focus-visible:ring-2');

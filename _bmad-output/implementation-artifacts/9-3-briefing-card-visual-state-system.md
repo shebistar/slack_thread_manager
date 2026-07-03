@@ -1,6 +1,6 @@
 # Story 9.3: Briefing Card Visual State System
 
-Status: in-progress
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -312,9 +312,9 @@ No debug issues encountered.
 
 ### Review Findings
 
-- [ ] [Review][Decision] Green newly-surfaced left border is unreachable dead code — `isNew = !isRead` so every unread branch sets `leftBorder` before the `isNew && leftBorder === ''` green check. Clarify: is the green border removed in favour of the New badge, or should `isNew` be a separate API-level prop? [`apps/web/src/components/briefing-card/briefing-card.tsx:80-82, 126`] — deferred pending API design decision
-- [ ] [Review][Decision] `isPartialMatch` prop never wired from production callers — prop exists on `BriefingCard` but `briefings.tsx` passes no `isPartialMatch`, and `BriefingItem` has no such field in the API type. Future story, or should it wire to an existing data signal? [`apps/web/src/routes/briefings.tsx`] — deferred pending API design decision
-- [ ] [Review][Decision] Compact variant ignores all state treatments vs. AC#1 — compact path returns early without calling `getCardStateClasses()`; test explicitly asserts `isRead` has no visual effect on compact. AC#1 says "card variants include visual treatments." Is compact intentionally display-only, or does AC#1 need addressing? [`apps/web/src/components/briefing-card/briefing-card.tsx:237-274`] — deferred pending product decision
+- [x] [Review][Decision] Green newly-surfaced left border is unreachable dead code — resolved: removed the dead `isNew && leftBorder === ''` block and `isNew` from `CardStateInput`. The "New" badge is the sole newly-surfaced visual treatment; a green border would require a discrete API-level `isNewlySurfaced` signal (future story).
+- [x] [Review][Decision] `isPartialMatch` prop never wired from production callers — resolved: accepted as dormant scaffolding. `BriefingItem` has no partial-match field today; when the API adds one, `briefings.tsx` gets a one-liner wire-up with no component changes needed.
+- [x] [Review][Decision] Compact variant ignores all state treatments vs. AC#1 — resolved: compact is intentionally display-only for the executive Dashboard scan pattern, where `readItemIds` is always `[]` at the API level anyway. AC#1 applies to standard/featured variants; compact is a scan format.
 - [x] [Review][Patch] Orphaned + partial-match badge mismatch — when `isOrphaned=true` and `isPartialMatch=true`, the orphaned border wins but the partial-match badge still renders unconditionally, confusingly labelling an orphaned card as "Partial match — verify with source." [`apps/web/src/components/briefing-card/briefing-card.tsx:355-358`]
 - [x] [Review][Defer] `isNew` conflated with `!isRead` — "New" badge appears on every unread item diluting the newly-surfaced signal; needs an API-level `isNewlySurfaced` flag to resolve properly. [`apps/web/src/components/briefing-card/briefing-card.tsx:126`] — deferred, pre-existing
 - [x] [Review][Defer] `silenceDays != null` forces gone-quiet styling on non-`gone_quiet` items — a standard item with a silence alert gets yellow border and "Quiet for N days" badge. Pre-existing logic, unchanged here. [`apps/web/src/components/briefing-card/briefing-card.tsx:124`] — deferred, pre-existing

@@ -121,7 +121,7 @@ development_status:
   epic-9: in-progress
   9-1-design-system-token-alignment: done
   9-2-adaptive-role-based-layout-shell: done
-  9-3-briefing-card-visual-state-system: in-progress
+  9-3-briefing-card-visual-state-system: done
   9-4-search-experience-visual-refresh: backlog
   9-5-global-navigation-header-and-information-architecture-polish: backlog
   9-6-responsive-accessibility-and-ux-regression-hardening: backlog
