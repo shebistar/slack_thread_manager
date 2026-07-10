@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-07-03T10:00:00+02:00
+last_updated: 2026-07-10T16:22:00+02:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -122,7 +122,7 @@ development_status:
   9-1-design-system-token-alignment: done
   9-2-adaptive-role-based-layout-shell: done
   9-3-briefing-card-visual-state-system: done
-  9-4-search-experience-visual-refresh: review
+  9-4-search-experience-visual-refresh: done
   9-5-global-navigation-header-and-information-architecture-polish: backlog
   9-6-responsive-accessibility-and-ux-regression-hardening: backlog
   epic-9-retrospective: optional
