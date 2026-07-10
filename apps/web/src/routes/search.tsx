@@ -150,7 +150,7 @@ function SearchPage() {
           )}
         </div>
 
-        <div aria-live="polite">
+        <div aria-live="polite" aria-busy={isLoading}>
           {showSkeleton && <SearchSkeleton />}
 
           {isError && (

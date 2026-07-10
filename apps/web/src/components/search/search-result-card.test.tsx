@@ -102,6 +102,7 @@ describe('SearchResultCard', () => {
     const { container } = render(<SearchResultCard item={{ ...fullItem, relevanceScore: 0.2 }} />);
     const card = container.firstChild as HTMLElement;
     expect(card.className).toContain('bg-state-partial-match-bg');
+    expect(card.className).toContain('border-l-2');
     expect(card.className).toContain('border-l-state-partial-match-border');
     expect(card.className).not.toContain('bg-white');
   });
@@ -119,5 +120,11 @@ describe('SearchResultCard', () => {
   it('rounds the relevance percentage', () => {
     render(<SearchResultCard item={{ ...fullItem, relevanceScore: 0.666 }} />);
     expect(screen.getByText('67% match')).toBeInTheDocument();
+  });
+
+  it('treats a NaN relevanceScore as partial-match rather than rendering "NaN% match"', () => {
+    render(<SearchResultCard item={{ ...fullItem, relevanceScore: NaN }} />);
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+    expect(screen.getByText('Partial match — verify with source')).toBeInTheDocument();
   });
 });

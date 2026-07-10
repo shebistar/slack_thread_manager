@@ -16,7 +16,8 @@ interface SearchResultCardProps {
 }
 
 export function SearchResultCard({ item, rank }: SearchResultCardProps) {
-  const isPartialMatch = item.relevanceScore < PARTIAL_MATCH_THRESHOLD;
+  const isPartialMatch =
+    !Number.isFinite(item.relevanceScore) || item.relevanceScore < PARTIAL_MATCH_THRESHOLD;
 
   const stateClasses = isPartialMatch
     ? 'bg-state-partial-match-bg border-l-2 border-l-state-partial-match-border'
