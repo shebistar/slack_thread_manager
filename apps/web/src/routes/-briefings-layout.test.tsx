@@ -73,7 +73,7 @@ describe('briefings layout integration', () => {
     it('FeedLayout renders "Filtered Brief" badge', () => {
       render(<FeedLayout />);
       expect(screen.getByText('Filtered Brief')).toBeInTheDocument();
-      expect(screen.getByRole('heading', { level: 2, name: 'Daily Briefing' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'Daily Briefing' })).toBeInTheDocument();
     });
 
     it('SplitPanelLayout renders "Lead Architect View" badge', () => {
@@ -90,19 +90,25 @@ describe('briefings layout integration', () => {
   });
 
   describe('shared elements present in all layouts', () => {
-    it('FeedLayout has sr-only h1', () => {
+    it('FeedLayout renders a visible h1 page title via BriefingPageFrame', () => {
       render(<FeedLayout />);
-      expect(screen.getByRole('heading', { level: 1 })).toHaveClass('sr-only');
+      const heading = screen.getByRole('heading', { level: 1, name: 'Daily Briefing' });
+      expect(heading).toBeInTheDocument();
+      expect(heading).not.toHaveClass('sr-only');
     });
 
-    it('SplitPanelLayout has sr-only h1', () => {
+    it('SplitPanelLayout renders a visible h1 page title via BriefingPageFrame', () => {
       render(<SplitPanelLayout />);
-      expect(screen.getByRole('heading', { level: 1 })).toHaveClass('sr-only');
+      const heading = screen.getByRole('heading', { level: 1, name: 'Daily Briefing — Intelligence Report' });
+      expect(heading).toBeInTheDocument();
+      expect(heading).not.toHaveClass('sr-only');
     });
 
-    it('DashboardLayout has sr-only h1', () => {
+    it('DashboardLayout renders a visible h1 page title via BriefingPageFrame', () => {
       render(<DashboardLayout />);
-      expect(screen.getByRole('heading', { level: 1 })).toHaveClass('sr-only');
+      const heading = screen.getByRole('heading', { level: 1, name: 'Briefing Dashboard' });
+      expect(heading).toBeInTheDocument();
+      expect(heading).not.toHaveClass('sr-only');
     });
   });
 

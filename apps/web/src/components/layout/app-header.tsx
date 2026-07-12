@@ -22,9 +22,9 @@ export function AppHeader({ user, onLogout }: AppHeaderProps) {
           <span
             className="text-xs text-[--color-gray-50]"
             role="status"
-            aria-label="Briefing freshness"
+            aria-label="App version"
           >
-            Briefing freshness unavailable
+            v{__APP_VERSION__}
           </span>
 
           {user?.role && (

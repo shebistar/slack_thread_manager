@@ -59,7 +59,7 @@ function NavLink({
   return (
     <Link
       to={to}
-      className={`px-3 py-2 text-sm font-medium rounded-sm transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[--color-blue-50] ${
+      className={`px-3 py-2 text-sm font-medium rounded-sm transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[--color-blue-50] ${
         isActive
           ? 'text-white border-b-2 border-[--color-brand-red]'
           : 'text-[--color-gray-30] hover:text-white'

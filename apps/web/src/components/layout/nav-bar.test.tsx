@@ -77,4 +77,11 @@ describe('NavBar', () => {
     const searchLink = screen.getByText('Search');
     expect(searchLink).not.toHaveAttribute('aria-current');
   });
+
+  it('nav links have motion-reduce transition guard alongside transition-colors', () => {
+    render(<NavBar user={regularUser} />);
+    const briefingLink = screen.getByText('Briefing');
+    expect(briefingLink.className).toContain('transition-colors');
+    expect(briefingLink.className).toContain('motion-reduce:transition-none');
+  });
 });

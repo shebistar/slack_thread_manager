@@ -48,9 +48,9 @@ export function BriefingPageFrame({
     <div>
       <div className="bg-white border-b-[3px] border-b-[--color-brand-red] px-6 py-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-[--font-display] text-xl font-medium text-[--color-gray-95]">
+          <h1 className="font-[--font-display] text-xl font-medium text-[--color-gray-95]">
             {title}
-          </h2>
+          </h1>
           <Badge className="px-2.5 py-1 bg-[--color-teal-10] text-[--color-teal-50] rounded text-[11px] font-medium">
             {layoutLabel}
           </Badge>

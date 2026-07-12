@@ -23,10 +23,11 @@ describe('AppHeader', () => {
     expect(screen.getByLabelText('Role: ADMIN')).toBeInTheDocument();
   });
 
-  it('renders freshness placeholder', () => {
+  it('renders app version in the status slot', () => {
     render(<AppHeader user={mockUser} />);
-    expect(screen.getByLabelText('Briefing freshness')).toBeInTheDocument();
-    expect(screen.getByText('Briefing freshness unavailable')).toBeInTheDocument();
+    const versionEl = screen.getByRole('status', { name: 'App version' });
+    expect(versionEl).toBeInTheDocument();
+    expect(versionEl.textContent).toMatch(/^v/);
   });
 
   it('renders the brand accent bar', () => {

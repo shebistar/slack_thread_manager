@@ -24,59 +24,65 @@ function HelpPage() {
   }, []);
 
   return (
-    <div className="flex gap-8">
-      <aside className="hidden lg:block w-48 shrink-0">
-        <nav aria-label="Help sections" className="sticky top-6">
-          <ul className="space-y-1">
-            {SECTIONS.map((s) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  onClick={() => setActiveSection(s.id)}
-                  className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
-                    activeSection === s.id
-                      ? 'bg-[--color-gray-20] text-[--color-gray-95] font-medium'
-                      : 'text-[--color-gray-50] hover:text-[--color-gray-95] hover:bg-[--color-gray-10]'
-                  }`}
-                  aria-current={activeSection === s.id ? 'true' : undefined}
-                >
-                  {s.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      </aside>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-3 mb-8">
-          <h1 className="text-2xl font-medium text-[--color-gray-95]">
+    <div>
+      <div className="bg-white border-b-[3px] border-b-[--color-brand-red] px-6 py-4">
+        <div className="flex items-center justify-between">
+          <h1 className="font-[--font-display] text-xl font-medium text-[--color-gray-95]">
             Help & Documentation
           </h1>
-          <Badge variant="outline">v{__APP_VERSION__}</Badge>
+          <Badge className="px-2.5 py-1 bg-[--color-gray-10] text-[--color-gray-50] rounded text-[11px] font-medium">
+            v{__APP_VERSION__}
+          </Badge>
         </div>
+      </div>
 
-        <div className="lg:hidden mb-6">
-          <select
-            value={activeSection}
-            onChange={(e) => setActiveSection(e.target.value as Section)}
-            className="w-full border border-[--color-gray-20] rounded-md px-3 py-2 text-sm bg-white text-[--color-gray-95]"
-            aria-label="Select help section"
-          >
-            {SECTIONS.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="p-6 flex gap-8">
+        <aside className="hidden lg:block w-48 shrink-0">
+          <nav aria-label="Help sections" className="sticky top-6">
+            <ul className="space-y-1">
+              {SECTIONS.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection(s.id)}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                      activeSection === s.id
+                        ? 'bg-[--color-gray-20] text-[--color-gray-95] font-medium'
+                        : 'text-[--color-gray-50] hover:text-[--color-gray-95] hover:bg-[--color-gray-10]'
+                    }`}
+                    aria-current={activeSection === s.id ? 'page' : undefined}
+                  >
+                    {s.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </aside>
 
-        <div className="prose max-w-none">
-          {activeSection === 'overview' && <OverviewSection />}
-          {activeSection === 'getting-started' && <GettingStartedSection />}
-          {activeSection === 'features' && <FeaturesSection />}
-          {activeSection === 'roles' && <RolesSection />}
-          {activeSection === 'changelog' && <ChangelogSection />}
+        <div className="flex-1 min-w-0">
+          <div className="lg:hidden mb-6">
+            <select
+              value={activeSection}
+              onChange={(e) => setActiveSection(e.target.value as Section)}
+              className="w-full border border-[--color-gray-20] rounded-md px-3 py-2 text-sm bg-white text-[--color-gray-95]"
+              aria-label="Select help section"
+            >
+              {SECTIONS.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="prose max-w-none">
+            {activeSection === 'overview' && <OverviewSection />}
+            {activeSection === 'getting-started' && <GettingStartedSection />}
+            {activeSection === 'features' && <FeaturesSection />}
+            {activeSection === 'roles' && <RolesSection />}
+            {activeSection === 'changelog' && <ChangelogSection />}
+          </div>
         </div>
       </div>
     </div>

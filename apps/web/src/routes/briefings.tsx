@@ -119,36 +119,27 @@ export function FeedLayout() {
 
   if (!isLoading && isError) {
     return (
-      <div>
-        <h1 className="sr-only">Daily Briefing</h1>
-        <BriefingPageFrame title="Daily Briefing" layoutLabel="Filtered Brief" briefingData={null} isLoading={false}>
-          <div className="rounded-md border border-[--color-brand-red] bg-white px-4 py-6 text-center">
-            <p className="text-lg text-[--color-gray-95]">Unable to load your briefing right now.</p>
-            <p className="mt-2 text-sm text-[--color-gray-50]">
-              {error instanceof Error ? error.message : 'Please try again shortly.'}
-            </p>
-          </div>
-        </BriefingPageFrame>
-      </div>
+      <BriefingPageFrame title="Daily Briefing" layoutLabel="Filtered Brief" briefingData={null} isLoading={false}>
+        <div className="rounded-md border border-[--color-brand-red] bg-white px-4 py-6 text-center">
+          <p className="text-lg text-[--color-gray-95]">Unable to load your briefing right now.</p>
+          <p className="mt-2 text-sm text-[--color-gray-50]">
+            {error instanceof Error ? error.message : 'Please try again shortly.'}
+          </p>
+        </div>
+      </BriefingPageFrame>
     );
   }
 
   if (!isLoading && data === null) {
     return (
-      <div>
-        <h1 className="sr-only">Daily Briefing</h1>
-        <BriefingPageFrame title="Daily Briefing" layoutLabel="Filtered Brief" briefingData={null} isLoading={false}>
-          <FeedEmptyState hasFilter={false} />
-        </BriefingPageFrame>
-      </div>
+      <BriefingPageFrame title="Daily Briefing" layoutLabel="Filtered Brief" briefingData={null} isLoading={false}>
+        <FeedEmptyState hasFilter={false} />
+      </BriefingPageFrame>
     );
   }
 
   return (
-    <div>
-      <h1 className="sr-only">Daily Briefing</h1>
-
-      <BriefingPageFrame
+    <BriefingPageFrame
         title="Daily Briefing"
         layoutLabel="Filtered Brief"
         briefingData={data}
@@ -217,8 +208,7 @@ export function FeedLayout() {
             </div>
           </div>
         ) : null}
-      </BriefingPageFrame>
-    </div>
+    </BriefingPageFrame>
   );
 }
 
@@ -309,43 +299,34 @@ export function SplitPanelLayout() {
 
   if (!isLoading && isError) {
     return (
-      <div>
-        <h1 className="sr-only">Daily Briefing</h1>
-        <BriefingPageFrame title="Daily Briefing — Intelligence Report" layoutLabel="Lead Architect View" briefingData={null} isLoading={false}>
-          <div className="rounded-md border border-[--color-brand-red] bg-white px-4 py-6 text-center">
-            <p className="text-lg text-[--color-gray-95]">Unable to load your briefing right now.</p>
-            <p className="mt-2 text-sm text-[--color-gray-50]">
-              {error instanceof Error ? error.message : 'Please try again shortly.'}
-            </p>
-          </div>
-        </BriefingPageFrame>
-      </div>
+      <BriefingPageFrame title="Daily Briefing — Intelligence Report" layoutLabel="Lead Architect View" briefingData={null} isLoading={false}>
+        <div className="rounded-md border border-[--color-brand-red] bg-white px-4 py-6 text-center">
+          <p className="text-lg text-[--color-gray-95]">Unable to load your briefing right now.</p>
+          <p className="mt-2 text-sm text-[--color-gray-50]">
+            {error instanceof Error ? error.message : 'Please try again shortly.'}
+          </p>
+        </div>
+      </BriefingPageFrame>
     );
   }
 
   if (!isLoading && data === null) {
     return (
-      <div>
-        <h1 className="sr-only">Daily Briefing</h1>
-        <BriefingPageFrame title="Daily Briefing — Intelligence Report" layoutLabel="Lead Architect View" briefingData={null} isLoading={false}>
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <p className="text-lg text-[--color-gray-50]">
-              Your first briefing hasn&apos;t been generated yet.
-            </p>
-            <p className="text-sm text-[--color-gray-50] mt-2">
-              Check Admin → System Health to verify scheduling is active.
-            </p>
-          </div>
-        </BriefingPageFrame>
-      </div>
+      <BriefingPageFrame title="Daily Briefing — Intelligence Report" layoutLabel="Lead Architect View" briefingData={null} isLoading={false}>
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <p className="text-lg text-[--color-gray-50]">
+            Your first briefing hasn&apos;t been generated yet.
+          </p>
+          <p className="text-sm text-[--color-gray-50] mt-2">
+            Check Admin → System Health to verify scheduling is active.
+          </p>
+        </div>
+      </BriefingPageFrame>
     );
   }
 
   return (
-    <div>
-      <h1 className="sr-only">Daily Briefing</h1>
-
-      <BriefingPageFrame
+    <BriefingPageFrame
         title="Daily Briefing — Intelligence Report"
         layoutLabel="Lead Architect View"
         briefingData={data}
@@ -414,8 +395,7 @@ export function SplitPanelLayout() {
             />
           </div>
         ) : null}
-      </BriefingPageFrame>
-    </div>
+    </BriefingPageFrame>
   );
 }
 
@@ -439,44 +419,35 @@ export function DashboardLayout() {
 
   if (!isLoading && isError) {
     return (
-      <div>
-        <h1 className="sr-only">Daily Briefing</h1>
-        <BriefingPageFrame title="Briefing Dashboard" layoutLabel="Executive Scan" briefingData={null} isLoading={false}>
-          <div className="rounded-md border border-[--color-brand-red] bg-white px-4 py-6 text-center">
-            <p className="text-lg text-[--color-gray-95]">Unable to load your briefing right now.</p>
-            <p className="mt-2 text-sm text-[--color-gray-50]">
-              {error instanceof Error ? error.message : 'Please try again shortly.'}
-            </p>
-          </div>
-        </BriefingPageFrame>
-      </div>
+      <BriefingPageFrame title="Briefing Dashboard" layoutLabel="Executive Scan" briefingData={null} isLoading={false}>
+        <div className="rounded-md border border-[--color-brand-red] bg-white px-4 py-6 text-center">
+          <p className="text-lg text-[--color-gray-95]">Unable to load your briefing right now.</p>
+          <p className="mt-2 text-sm text-[--color-gray-50]">
+            {error instanceof Error ? error.message : 'Please try again shortly.'}
+          </p>
+        </div>
+      </BriefingPageFrame>
     );
   }
 
   if (!isLoading && data === null) {
     return (
-      <div>
-        <h1 className="sr-only">Daily Briefing</h1>
-        <BriefingPageFrame title="Briefing Dashboard" layoutLabel="Executive Scan" briefingData={null} isLoading={false}>
-          <StatsBar data={null} isLoading={false} />
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <p className="text-lg text-[--color-gray-50]">
-              Your first briefing hasn't been generated yet.
-            </p>
-            <p className="text-sm text-[--color-gray-50] mt-2">
-              Check Admin → System Health to verify scheduling is active.
-            </p>
-          </div>
-        </BriefingPageFrame>
-      </div>
+      <BriefingPageFrame title="Briefing Dashboard" layoutLabel="Executive Scan" briefingData={null} isLoading={false}>
+        <StatsBar data={null} isLoading={false} />
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <p className="text-lg text-[--color-gray-50]">
+            Your first briefing hasn't been generated yet.
+          </p>
+          <p className="text-sm text-[--color-gray-50] mt-2">
+            Check Admin → System Health to verify scheduling is active.
+          </p>
+        </div>
+      </BriefingPageFrame>
     );
   }
 
   return (
-    <div>
-      <h1 className="sr-only">Daily Briefing</h1>
-
-      <BriefingPageFrame
+    <BriefingPageFrame
         title="Briefing Dashboard"
         layoutLabel="Executive Scan"
         briefingData={data}
@@ -489,8 +460,7 @@ export function DashboardLayout() {
         ) : data ? (
           <DashboardPanels data={data} />
         ) : null}
-      </BriefingPageFrame>
-    </div>
+    </BriefingPageFrame>
   );
 }
 

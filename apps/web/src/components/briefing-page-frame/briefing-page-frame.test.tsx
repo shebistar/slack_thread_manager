@@ -35,6 +35,21 @@ describe('BriefingPageFrame', () => {
     expect(screen.getByText('Filtered Brief')).toBeInTheDocument();
   });
 
+  it('renders the page title as an h1 (semantic page heading)', () => {
+    render(
+      <BriefingPageFrame
+        title="Daily Briefing"
+        layoutLabel="Filtered Brief"
+        briefingData={null}
+        isLoading={false}
+      >
+        <div>content</div>
+      </BriefingPageFrame>,
+    );
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Daily Briefing' })).toBeInTheDocument();
+  });
+
   it('renders freshness text when briefingData is provided', () => {
     render(
       <BriefingPageFrame
