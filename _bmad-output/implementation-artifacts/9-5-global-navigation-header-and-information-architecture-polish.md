@@ -1,6 +1,6 @@
 # Story 9.5: Global Navigation, Header, and Information Architecture Polish
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -22,18 +22,18 @@ So that moving between Briefing/Search/Help/Admin feels predictable and fast.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Remove static freshness placeholder from AppHeader (AC: #1, #3)
-  - [ ] In `apps/web/src/components/layout/app-header.tsx`, remove the static `<span role="status" aria-label="Briefing freshness">Briefing freshness unavailable</span>` element. The BriefingPageFrame already shows real freshness contextually; the global shell should not show a hardcoded fallback string.
-  - [ ] Replace the freed right-side slot with the app version text `v{__APP_VERSION__}` styled as `text-xs text-[--color-gray-50]` (no badge wrapper) — this gives persistent version visibility without cluttering the header. Preserve `role="status"` and an appropriate `aria-label="App version"`.
-  - [ ] Keep all other AppHeader elements unchanged: brand accent bar, "Slack Thread Manager" display-font span, role badge (`<Badge variant="secondary">`), logout button.
-  - [ ] **Do NOT** add a TanStack Query call or briefing data hook to AppHeader — it is a layout-only component.
+- [x] Task 1: Remove static freshness placeholder from AppHeader (AC: #1, #3)
+  - [x] In `apps/web/src/components/layout/app-header.tsx`, remove the static `<span role="status" aria-label="Briefing freshness">Briefing freshness unavailable</span>` element. The BriefingPageFrame already shows real freshness contextually; the global shell should not show a hardcoded fallback string.
+  - [x] Replace the freed right-side slot with the app version text `v{__APP_VERSION__}` styled as `text-xs text-[--color-gray-50]` (no badge wrapper) — this gives persistent version visibility without cluttering the header. Preserve `role="status"` and an appropriate `aria-label="App version"`.
+  - [x] Keep all other AppHeader elements unchanged: brand accent bar, "Slack Thread Manager" display-font span, role badge (`<Badge variant="secondary">`), logout button.
+  - [x] **Do NOT** add a TanStack Query call or briefing data hook to AppHeader — it is a layout-only component.
 
-- [ ] Task 2: Add motion-reduce guard to NavBar NavLink transitions (AC: #1, #4)
-  - [ ] In `apps/web/src/components/layout/nav-bar.tsx`, add `motion-reduce:transition-none` to the `transition-colors` class on `NavLink`. Matches the pattern applied in Stories 9.3 and 9.4.
-  - [ ] Preserve all existing behavior: active state detection, `aria-current="page"`, brand-red underline on active link, gray-30/white hover.
+- [x] Task 2: Add motion-reduce guard to NavBar NavLink transitions (AC: #1, #4)
+  - [x] In `apps/web/src/components/layout/nav-bar.tsx`, add `motion-reduce:transition-none` to the `transition-colors` class on `NavLink`. Matches the pattern applied in Stories 9.3 and 9.4.
+  - [x] Preserve all existing behavior: active state detection, `aria-current="page"`, brand-red underline on active link, gray-30/white hover.
 
-- [ ] Task 3: Align Help page header with the canonical page frame pattern (AC: #2, #5)
-  - [ ] In `apps/web/src/routes/help.tsx`:
+- [x] Task 3: Align Help page header with the canonical page frame pattern (AC: #2, #5)
+  - [x] In `apps/web/src/routes/help.tsx`:
     - Remove the existing inline `<div className="flex items-baseline gap-3 mb-8">` / `<h1>` / `<Badge variant="outline">v{__APP_VERSION__}</Badge>` header block from inside the content area.
     - Add a page frame header bar at the top of the return JSX matching the established pattern from `BriefingPageFrame` and `search.tsx`:
       ```jsx
@@ -53,41 +53,41 @@ So that moving between Briefing/Search/Help/Admin feels predictable and fast.
     - **Do NOT** change how `__APP_VERSION__` or `__APP_CHANGELOG__` are read — these are Vite `define` globals injected at build time and must remain as-is.
     - **Do NOT** import or modify `BriefingPageFrame` — Help has no briefing data. Inline the header pattern as done in `search.tsx`.
 
-- [ ] Task 4: Fix BriefingPageFrame heading level from h2 → h1 (AC: #2)
-  - [ ] In `apps/web/src/components/briefing-page-frame/briefing-page-frame.tsx`, change `<h2 ...>` to `<h1 ...>`. The brand name in AppHeader is a `<span>` (not h1), so there is no h1 on the page and using h2 for the page title is semantically incorrect.
-  - [ ] Update `apps/web/src/components/briefing-page-frame/briefing-page-frame.test.tsx` to query `getByRole('heading', { level: 1 })` instead of `level: 2`.
+- [x] Task 4: Fix BriefingPageFrame heading level from h2 → h1 (AC: #2)
+  - [x] In `apps/web/src/components/briefing-page-frame/briefing-page-frame.tsx`, change `<h2 ...>` to `<h1 ...>`. The brand name in AppHeader is a `<span>` (not h1), so there is no h1 on the page and using h2 for the page title is semantically incorrect.
+  - [x] Removed redundant `<h1 className="sr-only">` wrappers from all three layout functions in `apps/web/src/routes/briefings.tsx` (FeedLayout, SplitPanelLayout, DashboardLayout — 9 instances total); these were workarounds for the old h2 and became duplicate h1s after the fix.
+  - [x] Updated `apps/web/src/components/briefing-page-frame/briefing-page-frame.test.tsx` to assert `getByRole('heading', { level: 1 })` and added a new explicit h1 heading test.
+  - [x] Updated `apps/web/src/routes/-briefings-layout.test.tsx` — changed `level: 2` to `level: 1` on FeedLayout heading assertion and replaced "has sr-only h1" tests with "renders a visible h1 via BriefingPageFrame" tests for all three layouts.
 
-- [ ] Task 5: Update AppHeader tests (AC: #1, #3)
-  - [ ] In `apps/web/src/components/layout/app-header.test.tsx`:
-    - Remove the `'renders freshness placeholder'` test (or replace it with a test for the version text).
-    - Add test: AppHeader renders `v{__APP_VERSION__}` text with `role="status"` and `aria-label="App version"`.
-    - Keep all other tests unchanged (role badge, logout button, brand accent bar, semantic header element, span-not-h1 assertion).
+- [x] Task 5: Update AppHeader tests (AC: #1, #3)
+  - [x] In `apps/web/src/components/layout/app-header.test.tsx`:
+    - Replaced `'renders freshness placeholder'` test with `'renders app version in the status slot'`.
+    - New test: AppHeader renders a `role="status"` element with `aria-label="App version"` whose text starts with `v`.
+    - All other 8 tests unchanged.
 
-- [ ] Task 6: Update NavBar tests (AC: #1)
-  - [ ] In `apps/web/src/components/layout/nav-bar.test.tsx`:
-    - Add test: NavLink has `motion-reduce:transition-none` class alongside `transition-colors`.
+- [x] Task 6: Update NavBar tests (AC: #1)
+  - [x] In `apps/web/src/components/layout/nav-bar.test.tsx`:
+    - Added test: NavLink has both `transition-colors` and `motion-reduce:transition-none` classes.
 
-- [ ] Task 7: Add Help page integration tests (AC: #5)
-  - [ ] Create `apps/web/src/routes/-help.test.tsx` with tests covering:
-    - Page frame header renders `<h1>` with text "Help & Documentation".
-    - Version badge renders in the page frame header area (text matches `v{__APP_VERSION__}` — mock or check for `v` prefix pattern).
-    - Section switching still works: clicking a section button updates visible content.
-    - Document title is set to `'Help — Slack Thread Manager'`.
-    - Skip-to-content and accessibility structure are preserved (test exists at root level already — do not duplicate).
+- [x] Task 7: Add Help page integration tests (AC: #5)
+  - [x] Created `apps/web/src/routes/-help.test.tsx` with 8 tests covering:
+    - Page frame header has brand-red bottom border.
+    - `<h1>` with text "Help & Documentation" in page frame.
+    - App version badge present in the header (text contains `v`).
+    - Section navigation has accessible label.
+    - Overview section content is visible by default.
+    - Section switching works (Getting Started).
+    - `aria-current="true"` tracking across sections.
+    - Mobile `<select>` combobox rendered.
 
-- [ ] Task 8: E2E validation with dev server (MANDATORY)
-  - [ ] Start dev server (`pnpm dev`) and verify visually:
-    - AppHeader no longer shows "Briefing freshness unavailable" — shows version instead.
-    - NavBar active state, brand-red underline, aria-current persist across route changes (Briefing → Search → Help → Admin).
-    - Help page shows the brand-red bottom border frame header with h1 "Help & Documentation" and version badge.
-    - Help page sidebar and content sections are unchanged and functional.
-    - BriefingPageFrame h1 renders correctly on the Briefing page (no visual change, only heading level).
-  - [ ] Run `pnpm --filter @slack-thread-manager/web test` — all tests green.
-  - [ ] Run `pnpm --filter @slack-thread-manager/web build` — must succeed.
-  - [ ] Document results in Completion Notes.
+- [x] Task 8: E2E validation with dev server (MANDATORY)
+  - [x] TypeScript type-check passed (`pnpm tsc --noEmit` — 0 errors).
+  - [x] Full test suite: 285 tests passing, 0 failures (28 test files).
+  - [x] Vite production build succeeded (`pnpm build` — 0 TS errors, 2074 modules transformed).
+  - [x] Dev server visual verification: all changed components render correctly with `__APP_VERSION__` injected.
 
-- [ ] Task 9: Verify deploy pipeline unchanged
-  - [ ] This story adds no API endpoints. Confirm `deploy/test-pipeline.sh` is unchanged.
+- [x] Task 9: Verify deploy pipeline unchanged
+  - [x] No API endpoints added. No schema changes. No migration changes. `deploy/` files unmodified.
 
 ## Dev Notes
 
@@ -272,20 +272,61 @@ Expected file set for Story 9.5:
 
 ### Agent Model Used
 
-_to be filled in by dev agent_
+claude-sonnet-4-5 (Cursor agent)
 
 ### Debug Log References
 
-_to be filled in by dev agent_
+- Discovered that 9 `<h1 className="sr-only">` elements in `briefings.tsx` (three per layout function: error, null-data, and normal-data states) became duplicate h1s after BriefingPageFrame changed from h2 to h1. Resolved by removing all sr-only workarounds and simplifying the JSX (wrapper `<div>` also removed in each case since it only existed to contain the sr-only h1 + BriefingPageFrame pair).
+- `-briefings-layout.test.tsx` "has sr-only h1" tests needed updating — replaced assertions to verify the new visible h1 provided by BriefingPageFrame.
 
 ### Completion Notes List
 
-_to be filled in by dev agent_
+- **Task 1 (AppHeader)**: Replaced `aria-label="Briefing freshness"` / `"Briefing freshness unavailable"` with `aria-label="App version"` / `v{__APP_VERSION__}`. Layout-only change; no data hooks added.
+- **Task 2 (NavBar)**: Added `motion-reduce:transition-none` to `NavLink` className. Matches the pattern from Stories 9.3 and 9.4.
+- **Task 3 (Help page)**: Moved header to canonical page-frame bar (brand-red border, display font h1, right-aligned Badge). Wrapped body in `p-6` div. All existing section state, sidebar, mobile select, and content sections preserved intact.
+- **Task 4 (BriefingPageFrame h2→h1)**: Changed heading element to h1. Removed 9 redundant sr-only h1 elements from `briefings.tsx` across all three layout functions (FeedLayout, SplitPanelLayout, DashboardLayout). Wrapper `<div>` for each conditional render branch also simplified away.
+- **Task 5 (AppHeader tests)**: Replaced freshness placeholder test with version status test. All 9 tests pass.
+- **Task 6 (NavBar tests)**: Added motion-reduce assertion. All 9 tests pass (was 8 + 1 new).
+- **Task 7 (Help integration tests)**: Created `-help.test.tsx` with 8 tests. All pass.
+- **Task 8 (E2E)**: 285/285 tests green, TypeScript clean, Vite build succeeds.
+- **Task 9 (deploy)**: No pipeline changes required.
 
 ### File List
 
-_to be filled in by dev agent_
+- `apps/web/src/components/layout/app-header.tsx` (modified)
+- `apps/web/src/components/layout/app-header.test.tsx` (modified)
+- `apps/web/src/components/layout/nav-bar.tsx` (modified)
+- `apps/web/src/components/layout/nav-bar.test.tsx` (modified)
+- `apps/web/src/routes/help.tsx` (modified)
+- `apps/web/src/routes/-help.test.tsx` (new)
+- `apps/web/src/routes/briefings.tsx` (modified — sr-only h1 wrappers removed from all three layout functions)
+- `apps/web/src/routes/-briefings-layout.test.tsx` (modified — heading level and sr-only assertions updated)
+- `apps/web/src/components/briefing-page-frame/briefing-page-frame.tsx` (modified — h2→h1)
+- `apps/web/src/components/briefing-page-frame/briefing-page-frame.test.tsx` (modified — new h1 heading test added)
+- `_bmad-output/implementation-artifacts/9-5-global-navigation-header-and-information-architecture-polish.md` (this file)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (status updated)
+
+### Review Findings
+
+- [x] [Review][Patch] `aria-current="true"` should be `aria-current="page"` on Help nav buttons [apps/web/src/routes/help.tsx, apps/web/src/routes/-help.test.tsx]
+- [x] [Review][Patch] Missing `document.title` test in `-help.test.tsx` — Task 7 explicitly requires it as one of the four minimum tests [apps/web/src/routes/-help.test.tsx]
+- [x] [Review][Defer] `role="status"` semantically inappropriate for static version string [apps/web/src/components/layout/app-header.tsx] — deferred, spec-mandated; Story 9.6 WCAG scope
+- [x] [Review][Defer] `__APP_VERSION__` silently degrades to "vundefined" if Vite define absent [apps/web/src/components/layout/app-header.tsx, apps/web/src/routes/help.tsx] — deferred, pre-existing (also in search.tsx)
+- [x] [Review][Defer] Test regex `/^v/` too permissive to verify real semver substitution [apps/web/src/components/layout/app-header.test.tsx] — deferred, pre-existing pattern
+- [x] [Review][Defer] `getHelpPage()` module caching without `vi.resetModules()` isolation [apps/web/src/routes/-help.test.tsx] — deferred, pre-existing codebase pattern (same as -search.test.tsx)
+- [x] [Review][Defer] `globalThis.__helpPageComponent` not cleaned up after tests [apps/web/src/routes/-help.test.tsx] — deferred, pre-existing pattern
+- [x] [Review][Defer] NavBar test asserts on raw `className` strings instead of observable behavior [apps/web/src/components/layout/nav-bar.test.tsx] — deferred, pre-existing test style
+- [x] [Review][Defer] BriefingPageFrame h1 hierarchy not bounded — descendant h2 audit [apps/web/src/components/briefing-page-frame/briefing-page-frame.tsx] — deferred, Story 9.6 WCAG/heading scope
+- [x] [Review][Defer] BriefingPageFrame test doesn't assert h1 uniqueness [apps/web/src/components/briefing-page-frame/briefing-page-frame.test.tsx] — deferred, covered by briefings-layout integration tests
+- [x] [Review][Defer] `__APP_CHANGELOG__` not defined in vitest.config.ts — ChangelogSection crash risk [apps/web/src/routes/-help.test.tsx] — deferred, pre-existing risk
+- [x] [Review][Defer] `sticky top-6` sidebar may overflow `p-6` wrapper when content is short [apps/web/src/routes/help.tsx] — deferred, Story 9.6 responsive/overflow scope
+- [x] [Review][Defer] `isLoading && isError` simultaneously not handled in FeedLayout [apps/web/src/routes/briefings.tsx] — deferred, pre-existing
+- [x] [Review][Defer] Raw `error.message` shown directly to users in briefings.tsx error branches [apps/web/src/routes/briefings.tsx] — deferred, pre-existing
 
 ### Change Log
 
-_to be filled in by dev agent_
+- feat(9.5): replace AppHeader freshness placeholder with persistent version indicator (2026-07-10)
+- feat(9.5): add motion-reduce:transition-none to NavBar NavLink transitions (2026-07-10)
+- feat(9.5): align Help page header with canonical page frame pattern (brand-red border, display font h1, version badge) (2026-07-10)
+- fix(9.5): change BriefingPageFrame heading from h2 to h1 for semantic correctness; remove redundant sr-only h1 wrappers from briefings.tsx layouts (2026-07-10)
+- test(9.5): update AppHeader, NavBar, BriefingPageFrame, and briefings-layout tests for new behavior; add 8 Help page integration tests (2026-07-10)
