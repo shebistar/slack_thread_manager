@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stm-ollama
+  labels:
+    app: stm-ollama
+    app.kubernetes.io/part-of: slack-thread-manager
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 1800
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: stm-ollama
+  template:
+    metadata:
+      labels:
+        app: stm-ollama
+    spec:
+      initContainers:
+        - name: pull-models
+          image: docker.io/ollama/ollama:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              ollama serve &
+              SERVER_PID=$!
+              sleep 5
+              for i in $(seq 1 30); do
+                if curl -sf http://localhost:11434/ >/dev/null 2>&1; then break; fi
+                sleep 2
+              done
+              ollama pull phi3:mini
+              ollama pull nomic-embed-text
+              kill $SERVER_PID 2>/dev/null || true
+              wait $SERVER_PID 2>/dev/null || true
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0"
+            - name: HOME
+              value: "/ollama-data"
+          volumeMounts:
+            - name: models
+              mountPath: /ollama-data/.ollama
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "6"
+              memory: 12Gi
+      containers:
+        - name: ollama
+          image: docker.io/ollama/ollama:latest
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0"
+            - name: OLLAMA_NUM_PARALLEL
+              value: "2"
+            - name: OLLAMA_MAX_LOADED_MODELS
+              value: "1"
+            - name: HOME
+              value: "/ollama-data"
+          ports:
+            - containerPort: 11434
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 11434
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 11434
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "6"
+              memory: 12Gi
+          volumeMounts:
+            - name: models
+              mountPath: /ollama-data/.ollama
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: ollama-models
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stm-ollama
+  labels:
+    app: stm-ollama
+    app.kubernetes.io/part-of: slack-thread-manager
+spec:
+  selector:
+    app: stm-ollama
+  ports:
+    - port: 11434
+      targetPort: 11434
+      protocol: TCP
+  type: ClusterIP
