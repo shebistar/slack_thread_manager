@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"stm-keycloak"},"name":"stm-keycloak","namespace":"slack-thread-manager"},"spec":{"ports":[{"name":"http","port":8080,"targetPort":8080}],"selector":{"app":"stm-keycloak"},"type":"ClusterIP"}}
+  creationTimestamp: "2026-05-07T16:35:37Z"
+  labels:
+    app: stm-keycloak
+  name: stm-keycloak
+  namespace: slack-thread-manager
+  resourceVersion: "35299654"
+  uid: fb4938b4-88c5-475c-b23f-25248a792814
+spec:
+  clusterIP: 172.30.137.201
+  clusterIPs:
+  - 172.30.137.201
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: stm-keycloak
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

@@ -1,0 +1,36 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"route.openshift.io/v1","kind":"Route","metadata":{"annotations":{},"labels":{"app":"stm-keycloak"},"name":"stm-keycloak","namespace":"slack-thread-manager"},"spec":{"host":"stm-keycloak-slack-thread-manager.apps.ocp4.shebi.eu","port":{"targetPort":"http"},"tls":{"insecureEdgeTerminationPolicy":"Redirect","termination":"edge"},"to":{"kind":"Service","name":"stm-keycloak","weight":100}}}
+  creationTimestamp: "2026-05-07T16:35:37Z"
+  generation: 1
+  labels:
+    app: stm-keycloak
+  name: stm-keycloak
+  namespace: slack-thread-manager
+  resourceVersion: "35299669"
+  uid: 7d7e24a1-65ef-4856-91cc-32945311fbf2
+spec:
+  host: stm-keycloak-slack-thread-manager.apps.ocp4.shebi.eu
+  port:
+    targetPort: http
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: edge
+  to:
+    kind: Service
+    name: stm-keycloak
+    weight: 100
+  wildcardPolicy: None
+status:
+  ingress:
+  - conditions:
+    - lastTransitionTime: "2026-05-07T16:35:37Z"
+      status: "True"
+      type: Admitted
+    host: stm-keycloak-slack-thread-manager.apps.ocp4.shebi.eu
+    routerCanonicalHostname: router-default.apps.ocp4.shebi.eu
+    routerName: default
+    wildcardPolicy: None
