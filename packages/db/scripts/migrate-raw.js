@@ -36,7 +36,8 @@ function isSkippableMigrationError(error) {
   const message = String(error.message || '').toLowerCase();
   return (
     message.includes('already exists') ||
-    message.includes('duplicate key value')
+    message.includes('duplicate key value') ||
+    message.includes('does not exist')
   );
 }
 
