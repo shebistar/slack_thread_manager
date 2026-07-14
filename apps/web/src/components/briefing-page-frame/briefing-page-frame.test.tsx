@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { BriefingPageFrame } from './briefing-page-frame.js';
 import type { BriefingWithItems } from '@/hooks/use-briefings.js';
@@ -127,5 +127,22 @@ describe('BriefingPageFrame', () => {
 
     const headerBar = container.querySelector('.border-b-\\[--color-brand-red\\]');
     expect(headerBar).toBeInTheDocument();
+  });
+
+  it('wraps the page-frame header bar in a <header> element containing the h1', () => {
+    const { container } = render(
+      <BriefingPageFrame
+        title="Daily Briefing"
+        layoutLabel="Filtered Brief"
+        briefingData={null}
+        isLoading={false}
+      >
+        <div>content</div>
+      </BriefingPageFrame>,
+    );
+
+    const headerEl = container.querySelector('header');
+    expect(headerEl).toBeInTheDocument();
+    expect(within(headerEl!).getByRole('heading', { level: 1, name: 'Daily Briefing' })).toBeInTheDocument();
   });
 });

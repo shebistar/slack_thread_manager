@@ -21,7 +21,6 @@ export function AppHeader({ user, onLogout }: AppHeaderProps) {
         <div className="flex items-center gap-4">
           <span
             className="text-xs text-[--color-gray-50]"
-            role="status"
             aria-label="App version"
           >
             v{__APP_VERSION__}

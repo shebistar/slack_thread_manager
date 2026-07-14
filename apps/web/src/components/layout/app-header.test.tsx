@@ -23,9 +23,9 @@ describe('AppHeader', () => {
     expect(screen.getByLabelText('Role: ADMIN')).toBeInTheDocument();
   });
 
-  it('renders app version in the status slot', () => {
+  it('renders app version label (no live-region role — static text)', () => {
     render(<AppHeader user={mockUser} />);
-    const versionEl = screen.getByRole('status', { name: 'App version' });
+    const versionEl = screen.getByLabelText('App version');
     expect(versionEl).toBeInTheDocument();
     expect(versionEl.textContent).toMatch(/^v/);
   });

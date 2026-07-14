@@ -89,7 +89,7 @@ function SearchPage() {
 
   return (
     <div>
-      <div className="bg-white border-b-[3px] border-b-[--color-brand-red] px-6 py-4">
+      <header className="bg-white border-b-[3px] border-b-[--color-brand-red] px-6 py-4">
         <div className="flex items-center justify-between">
           <h1 className="font-[--font-display] text-xl font-medium text-[--color-gray-95]">
             Search
@@ -101,7 +101,7 @@ function SearchPage() {
         <p className="text-[13px] text-[--color-gray-50] mt-1">
           Ask questions across all workstreams and past briefings
         </p>
-      </div>
+      </header>
 
       <div className="p-6 space-y-6">
         <div>

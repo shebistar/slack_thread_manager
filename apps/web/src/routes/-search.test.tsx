@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SearchResponse } from '@slack-thread-manager/shared';
@@ -98,6 +98,13 @@ describe('SearchPage', () => {
     render(<SearchPage />);
     expect(screen.getByRole('heading', { level: 1, name: 'Search' })).toBeInTheDocument();
     expect(screen.getByText('Natural Language Search')).toBeInTheDocument();
+  });
+
+  it('wraps the page-frame header bar in a <header> element containing the h1', () => {
+    const { container } = render(<SearchPage />);
+    const headerEl = container.querySelector('header');
+    expect(headerEl).toBeInTheDocument();
+    expect(within(headerEl!).getByRole('heading', { level: 1, name: 'Search' })).toBeInTheDocument();
   });
 
   it('sets document title', () => {

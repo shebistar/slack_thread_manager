@@ -25,7 +25,7 @@ function HelpPage() {
 
   return (
     <div>
-      <div className="bg-white border-b-[3px] border-b-[--color-brand-red] px-6 py-4">
+      <header className="bg-white border-b-[3px] border-b-[--color-brand-red] px-6 py-4">
         <div className="flex items-center justify-between">
           <h1 className="font-[--font-display] text-xl font-medium text-[--color-gray-95]">
             Help & Documentation
@@ -34,18 +34,18 @@ function HelpPage() {
             v{__APP_VERSION__}
           </Badge>
         </div>
-      </div>
+      </header>
 
       <div className="p-6 flex gap-8">
         <aside className="hidden lg:block w-48 shrink-0">
-          <nav aria-label="Help sections" className="sticky top-6">
+          <nav aria-label="Help sections" className="sticky top-6 max-h-[calc(100vh-7rem)] overflow-y-auto p-1">
             <ul className="space-y-1">
               {SECTIONS.map((s) => (
                 <li key={s.id}>
                   <button
                     type="button"
                     onClick={() => setActiveSection(s.id)}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                    className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[--color-blue-50] ${
                       activeSection === s.id
                         ? 'bg-[--color-gray-20] text-[--color-gray-95] font-medium'
                         : 'text-[--color-gray-50] hover:text-[--color-gray-95] hover:bg-[--color-gray-10]'

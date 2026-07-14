@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -76,5 +76,25 @@ describe('HelpPage', () => {
   it('sets document.title to "Help — Slack Thread Manager"', () => {
     render(<HelpPage />);
     expect(document.title).toBe('Help — Slack Thread Manager');
+  });
+
+  it('wraps the page-frame header bar in a <header> element containing the h1', () => {
+    const { container } = render(<HelpPage />);
+    const headerEl = container.querySelector('header');
+    expect(headerEl).toBeInTheDocument();
+    expect(within(headerEl!).getByRole('heading', { level: 1, name: 'Help & Documentation' })).toBeInTheDocument();
+  });
+
+  it('section nav buttons have the full focus-visible ring pattern for keyboard users', () => {
+    render(<HelpPage />);
+    const navButtons = screen.getAllByRole('button', {
+      name: /Overview|Getting Started|Features|Roles & Permissions|Changelog/,
+    });
+    expect(navButtons.length).toBeGreaterThan(0);
+    for (const btn of navButtons) {
+      expect(btn.className).toContain('focus-visible:ring-2');
+      expect(btn.className).toContain('focus-visible:ring-offset-2');
+      expect(btn.className).toContain('focus-visible:ring-[--color-blue-50]');
+    }
   });
 });
