@@ -1142,6 +1142,86 @@ So that the redesign improves usability without introducing regressions.
 **And** automated frontend tests and manual visual checklist cover at least Briefing/Search/Help routes
 **And** any intentional UX trade-offs or deferred polish are recorded in `deferred-work.md`
 
+---
+
+## Epic 10: OpenShift Full-Stack Installer & Deployment Automation
+
+**Goal:** Provide a one-command installer (`deploy/install.sh`) that provisions the entire stack (PostgreSQL, Keycloak, Ollama, API, Web) from scratch on a fresh OpenShift cluster, with backup/restore support for disaster recovery.
+
+**Business Value:** Eliminates manual multi-step deployment, enables cluster rebuilds in minutes, and ensures reproducibility across environments.
+
+### Story 10.1: PVC Manifest and Keycloak OpenShift Deployment
+
+As a **DevOps engineer**,
+I want declarative manifests for PVCs and Keycloak,
+So that persistent storage and identity management are provisioned reproducibly.
+
+**Acceptance Criteria:**
+
+**Given** a fresh OpenShift project
+**When** `oc apply -f deploy/openshift/pvc.yaml` and `oc apply -f deploy/openshift/keycloak.yaml` are run
+**Then** PVCs for postgres and ollama are created
+**And** Keycloak deploys with PostgreSQL backend, health probes, and TLS route
+**And** credentials are managed via Kubernetes Secret
+
+### Story 10.2: Ollama OpenShift Deployment with Model Auto-Pull
+
+As a **DevOps engineer**,
+I want an Ollama deployment manifest that automatically pulls required models on first start,
+So that LLM inference is available without manual intervention.
+
+**Acceptance Criteria:**
+
+**Given** the ollama-models PVC exists
+**When** `oc apply -f deploy/openshift/ollama.yaml` is run
+**Then** an init container pulls phi3:mini and nomic-embed-text before the main container starts
+**And** models persist across pod restarts via PVC
+**And** the service is reachable at stm-ollama:11434 within the cluster
+
+### Story 10.3: One-Command Full-Stack Installer
+
+As a **DevOps engineer**,
+I want a single `deploy/install.sh` script that provisions the entire stack,
+So that a fresh cluster can be fully operational with one command.
+
+**Acceptance Criteria:**
+
+**Given** `oc login` has been completed and required tools are available
+**When** `./deploy/install.sh` is executed
+**Then** it validates prerequisites, creates the project, applies PVCs, deploys all services in order
+**And** optionally restores from backup if dump files exist
+**And** builds and pushes application images, deploys API/Web, and verifies health
+
+### Story 10.4: Backup and Restore Workflow
+
+As a **DevOps engineer**,
+I want a standalone `deploy/restore-db.sh` script,
+So that I can restore the database from a pg_dump backup after a cluster rebuild.
+
+**Acceptance Criteria:**
+
+**Given** a running PostgreSQL deployment and a backup file at `deploy/backup/stm-full-dump.pgdump`
+**When** `./deploy/restore-db.sh` is executed
+**Then** it restores the database using pg_restore (locally or in-pod)
+**And** runs Drizzle migrations afterward to apply any newer schema changes
+**And** reports success or failure clearly
+
+### Story 10.5: Make deploy.sh Idempotent After install.sh
+
+As a **DevOps engineer**,
+I want `deploy.sh` to work correctly whether run after `install.sh` or standalone,
+So that day-2 deployments don't conflict with the installer's provisioning.
+
+**Acceptance Criteria:**
+
+**Given** the stack was provisioned by `install.sh`
+**When** `deploy.sh` is run for a code update
+**Then** it applies manifests idempotently (no errors from already-existing resources)
+**And** migrations run safely on an already-migrated database
+**And** image build/push/rollout works as before
+
+---
+
 ## Implementation Notes
 
 - Epic 4 (Anonymization) is a mandatory gate — NDA is the hard boundary. FR28 enforces that nothing reaches users without staging approval.
