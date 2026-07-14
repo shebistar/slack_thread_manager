@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: stm-keycloak-credentials
+  labels:
+    app: stm-keycloak
+    app.kubernetes.io/part-of: slack-thread-manager
+type: Opaque
+stringData:
+  KC_DB_USERNAME: stm_dev
+  KC_DB_PASSWORD: stm_dev_password
+  KC_BOOTSTRAP_ADMIN_USERNAME: admin
+  KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stm-keycloak
+  labels:
+    app: stm-keycloak
+    app.kubernetes.io/part-of: slack-thread-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stm-keycloak
+  template:
+    metadata:
+      labels:
+        app: stm-keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.0
+          args:
+            - start-dev
+            - --health-enabled=true
+          env:
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: jdbc:postgresql://stm-postgres:5432/slack_thread_manager
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: stm-keycloak-credentials
+                  key: KC_DB_USERNAME
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: stm-keycloak-credentials
+                  key: KC_DB_PASSWORD
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: stm-keycloak-credentials
+                  key: KC_BOOTSTRAP_ADMIN_USERNAME
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: stm-keycloak-credentials
+                  key: KC_BOOTSTRAP_ADMIN_PASSWORD
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_HOSTNAME
+              value: https://stm-keycloak-slack-thread-manager.apps.ocp4.shebi.eu
+            - name: KC_HTTP_ENABLED
+              value: "true"
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 9000
+              name: management
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: 9000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 9000
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stm-keycloak
+  labels:
+    app: stm-keycloak
+    app.kubernetes.io/part-of: slack-thread-manager
+spec:
+  selector:
+    app: stm-keycloak
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: stm-keycloak
+  labels:
+    app: stm-keycloak
+    app.kubernetes.io/part-of: slack-thread-manager
+spec:
+  host: stm-keycloak-slack-thread-manager.apps.ocp4.shebi.eu
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  to:
+    kind: Service
+    name: stm-keycloak
+    weight: 100
