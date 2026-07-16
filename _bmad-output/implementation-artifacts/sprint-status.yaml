@@ -1,5 +1,5 @@
 # generated: 2026-05-06
-# last_updated: 2026-07-14T17:35:00+02:00
+# last_updated: 2026-07-16T11:45:00+02:00
 # project: slack_thread_manager
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-06
-last_updated: 2026-07-14T17:35:00+02:00
+last_updated: 2026-07-16T11:45:00+02:00
 project: slack_thread_manager
 project_key: NOKEY
 tracking_system: file-system
@@ -118,14 +118,14 @@ development_status:
   epic-8-retrospective: done
 
   # Epic 9: UX Modernization & Visual Consistency
-  epic-9: in-progress
+  epic-9: done
   9-1-design-system-token-alignment: done
   9-2-adaptive-role-based-layout-shell: done
   9-3-briefing-card-visual-state-system: done
   9-4-search-experience-visual-refresh: done
   9-5-global-navigation-header-and-information-architecture-polish: done
   9-6-responsive-accessibility-and-ux-regression-hardening: done
-  epic-9-retrospective: optional
+  epic-9-retrospective: done
 
   # Epic 10: OpenShift Full-Stack Installer & Deployment Automation
   epic-10: in-progress
@@ -135,3 +135,11 @@ development_status:
   10-4-backup-and-restore-workflow: done
   10-5-make-deploy-sh-idempotent-after-install-sh: backlog
   epic-10-retrospective: optional
+
+  # Epic 11: Visual Fidelity Restoration & Text-Paste Import Verification
+  epic-11: backlog
+  11-1-unified-navigation-bar: backlog
+  11-2-role-differentiated-briefing-page-headers: backlog
+  11-3-featured-card-layout-and-wcag-contrast-fixes: backlog
+  11-4-text-paste-import-end-to-end-verification: backlog
+  epic-11-retrospective: optional

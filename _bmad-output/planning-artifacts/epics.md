@@ -1220,6 +1220,194 @@ So that day-2 deployments don't conflict with the installer's provisioning.
 **And** migrations run safely on an already-migrated database
 **And** image build/push/rollout works as before
 
+### Story 10.6: Simplified Text-Paste Import UX
+
+As an **admin**,
+I want the text-paste import to be a simple "paste and click" experience,
+So that I can import Slack messages without hunting for hidden buttons or filling unnecessary fields.
+
+**Acceptance Criteria:**
+
+**Given** there is exactly one active channel configured
+**When** the ImportForm renders
+**Then** the channel is auto-selected and the dropdown is replaced by a read-only label
+
+**Given** the admin previously imported with a Slack Team ID
+**When** the ImportForm renders on the next visit
+**Then** the Team ID is pre-filled from localStorage and collapsed into an "Advanced" section
+
+**Given** the admin pastes Slack text into the textarea
+**When** the parser detects messages
+**Then** the submit button label updates to "Import N messages" showing the detected count
+
+**Given** the submit button is disabled (missing prerequisites)
+**When** the form renders
+**Then** the button is always visually prominent with inline validation text explaining what is still needed
+
+---
+
+## Epic 11: Visual Fidelity Restoration & Text-Paste Import Verification
+
+**Goal:** Restore the application's visual fidelity to match the original `ux-design-directions.html` mockup — specifically the intentional differentiation between layout directions — and verify end-to-end text-paste import functionality.
+
+**Business Value:** The UI currently looks different from the approved design mockups after Epic 9's unification of page headers. This epic corrects the visual drift so each role-based layout matches its intended design direction, and validates the primary content ingestion path (copy/paste from Slack) works end-to-end.
+
+**Origin:** Epic 9 retrospective (2026-07-15) — visual drift identified by Shebi (Project Lead). See `epic-9-retro-2026-07-15.md` for detailed analysis.
+
+**Dependencies:** Epic 9 (complete), Epic 10 Story 10.6 (text-paste import UX improvements, ready-for-dev)
+
+**Design Reference:** `_bmad-output/planning-artifacts/ux-design-directions.html` — Directions 1, 2, and 6 are the source of truth for visual intent.
+
+### Story 11.1: Unified Navigation Bar
+
+As a **user**,
+I want a single integrated navigation bar combining branding, nav tabs, and contextual info in one row,
+So that the app shell matches the mockup's clean single-bar design instead of the current two-bar layout.
+
+**Acceptance Criteria:**
+
+**Given** the user is on any page of the application
+**When** the page renders
+**Then** the current two-bar layout (white `AppHeader` + dark `NavBar`) is replaced by a single dark navigation bar (`--color-gray-95` background) matching the mockup's `.nav` pattern
+**And** the unified bar contains (left to right): a red-50 brand accent square (12×12px, 2px border-radius) + "Slack Thread Manager" in Red Hat Display 16px bold white, nav tabs (Briefing, Search, Admin if admin, Help) with the mockup's tab styling (gray-30 inactive, white active with rgba white background), and right-aligned contextual info (version in gray-50 12px, role badge, sign-out button)
+**And** the active tab uses `rgba(255,255,255,.15)` background and white text; hover uses `rgba(255,255,255,.08)` background
+**And** the bar height is approximately 48px (matching `padding: 12px 24px` with tab sizes)
+**And** all existing accessibility features are preserved: `aria-label="Main navigation"`, `aria-current="page"` on active tab, `focus-visible` rings, sign-out `aria-label`
+**And** responsive behavior keeps navigation usable at lg (1024px) and xl (1280px) breakpoints
+**And** existing tests for navigation and header components continue to pass or are updated
+
+**Technical Notes:**
+- Merge `app-header.tsx` and `nav-bar.tsx` into a single component
+- The mockup's `.nav` CSS: `position: fixed; top: 0; background: var(--rh-gray-95); color: var(--rh-white); padding: 12px 24px; display: flex; align-items: center; gap: 16px`
+- Tab styling: `.nav-tab { padding: 8px 16px; border-radius: 6px 6px 0 0; font-size: 13px; font-weight: 500 }`
+- Brand styling: `.nav-brand { font-family: 'Red Hat Display'; font-weight: 700; font-size: 16px }` with `.dot { width: 12px; height: 12px; background: var(--rh-red-50); border-radius: 2px }`
+- Right info: `.nav-info { margin-left: auto; font-size: 12px; color: var(--rh-gray-50) }`
+
+**References:**
+- `ux-design-directions.html` lines 37–44 (`.nav`, `.nav-brand`, `.nav-tabs`, `.nav-tab`, `.nav-info`)
+- Current `app-header.tsx`, `nav-bar.tsx` (to be merged)
+
+### Story 11.2: Role-Differentiated Briefing Page Headers
+
+As a **team member**,
+I want each briefing layout to have its own distinct page header matching the original mockup direction,
+So that the Dashboard feels like a monitoring console, the News Feed feels like a content scanner, and the Intelligence Report feels like a research tool — as originally designed.
+
+**Acceptance Criteria:**
+
+**Given** a user opens the Daily Briefing page
+**When** their role resolves to the Executive Scan / Dashboard layout (Direction 2)
+**Then** the page header uses a dark `--color-gray-95` background with white text, a vertical red-50 accent bar (4px wide × 24px tall), the title "Briefing Dashboard" in 18px, and the date/time right-aligned in gray-50 12px — matching the mockup's `.d2-header`
+
+**Given** a user opens the Daily Briefing page
+**When** their role resolves to the Filtered Brief / News Feed layout (Direction 1)
+**Then** the page header uses a white background with a 3px solid red-50 bottom border, the title "Daily Briefing" in 20px, and freshness metadata below in gray-50 13px — matching the mockup's `.d1-header`
+
+**Given** a user opens the Daily Briefing page
+**When** their role resolves to the Intelligence Report / Split Panel layout (Direction 6)
+**Then** the page header uses a white background with a compact 2px red-50 top accent bar (positioned absolute at top: 0), the title "Daily Briefing — Intelligence Report" in 16px, and a right-aligned teal role badge ("Lead Architect View") — matching the mockup's `.d6-topbar`
+
+**And** the `BriefingPageFrame` component is refactored to accept a `variant` prop (`'dashboard' | 'feed' | 'split-panel'`) that determines the header style
+**And** the freshness text ("Generated today at [time] · X threads across Y workstreams") is preserved in all three variants
+**And** all three header variants use semantic `<header>` elements with appropriate heading hierarchy (`<h1>`)
+**And** existing tests for `BriefingPageFrame` continue to pass or are updated to cover the new variants
+**And** the `layoutLabel` badge styling is adjusted per variant: dashboard uses no badge (title is self-explanatory), feed uses teal badge if needed, split panel uses the `.d6-topbar .role-badge` pattern
+
+**Technical Notes:**
+- Direction 1 header: `.d1-header { background: var(--rh-white); border-bottom: 3px solid var(--rh-red-50); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between }`
+- Direction 2 header: `.d2-header { background: var(--rh-gray-95); color: var(--rh-white); padding: 16px 24px; display: flex; align-items: center; gap: 16px }` with `.accent { width: 4px; height: 24px; background: var(--rh-red-50); border-radius: 2px }`
+- Direction 6 topbar: `.d6-topbar { background: var(--rh-white); border-bottom: 1px solid var(--rh-gray-20); padding: 12px 24px; display: flex; align-items: center; gap: 16px }` with absolute-positioned 2px red accent at top, `.role-badge { padding: 4px 10px; background: var(--rh-teal-10); color: var(--rh-teal-50); border-radius: 4px; font-size: 11px; font-weight: 500; margin-left: auto }`
+- Refactor `BriefingPageFrame` to render different headers based on variant prop
+- Update all call sites in `briefings.tsx` (FeedLayout, SplitPanelLayout, DashboardLayout)
+
+**References:**
+- `ux-design-directions.html` lines 62–64 (`.d1-header`), lines 82–84 (`.d2-header`), lines 161–164 (`.d6-topbar`)
+- Current `briefing-page-frame.tsx` (to be refactored)
+- `briefings.tsx` layout components (call sites)
+
+### Story 11.3: Featured Card Layout & WCAG Contrast Fixes
+
+As a **team member**,
+I want the featured briefing card to use the mockup's two-column internal layout and badge contrast issues fixed,
+So that the highest-priority item gets the visual prominence it deserves and all text meets accessibility standards.
+
+**Acceptance Criteria:**
+
+**Given** the News Feed (Filtered Brief) layout renders with a featured card
+**When** the featured item is displayed
+**Then** the featured card spans full width (`grid-column: 1 / -1`) and uses a two-column internal grid (`grid-template-columns: 1fr 1fr; gap: 24px`) with the main content on the left (workstream label, headline, summary, metadata) and related context on the right (related decisions or key points)
+**And** the featured card has a 3px solid red-50 left border matching the mockup's `.d1-card.featured` pattern
+**And** the right column shows contextually relevant information (related decisions from the same briefing if available, or key action items extracted from the thread summary)
+
+**Given** a teal badge is rendered anywhere in the application (e.g., layout label badge, "AI-Assisted" badge)
+**When** the badge displays
+**Then** the text color meets WCAG AA contrast ratio (minimum 4.5:1 against its background)
+**And** specifically, the teal-50 (#37a3a3) on teal-10 (#daf2f2) combination (currently 2.59:1) is replaced with a darker text color that passes AA (e.g., use `--color-teal-70` or a custom darker teal)
+
+**Given** the version badge in the navigation bar is rendered
+**When** the badge displays
+**Then** the text color meets WCAG AA contrast ratio (minimum 4.5:1 against its background)
+**And** the gray-50 (#707070) text is verified to pass against whatever background it sits on in the new unified nav bar
+
+**And** existing tests for BriefingCard, FeedLayout, and badge components continue to pass or are updated
+
+**Technical Notes:**
+- Featured card mockup: `.d1-card.featured { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; border-left: 3px solid var(--rh-red-50) }`
+- Current `FeedFeaturedCard` in `briefings.tsx` wraps a standard `BriefingCard` in a div with red border — needs internal grid
+- WCAG AA minimum contrast: 4.5:1 for normal text, 3:1 for large text (18px+ or 14px+ bold)
+- Teal contrast fix: consider `--color-teal-70` or darken teal-50 for text usage
+
+**References:**
+- `ux-design-directions.html` line 76 (`.d1-card.featured`)
+- `ux-design-directions.html` lines 271–287 (featured card HTML structure with two-column content)
+- `briefings.tsx` `FeedFeaturedCard` component (lines 215–234)
+- Epic 9 retro WCAG audit findings
+
+### Story 11.4: Text-Paste Import End-to-End Verification
+
+As an **admin**,
+I want the text-paste import workflow (copy/paste from Slack into the app) to be thoroughly tested and verified,
+So that content can be reliably ingested through the primary import path in environments without direct Slack API access.
+
+**Acceptance Criteria:**
+
+**Given** the admin navigates to the Admin panel and accesses the import interface
+**When** they paste raw Slack message text copied from a Slack channel
+**Then** the parser correctly detects individual messages (splitting on the standard Slack message format: username, timestamp, and message body)
+**And** the detected message count is displayed before submission
+**And** the import succeeds and messages are stored in the database
+
+**Given** messages have been imported via text-paste
+**When** the pipeline runs (classification → summarization → embedding → staging)
+**Then** all pipeline stages complete successfully for text-paste-imported content, identically to Slack API-ingested content
+**And** the imported threads appear in the staging queue for admin review
+
+**Given** text-paste-imported content has been approved through staging
+**When** the next briefing generation runs
+**Then** the imported content appears in the user's daily briefing
+**And** briefing items from text-paste imports are indistinguishable from Slack API-imported items (same card rendering, metadata, and functionality)
+
+**Given** text-paste-imported content exists in approved state
+**When** a user searches for related terms
+**Then** search results include the text-paste-imported content
+**And** both full-text and semantic search find the imported threads
+
+**And** the verification covers multi-message threads, threads with special characters, threads with code blocks, and threads with emoji
+**And** any bugs or gaps discovered during verification are documented and fixed within this story
+**And** verification results are documented in the story's Completion Notes
+
+**Technical Notes:**
+- Primary import endpoint: `POST /api/admin/channels/:id/import`
+- Story 10.6 (Simplified Text-Paste Import UX) is in `ready-for-dev` status — coordinate with or build on that story's improvements
+- The Cross-Cutting Definition of Done requires text-paste compatibility for all features
+- Test with real Slack message formats: multi-line messages, threaded replies, messages with links, code blocks (triple backtick), and emoji reactions
+- Verify the SlackTextParser handles edge cases: messages with no timestamp, messages from bots, messages with file attachments (text representation)
+
+**References:**
+- Cross-Cutting Definition of Done (epics.md, "Text-Paste Import as Primary Ingestion Mode")
+- Story 10.6 definition (epics.md)
+- `project-context.md` text-paste import rules
+
 ---
 
 ## Implementation Notes
