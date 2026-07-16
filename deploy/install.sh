@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
+#
+# install.sh — Greenfield full-stack installer for Slack Thread Manager
+#
+# Use this script on a fresh (or empty) OpenShift project to provision PVCs,
+# PostgreSQL, Keycloak, Ollama, and the application.
+#
+# For day-2 code updates after a successful install, use deploy/deploy.sh instead.
+# deploy.sh is safe to re-run after install.sh (idempotent oc apply + migrations).
+#
+# Usage: ./deploy/install.sh [tag]
+#   tag defaults to "latest"
+#
 set -euo pipefail
 
 PROJECT="slack-thread-manager"
@@ -11,6 +23,41 @@ BACKUP_DIR="${SCRIPT_DIR}/backup"
 
 WEB_IMAGE="${EXTERNAL_REGISTRY}/${PROJECT}/stm-web:${TAG}"
 API_IMAGE="${EXTERNAL_REGISTRY}/${PROJECT}/stm-api:${TAG}"
+
+LOCAL_PG_PORT=15432
+PF_PID=""
+
+cleanup_port_forward() {
+  if [[ -n "${PF_PID}" ]] && kill -0 "${PF_PID}" 2>/dev/null; then
+    kill "${PF_PID}" 2>/dev/null || true
+    wait "${PF_PID}" 2>/dev/null || true
+  fi
+  PF_PID=""
+}
+
+# Kill any stale oc port-forward from a previous failed run targeting our exact
+# port/service, rather than blindly killing whatever holds the port. Best-effort
+# and non-fatal: if nothing matches, or the kill fails, we proceed regardless —
+# a genuinely busy port will surface as a clear connection failure below.
+reap_stale_port_forward() {
+  if ! command -v pgrep >/dev/null 2>&1; then
+    return 0
+  fi
+  local stale_pid
+  stale_pid="$(pgrep -f "oc port-forward svc/stm-postgres ${LOCAL_PG_PORT}:5432" 2>/dev/null | head -1 || true)"
+  if [[ -n "${stale_pid}" ]]; then
+    warn "found stale port-forward (PID ${stale_pid}) on port ${LOCAL_PG_PORT} — terminating"
+    kill "${stale_pid}" 2>/dev/null || true
+    for _ in {1..5}; do
+      kill -0 "${stale_pid}" 2>/dev/null || break
+      sleep 1
+    done
+  fi
+}
+
+trap cleanup_port_forward EXIT
+trap 'cleanup_port_forward; exit 130' INT
+trap 'cleanup_port_forward; exit 143' TERM
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -115,7 +162,8 @@ fi
 # ============================================================
 info "Step 6/12: Running Drizzle migrations"
 
-LOCAL_PG_PORT=15432
+reap_stale_port_forward
+
 oc port-forward svc/stm-postgres "${LOCAL_PG_PORT}:5432" &
 PF_PID=$!
 
@@ -132,14 +180,16 @@ else
   if DATABASE_URL="${MIGRATE_URL}" node "${REPO_ROOT}/packages/db/scripts/migrate-raw.js"; then
     ok "Raw migration fallback succeeded"
   else
-    kill "${PF_PID}" 2>/dev/null || true
-    wait "${PF_PID}" 2>/dev/null || true
-    fail "Database migrations failed. Check connectivity and retry."
+    echo ""
+    echo "  IMPORTANT: Do NOT use 'drizzle-kit push' as a fallback."
+    echo "  It compares the entire database and can DROP tables not in the Drizzle"
+    echo "  schema (e.g. Keycloak tables sharing the same database)."
+    echo ""
+    fail "Database migrations failed — check connectivity and retry manually."
   fi
 fi
 
-kill "${PF_PID}" 2>/dev/null || true
-wait "${PF_PID}" 2>/dev/null || true
+cleanup_port_forward
 
 # ============================================================
 # Step 7: Deploy Keycloak

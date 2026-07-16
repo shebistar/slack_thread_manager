@@ -1,4 +1,28 @@
 #!/usr/bin/env bash
+#
+# deploy.sh — Day-2 / code-update deploy for Slack Thread Manager
+#
+# Use this script AFTER the stack has been provisioned (typically by install.sh),
+# or on a cluster that already has the OpenShift project + PostgreSQL.
+#
+# What this script does:
+#   1. Pre-deploy quality gate (lockfile, tests, build)
+#   2. Build & push stm-web / stm-api images
+#   3. oc apply postgres + api + web manifests (idempotent)
+#   4. Run Drizzle migrations safely on an already-migrated DB
+#   5. Roll out latest images
+#
+# What this script does NOT do (use install.sh instead):
+#   - Create PVCs
+#   - Deploy Keycloak or Ollama
+#   - Restore from backup
+#
+# Safe to re-run after install.sh: oc apply is idempotent; migrations no-op or
+# skip already-applied objects via drizzle-kit / migrate-raw.js fallback.
+#
+# Usage: ./deploy/deploy.sh [tag]
+#   tag defaults to "latest"
+#
 set -euo pipefail
 
 PROJECT="slack-thread-manager"
@@ -10,6 +34,41 @@ TAG="${1:-latest}"
 
 WEB_IMAGE="${EXTERNAL_REGISTRY}/${PROJECT}/stm-web:${TAG}"
 API_IMAGE="${EXTERNAL_REGISTRY}/${PROJECT}/stm-api:${TAG}"
+
+LOCAL_PG_PORT=15432
+PF_PID=""
+
+cleanup_port_forward() {
+  if [[ -n "${PF_PID}" ]] && kill -0 "${PF_PID}" 2>/dev/null; then
+    kill "${PF_PID}" 2>/dev/null || true
+    wait "${PF_PID}" 2>/dev/null || true
+  fi
+  PF_PID=""
+}
+
+# Kill any stale oc port-forward from a previous failed run targeting our exact
+# port/service, rather than blindly killing whatever holds the port. Best-effort
+# and non-fatal: if nothing matches, or the kill fails, we proceed regardless —
+# a genuinely busy port will surface as a clear connection failure below.
+reap_stale_port_forward() {
+  if ! command -v pgrep >/dev/null 2>&1; then
+    return 0
+  fi
+  local stale_pid
+  stale_pid="$(pgrep -f "oc port-forward svc/stm-postgres ${LOCAL_PG_PORT}:5432" 2>/dev/null | head -1 || true)"
+  if [[ -n "${stale_pid}" ]]; then
+    echo "WARN: found stale port-forward (PID ${stale_pid}) on port ${LOCAL_PG_PORT} — terminating"
+    kill "${stale_pid}" 2>/dev/null || true
+    for _ in {1..5}; do
+      kill -0 "${stale_pid}" 2>/dev/null || break
+      sleep 1
+    done
+  fi
+}
+
+trap cleanup_port_forward EXIT
+trap 'cleanup_port_forward; exit 130' INT
+trap 'cleanup_port_forward; exit 143' TERM
 
 echo "=== Slack Thread Manager — OpenShift Deploy ==="
 echo "Tag:       ${TAG}"
@@ -83,7 +142,7 @@ podman image prune -f 2>/dev/null || true
 echo "--- Switching to project ${PROJECT} ---"
 oc project "${PROJECT}" 2>/dev/null || oc new-project "${PROJECT}"
 
-echo "--- Applying PostgreSQL ---"
+echo "--- Applying PostgreSQL (idempotent) ---"
 oc apply -f "${SCRIPT_DIR}/openshift/postgres.yaml"
 
 echo "--- Waiting for PostgreSQL readiness ---"
@@ -91,7 +150,9 @@ oc rollout status deployment/stm-postgres --timeout=120s || true
 
 # ---------- Database migrations ----------
 echo "--- Running database migrations ---"
-LOCAL_PG_PORT=15432
+
+reap_stale_port_forward
+
 oc port-forward svc/stm-postgres "${LOCAL_PG_PORT}:5432" &
 PF_PID=$!
 
@@ -123,19 +184,16 @@ else
     echo "      pnpm --filter @slack-thread-manager/db exec drizzle-kit migrate"
     echo "    DATABASE_URL=postgresql://stm_dev:stm_dev_password@localhost:15432/slack_thread_manager \\"
     echo "      node packages/db/scripts/migrate-raw.js"
-    kill "${PF_PID}" 2>/dev/null || true
-    wait "${PF_PID}" 2>/dev/null || true
     exit 1
   fi
 fi
 
-kill "${PF_PID}" 2>/dev/null || true
-wait "${PF_PID}" 2>/dev/null || true
+cleanup_port_forward
 
-echo "--- Applying API ---"
+echo "--- Applying API (idempotent) ---"
 oc apply -f "${SCRIPT_DIR}/openshift/api.yaml"
 
-echo "--- Applying Web ---"
+echo "--- Applying Web (idempotent) ---"
 oc apply -f "${SCRIPT_DIR}/openshift/web.yaml"
 
 # Force redeployment to pull latest images

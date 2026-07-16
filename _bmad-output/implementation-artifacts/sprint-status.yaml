@@ -133,7 +133,7 @@ development_status:
   10-2-ollama-openshift-deployment-with-model-auto-pull: done
   10-3-one-command-full-stack-installer: done
   10-4-backup-and-restore-workflow: done
-  10-5-make-deploy-sh-idempotent-after-install-sh: backlog
+  10-5-make-deploy-sh-idempotent-after-install-sh: done
   epic-10-retrospective: optional
 
   # Epic 11: Visual Fidelity Restoration & Text-Paste Import Verification
