@@ -134,6 +134,7 @@ development_status:
   10-3-one-command-full-stack-installer: done
   10-4-backup-and-restore-workflow: done
   10-5-make-deploy-sh-idempotent-after-install-sh: done
+  10-6-simplified-text-paste-import-ux: review
   epic-10-retrospective: optional
 
   # Epic 11: Visual Fidelity Restoration & Text-Paste Import Verification
